@@ -1,27 +1,32 @@
 /* Estilos generales */
 body {
-    font-family: Arial, sans-serif;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     margin: 0;
     padding: 0;
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
+    min-height: 100vh;
     background-color: var(--background);
     color: var(--text-color);
     transition: background-color 0.3s, color 0.3s;
 }
 
+/* Contenedor principal */
 .container {
     width: 100%;
-    max-width: 400px;
+    max-width: 450px;
     padding: 20px;
     background: var(--form-background);
-    border-radius: 8px;
-    box-shadow: 0 0 15px rgba(0,0,0,0.1);
+    border-radius: 12px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
     transition: background 0.3s;
+    margin: 0 15px;
+    position: relative;
+    overflow: hidden;
 }
 
+/* Encabezado */
 header {
     display: flex;
     justify-content: space-between;
@@ -32,57 +37,164 @@ header {
 header h1 {
     margin: 0;
     color: var(--primary-color);
+    font-size: 2.2em;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .theme-toggle {
     background: none;
     border: none;
-    font-size: 1.5em;
+    font-size: 2em;
     cursor: pointer;
+    transition: color 0.3s, transform 0.3s;
 }
 
+.theme-toggle:hover {
+    color: var(--button-background);
+    transform: rotate(45deg);
+}
+
+/* Contenedor del formulario */
 .form-container {
     background: var(--form-background);
     padding: 20px;
-    border-radius: 8px;
+    border-radius: 12px;
+    position: relative;
 }
 
+/* Formulario */
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Sección del formulario */
+.form-section {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Grupos de campos */
 .form-group {
-    margin-bottom: 15px;
+    display: flex;
+    flex-direction: column;
 }
 
+/* Etiquetas */
 label {
-    display: block;
-    margin-bottom: 5px;
+    margin-bottom: 8px;
+    font-weight: 600;
     color: var(--text-color);
+    transition: color 0.3s;
 }
 
+/* Campos de entrada */
 input[type="text"],
-input[type="email"],
-input[type="tel"],
 input[type="password"] {
     width: 100%;
-    padding: 10px;
+    padding: 12px;
     border: 1px solid var(--border-color);
-    border-radius: 4px;
+    border-radius: 8px;
     box-sizing: border-box;
     background: var(--input-background);
     color: var(--input-text-color);
+    font-size: 1em;
+    transition: border-color 0.3s, box-shadow 0.3s;
 }
 
-.submit-btn {
+/* Campos de entrada en foco */
+input[type="text"]:focus,
+input[type="password"]:focus {
+    border-color: var(--button-background);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(92, 184, 92, 0.2);
+}
+
+/* Botón de envío */
+button.submit-btn {
     width: 100%;
-    padding: 10px;
+    padding: 12px;
     background-color: var(--button-background);
     color: #fff;
     border: none;
-    border-radius: 4px;
-    font-size: 16px;
+    border-radius: 8px;
+    font-size: 18px;
     cursor: pointer;
+    transition: background-color 0.3s, transform 0.3s;
+    position: relative;
+    overflow: hidden;
 }
 
-.submit-btn:hover {
+button.submit-btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 300%;
+    height: 300%;
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    transition: transform 0.3s;
+}
+
+button.submit-btn:hover::before {
+    transform: translate(-50%, -50%) scale(1);
+}
+
+button.submit-btn:hover {
     background-color: var(--button-hover);
+    transform: translateY(-2px);
+}
+
+/* Enlaces adicionales */
+.additional-actions {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.register-link {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.3s;
+}
+
+.register-link:hover {
+    color: var(--button-background);
+}
+
+/* Mensajes de error */
+.error-message {
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 1em;
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+    animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Ajustes para pantallas pequeñas */
+@media (max-width: 1024px) {
+    .container {
+        max-width: 90%;
+    }
+}
+
+@media (max-width: 768px) {
+    .container {
+        max-width: 100%;
+    }
 }
 
 /* Modo oscuro */

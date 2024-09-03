@@ -1,221 +1,288 @@
--- Tabla de Usuarios
-CREATE TABLE users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    username VARCHAR(255) NOT NULL UNIQUE,
-    password VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    phone VARCHAR(20),
-    company_name VARCHAR(255) NOT NULL,
-    dbname VARCHAR(255) NOT NULL, -- Nombre de la base de datos asociada
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
+SET AUTOCOMMIT = 0;
+START TRANSACTION;
+SET time_zone = "+00:00";
 
--- Tabla de Categorías de Productos
-CREATE TABLE categories (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL UNIQUE,
-    description TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+-- --------------------------------------------------------
+-- Table structure for table `accounting_config`
+-- --------------------------------------------------------
 
--- Tabla de Clientes
-CREATE TABLE customers (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    document_type ENUM('CC', 'NIT', 'CE', 'TI') NOT NULL,
-    document_number VARCHAR(50) NOT NULL UNIQUE,
-    email VARCHAR(255) UNIQUE,
-    phone VARCHAR(20),
-    address VARCHAR(255),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+CREATE TABLE `accounting_config` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` INT NOT NULL,
+  `tax_identification_number` VARCHAR(50) COLLATE utf8mb4_general_ci NOT NULL,
+  `company_name` VARCHAR(255) COLLATE utf8mb4_general_ci NOT NULL,
+  `accounting_plan` JSON DEFAULT NULL,
+  `invoice_template_id` INT DEFAULT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `tax_identification_number` (`tax_identification_number`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- Tabla de Productos
-CREATE TABLE products (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    sku VARCHAR(100) NOT NULL UNIQUE, -- Código único de producto
-    price DECIMAL(10, 2) NOT NULL, -- Precio de venta
-    cost DECIMAL(10, 2) DEFAULT 0.00, -- Costo del producto, valor por defecto
-    tax_rate DECIMAL(5, 2) DEFAULT 0.00, -- Tasa de impuesto (ej. IVA 19%)
-    stock INT DEFAULT 0, -- Cantidad en stock
-    category_id INT,
-    unit_of_measure VARCHAR(50), -- Unidad de medida (ej. unidad, kg, etc.)
-    can_sell_negatives BOOLEAN DEFAULT FALSE, -- Se puede vender en negativos
-    is_inventory BOOLEAN DEFAULT TRUE, -- Es inventariable
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE SET NULL
-);
+-- --------------------------------------------------------
+-- Table structure for table `categories`
+-- --------------------------------------------------------
 
--- Tabla de Bodegas
-CREATE TABLE warehouses (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL UNIQUE,
-    address VARCHAR(255), -- Dirección de la bodega
-    warehouse_type ENUM('principal', 'secundaria') NOT NULL, -- Tipo de bodega
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+CREATE TABLE `categories` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(255) COLLATE utf8mb4_general_ci NOT NULL,
+  `description` TEXT COLLATE utf8mb4_general_ci,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- Tabla de Inventarios
-CREATE TABLE inventories (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    product_id INT NOT NULL,
-    warehouse_id INT NOT NULL,
-    quantity INT NOT NULL DEFAULT 0, -- Cantidad, valor por defecto
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE,
-    FOREIGN KEY (warehouse_id) REFERENCES warehouses(id) ON DELETE CASCADE
-);
+-- --------------------------------------------------------
+-- Table structure for table `customers`
+-- --------------------------------------------------------
 
--- Tabla de Ventas
-CREATE TABLE sales (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    customer_id INT,
-    date TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Fecha y hora de la venta
-    total DECIMAL(10, 2) NOT NULL, -- Total de la venta
-    tax_amount DECIMAL(10, 2) DEFAULT 0.00, -- Monto del impuesto aplicado
-    discount_amount DECIMAL(10, 2) DEFAULT 0.00, -- Monto del descuento aplicado
-    total_tax DECIMAL(10, 2) GENERATED ALWAYS AS (quantity * unit_price * tax_rate) STORED, -- Total impuesto
-    net_total DECIMAL(10, 2) GENERATED ALWAYS AS (total - tax_amount - discount_amount) STORED, -- Total neto calculado
-    payment_method ENUM('efectivo', 'tarjeta', 'transferencia') NOT NULL, -- Método de pago
-    status ENUM('pendiente', 'completado', 'cancelado') DEFAULT 'pendiente', -- Estado de la venta
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Fecha de creación
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE SET NULL
-);
+CREATE TABLE `customers` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(255) COLLATE utf8mb4_general_ci NOT NULL,
+  `document_type` VARCHAR(2) COLLATE utf8mb4_general_ci NOT NULL,
+  `document_number` VARCHAR(50) COLLATE utf8mb4_general_ci NOT NULL,
+  `email` VARCHAR(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `phone` VARCHAR(20) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `address` VARCHAR(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- Tabla de Detalles de Ventas
-CREATE TABLE sales_details (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    sale_id INT NOT NULL,
-    product_id INT NOT NULL,
-    quantity INT NOT NULL,
-    unit_price DECIMAL(10, 2) NOT NULL,
-    total_price DECIMAL(10, 2) GENERATED ALWAYS AS (quantity * unit_price) STORED, -- Precio total calculado
-    FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE,
-    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
-);
+-- --------------------------------------------------------
+-- Table structure for table `email_notifications`
+-- --------------------------------------------------------
 
--- Tabla de Configuraciones Contables
-CREATE TABLE accounting_config (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    tax_identification_number VARCHAR(50) NOT NULL UNIQUE, -- NIT
-    company_name VARCHAR(255) NOT NULL,
-    accounting_plan TEXT, -- JSON u otra representación del plan contable
-    invoice_template_id INT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (invoice_template_id) REFERENCES invoice_templates(id) ON DELETE SET NULL
-);
+CREATE TABLE `email_notifications` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` INT NOT NULL,
+  `smtp_server` VARCHAR(255) COLLATE utf8mb4_general_ci NOT NULL,
+  `smtp_port` INT NOT NULL,
+  `smtp_user` VARCHAR(255) COLLATE utf8mb4_general_ci NOT NULL,
+  `smtp_password` VARCHAR(255) COLLATE utf8mb4_general_ci NOT NULL,
+  `sender_email` VARCHAR(255) COLLATE utf8mb4_general_ci NOT NULL,
+  `notification_type` VARCHAR(15) COLLATE utf8mb4_general_ci NOT NULL,
+  `active` TINYINT(1) DEFAULT '1',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- Tabla de Plantillas de Facturación
-CREATE TABLE invoice_templates (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL UNIQUE,
-    template TEXT, -- Plantilla de la factura en HTML
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+-- --------------------------------------------------------
+-- Table structure for table `inventories`
+-- --------------------------------------------------------
 
--- Tabla de Configuración de Notificaciones por Correo
-CREATE TABLE email_notifications (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    smtp_server VARCHAR(255) NOT NULL,
-    smtp_port INT NOT NULL,
-    smtp_user VARCHAR(255) NOT NULL,
-    smtp_password VARCHAR(255) NOT NULL,
-    sender_email VARCHAR(255) NOT NULL,
-    notification_type ENUM('venta', 'recordatorio', 'alerta') NOT NULL,
-    active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
+CREATE TABLE `inventories` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `product_id` INT NOT NULL,
+  `warehouse_id` INT NOT NULL,
+  `quantity` INT NOT NULL DEFAULT '0',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- Tabla de Historial de Operaciones
-CREATE TABLE operations_history (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    operation_type ENUM('creacion', 'actualizacion', 'eliminacion') NOT NULL,
-    table_name VARCHAR(255) NOT NULL,
-    record_id INT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
+-- --------------------------------------------------------
+-- Table structure for table `invoice_templates`
+-- --------------------------------------------------------
 
--- Tabla de Métodos de Pago
-CREATE TABLE payment_methods (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL UNIQUE,
-    description TEXT,
-    active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+CREATE TABLE `invoice_templates` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(255) COLLATE utf8mb4_general_ci NOT NULL,
+  `template` TEXT COLLATE utf8mb4_general_ci,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- Tabla de Listas de Precios
-CREATE TABLE price_lists (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL UNIQUE,
-    description TEXT,
-    currency CHAR(3) DEFAULT 'COP', -- Moneda (por defecto COP)
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+-- --------------------------------------------------------
+-- Table structure for table `operations_history`
+-- --------------------------------------------------------
 
--- Tabla de Productos en Listas de Precios
-CREATE TABLE price_list_products (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    price_list_id INT NOT NULL,
-    product_id INT NOT NULL,
-    price DECIMAL(10, 2) NOT NULL, -- Precio específico en la lista de precios
-    FOREIGN KEY (price_list_id) REFERENCES price_lists(id) ON DELETE CASCADE,
-    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
-);
+CREATE TABLE `operations_history` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` INT NOT NULL,
+  `operation_type` VARCHAR(15) COLLATE utf8mb4_general_ci NOT NULL,
+  `table_name` VARCHAR(255) COLLATE utf8mb4_general_ci NOT NULL,
+  `record_id` INT DEFAULT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- Tabla de Proveedores
-CREATE TABLE suppliers (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    contact_person VARCHAR(255),
-    phone VARCHAR(20),
-    email VARCHAR(255),
-    address VARCHAR(255),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+-- --------------------------------------------------------
+-- Table structure for table `payment_methods`
+-- --------------------------------------------------------
 
--- Tabla de Compras
-CREATE TABLE purchases (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    supplier_id INT NOT NULL,
-    date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    total DECIMAL(10, 2) NOT NULL,
-    payment_method ENUM('efectivo', 'tarjeta', 'transferencia') NOT NULL,
-    status ENUM('pendiente', 'completado', 'cancelado') DEFAULT 'pendiente',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL
-);
+CREATE TABLE `payment_methods` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(255) COLLATE utf8mb4_general_ci NOT NULL,
+  `description` TEXT COLLATE utf8mb4_general_ci,
+  `active` TINYINT(1) DEFAULT '1',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- Tabla de Detalles de Compras
-CREATE TABLE purchase_details (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    purchase_id INT NOT NULL,
-    product_id INT NOT NULL,
-    quantity INT NOT NULL,
-    unit_price DECIMAL(10, 2) NOT NULL,
-    total_price DECIMAL(10, 2) GENERATED ALWAYS AS (quantity * unit_price) STORED,
-    FOREIGN KEY (purchase_id) REFERENCES purchases(id) ON DELETE CASCADE,
-    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
-);
+-- --------------------------------------------------------
+-- Table structure for table `price_lists`
+-- --------------------------------------------------------
+
+CREATE TABLE `price_lists` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(255) COLLATE utf8mb4_general_ci NOT NULL,
+  `description` TEXT COLLATE utf8mb4_general_ci,
+  `currency` VARCHAR(3) COLLATE utf8mb4_general_ci DEFAULT 'COP',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+-- Table structure for table `price_list_products`
+-- --------------------------------------------------------
+
+CREATE TABLE `price_list_products` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `price_list_id` INT NOT NULL,
+  `product_id` INT NOT NULL,
+  `price` DECIMAL(10,2) NOT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `price_list_id` (`price_list_id`),
+  KEY `product_id` (`product_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+-- Table structure for table `products`
+-- --------------------------------------------------------
+
+CREATE TABLE `products` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(255) COLLATE utf8mb4_general_ci NOT NULL,
+  `description` TEXT COLLATE utf8mb4_general_ci,
+  `sku` VARCHAR(100) COLLATE utf8mb4_general_ci NOT NULL,
+  `price` DECIMAL(10,2) NOT NULL,
+  `cost` DECIMAL(10,2) DEFAULT '0.00',
+  `tax_rate` DECIMAL(5,2) DEFAULT '0.00',
+  `stock` INT DEFAULT '0',
+  `category_id` INT DEFAULT NULL,
+  `unit_of_measure` VARCHAR(50) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `can_sell_negatives` TINYINT(1) DEFAULT '0',
+  `is_inventory` TINYINT(1) DEFAULT '1',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `sku` (`sku`),
+  KEY `category_id` (`category_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+-- Table structure for table `purchases`
+-- --------------------------------------------------------
+
+CREATE TABLE `purchases` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `supplier_id` INT NOT NULL,
+  `purchase_date` DATE NOT NULL,
+  `total_amount` DECIMAL(10,2) NOT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+-- Table structure for table `sales`
+-- --------------------------------------------------------
+
+CREATE TABLE `sales` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `customer_id` INT NOT NULL,
+  `sale_date` DATE NOT NULL,
+  `total_amount` DECIMAL(10,2) NOT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+-- Table structure for table `session_logs`
+-- --------------------------------------------------------
+
+CREATE TABLE `session_logs` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` INT NOT NULL,
+  `login_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `logout_time` TIMESTAMP DEFAULT NULL,
+  `session_data` TEXT COLLATE utf8mb4_general_ci,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+-- Table structure for table `subscriptions`
+-- --------------------------------------------------------
+
+CREATE TABLE `subscriptions` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` INT NOT NULL,
+  `plan_id` INT NOT NULL,
+  `start_date` DATE NOT NULL,
+  `end_date` DATE NOT NULL,
+  `status` ENUM('active','inactive') COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'active',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+-- Table structure for table `taxes`
+-- --------------------------------------------------------
+
+CREATE TABLE `taxes` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(255) COLLATE utf8mb4_general_ci NOT NULL,
+  `rate` DECIMAL(5,2) NOT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+-- Table structure for table `warehouses`
+-- --------------------------------------------------------
+
+CREATE TABLE `warehouses` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(255) COLLATE utf8mb4_general_ci NOT NULL,
+  `location` VARCHAR(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `type` ENUM('primary','secondary') COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'primary',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+-- Table structure for table `users`
+-- --------------------------------------------------------
+
+CREATE TABLE `users` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `first_name` VARCHAR(255) COLLATE utf8mb4_general_ci NOT NULL,
+  `last_name` VARCHAR(255) COLLATE utf8mb4_general_ci NOT NULL,
+  `email` VARCHAR(255) COLLATE utf8mb4_general_ci NOT NULL,
+  `password` VARCHAR(255) COLLATE utf8mb4_general_ci NOT NULL,
+  `document_type` ENUM('CC', 'NIT', 'TI', 'CE', 'PAS') COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'CC',
+  `document_number` VARCHAR(50) COLLATE utf8mb4_general_ci NOT NULL,
+  `phone` VARCHAR(20) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `address` VARCHAR(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `email` (`email`),
+  UNIQUE KEY `document_number` (`document_number`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Asegura que los cambios se apliquen
+COMMIT;

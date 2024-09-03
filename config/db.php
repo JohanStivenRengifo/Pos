@@ -7,7 +7,7 @@ define('MAIN_DB', 'main_db');
 
 // Función para conectar a la base de datos principal
 function connectMainDB() {
-    $connection = new mysqli(DB_HOST, DB_USER, DB_PASSWORD, MAIN_DB);
+    $connection = new mysqli(DB_HOST, DB_USER, MAIN_DB);
     
     if ($connection->connect_error) {
         die("Error de conexión a la base de datos principal: " . $connection->connect_error);
