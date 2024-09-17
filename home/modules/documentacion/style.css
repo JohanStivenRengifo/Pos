@@ -1,0 +1,119 @@
+/* Estilos Generales */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f4f4f9;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+.documentation-content {
+    max-width: 900px;
+    margin: 20px auto;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+h2 {
+    font-size: 28px;
+    color: #4a90e2;
+    margin-bottom: 20px;
+}
+
+h3 {
+    font-size: 22px;
+    color: #333;
+    margin-top: 30px;
+    margin-bottom: 15px;
+}
+
+p {
+    font-size: 16px;
+    line-height: 1.6;
+    margin-bottom: 15px;
+}
+
+ul.documentation-list {
+    list-style-type: none;
+    padding: 0;
+    margin-bottom: 20px;
+}
+
+ul.documentation-list li {
+    margin-bottom: 10px;
+}
+
+ul.documentation-list a {
+    text-decoration: none;
+    color: #4a90e2;
+    font-weight: bold;
+}
+
+ul.documentation-list a:hover {
+    text-decoration: underline;
+}
+
+ul {
+    list-style-type: disc;
+    margin-left: 20px;
+}
+
+li {
+    margin-bottom: 10px;
+}
+
+.documentation-content strong {
+    color: #4a90e2;
+}
+
+/* Estilos para los enlaces */
+a {
+    color: #4a90e2;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* Estilos de la tabla si es necesario */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+}
+
+table, th, td {
+    border: 1px solid #ddd;
+}
+
+th, td {
+    padding: 12px;
+    text-align: left;
+}
+
+th {
+    background-color: #f4f4f9;
+    color: #333;
+}
+
+tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+/* Responsivo */
+@media (max-width: 768px) {
+    .documentation-content {
+        padding: 15px;
+    }
+
+    h2 {
+        font-size: 24px;
+    }
+
+    h3 {
+        font-size: 20px;
+    }
+}
