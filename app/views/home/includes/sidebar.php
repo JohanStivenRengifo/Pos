@@ -13,6 +13,14 @@
                 <ul class="submenu">
                     <li><a href="?module=Inventarios&submodule=bodegas">Bodegas</a></li>
                     <li><a href="?module=Inventarios&submodule=productos">Productos</a></li>
+                    <li><a href="?module=Inventarios&submodule=categorias">Categorías</a></li>
+                </ul>
+            </li>
+            <li class="has-submenu">
+                <a href="?module=Ventas"><span class="icon">💸</span> Ventas</a>
+                <ul class="submenu">
+                    <li><a href="?module=Ventas&submodule=ordenes">Órdenes</a></li>
+                    <li><a href="?module=Ventas&submodule=clientes">Clientes</a></li>
                 </ul>
             </li>
             <li><a href="?module=Contabilidad"><span class="icon">💵</span> Contabilidad</a></li>
@@ -29,7 +37,6 @@
                     <li><a href="?module=Configuracion&submodule=seguridad">Seguridad</a></li>
                 </ul>
             </li>
-            <!-- Nuevo módulo de Documentación -->
             <li><a href="?module=Documentacion"><span class="icon">📚</span> Documentación</a></li>
         </ul>
     </nav>

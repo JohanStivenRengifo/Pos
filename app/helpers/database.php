@@ -1,16 +1,25 @@
 <?php
-require_once 'env_loader.php';
+require_once __DIR__ . '/env_loader.php'; 
 loadEnv(__DIR__ . '/.env');
 
-function getPDOConnection() {
+/**
+ * Obtiene una conexión PDO a la base de datos global o a una específica.
+ *
+ * @param string|null $dbName Nombre de la base de datos
+ * @return PDO
+ * @throws Exception Si la configuración de la base de datos es incompleta o si hay un error en la conexión.
+ */
+function getPDOConnection($dbName = null) {
     $host = getenv('DB_HOST');
-    $db = getenv('DB_NAME');
     $user = getenv('DB_USER');
     $pass = getenv('DB_PASS');
     $charset = 'utf8mb4';
-    if (!$host || !$db || !$user) {
-        die("Configuración de base de datos incompleta. Por favor, verifique el archivo .env.");
+    $db = $dbName ?: getenv('DB_NAME');
+
+    if (!$host || !$user || !$db) {
+        throw new Exception("Configuración de base de datos incompleta.");
     }
+
     $dsn = "mysql:host=$host;dbname=$db;charset=$charset";
     try {
         $pdo = new PDO($dsn, $user, $pass, [
@@ -21,10 +30,7 @@ function getPDOConnection() {
         return $pdo;
     } catch (PDOException $e) {
         error_log("Error al conectar a la base de datos: " . $e->getMessage());
-        if (getenv('APP_ENV') === 'development') {
-            die("Error al conectar a la base de datos: " . htmlspecialchars($e->getMessage()));
-        } else {
-            die("Error en la conexión. Por favor, inténtelo más tarde.");
-        }
+        throw new Exception("Error en la conexión. Inténtelo más tarde.");
     }
 }
+?>

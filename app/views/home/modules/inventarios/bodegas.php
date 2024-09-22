@@ -1,5 +1,5 @@
 <?php
-require_once '../config/db_connection.php';
+require_once '../config/database.php';
 $pdo = getPDOConnection();
 
 // Procesar formulario de agregar, editar y eliminar bodega

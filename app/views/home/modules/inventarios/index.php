@@ -1,5 +1,5 @@
 <?php
-require_once '../config/db_connection.php';
+require_once '../config/database.php';
 
 $module = isset($_GET['submodule']) ? $_GET['submodule'] : 'productos'; 
 

@@ -1,5 +1,5 @@
 <?php
-require_once 'app/controllers/UserController.php';
+require_once '../../controllers/UserController.php';
 
 $controller = new UserController();
 $action = isset($_GET['action']) ? $_GET['action'] : null;
