@@ -1,53 +1,61 @@
 <?php
 session_start();
-require './config/db.php'; 
+require '../../config/db.php'; // Asegúrate de que la ruta sea correcta
 
 // Variables para mensajes
 $error = '';
 $success = '';
 
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    // Recoger los datos del formulario y sanitizarlos
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    // Recoger y sanitizar los datos del formulario
     $email = filter_var(trim($_POST['email']), FILTER_SANITIZE_EMAIL);
     $password = trim($_POST['password']);
+    $confirm_password = trim($_POST['confirm_password']);
     
     // Validar que los campos no estén vacíos
-    if (empty($email) || empty($password)) {
-        $error = 'Por favor ingrese su correo electrónico y contraseña.';
+    if (empty($email) || empty($password) || empty($confirm_password)) {
+        $error = 'Por favor complete todos los campos.';
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $error = 'Por favor ingrese un correo electrónico válido.';
+    } elseif ($password !== $confirm_password) {
+        $error = 'Las contraseñas no coinciden.';
     } else {
-        // Preparar la consulta para evitar inyecciones SQL
-        $sql = "SELECT * FROM users WHERE email = :email LIMIT 1";
+        // Verificar si el correo electrónico ya está registrado
+        $sql = "SELECT * FROM users WHERE email = :email";
         $stmt = $pdo->prepare($sql);
         $stmt->execute(['email' => $email]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        // Validar usuario y contraseña
-        if ($user && password_verify($password, $user['password'])) {
-            // Guardar user_id y email en la sesión
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['email'] = $user['email'];
 
-            // Manejo de "Recuérdame"
-            $cookie_duration = isset($_POST['remember_me']) ? (86400 * 30) : (86400 * 5);
-            setcookie('user_id', $user['id'], time() + $cookie_duration, "/");
-            setcookie('email', $user['email'], time() + $cookie_duration, "/");
-
-            // Redirigir al usuario a la página de bienvenida o éxito
-            $success = "Inicio de sesión exitoso. Redirigiendo...";
-            header("refresh:2;url=welcome.php"); // Redirigir después de 2 segundos
-            exit();
+        if ($user) {
+            $error = 'Este correo electrónico ya está registrado.';
         } else {
-            $error = "Correo electrónico o contraseña incorrectos.";
+            // Registrar nuevo usuario
+            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+            $sql = "INSERT INTO users (email, password) VALUES (:email, :password)";
+            $stmt = $pdo->prepare($sql);
+            $result = $stmt->execute([
+                'email' => $email,
+                'password' => $hashed_password
+            ]);
+
+            if ($result) {
+                // Registro exitoso
+                $success = 'Registro exitoso. Ahora puedes iniciar sesión.';
+                header("refresh:2;url=../../index.php"); // Redirigir al login después de 2 segundos
+            } else {
+                $error = 'Ocurrió un problema al registrar el usuario. Inténtalo de nuevo.';
+            }
         }
     }
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login</title>
+    <title>Registro</title>
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -58,7 +66,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             height: 100vh;
             margin: 0;
         }
-        .login-container {
+        .register-container {
             background-color: #fff;
             padding: 2rem;
             border-radius: 10px;
@@ -83,9 +91,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             border-radius: 5px;
             font-size: 1rem;
         }
-        input[type="checkbox"] {
-            margin-right: 0.5rem;
-        }
         input[type="submit"] {
             width: 100%;
             padding: 0.75rem;
@@ -109,32 +114,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         .success {
             color: #2ecc71;
         }
-        .register-button {
-            display: inline-block;
-            padding: 10px 20px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            text-decoration: none;
-            margin-top: 10px;
-        }
-        .register-button:hover {
-            background-color: #0056b3;
-        }
     </style>
 </head>
 <body>
-    <div class="login-container">
-        <h2>Iniciar Sesión</h2>
+    <div class="register-container">
+        <h2>Registrar Cuenta</h2>
 
         <!-- Mostrar mensajes de error o éxito -->
         <?php if ($error): ?>
-            <p class="message error"><?= htmlspecialchars($error) ?></p>
+            <p class="message error"><?= $error ?></p>
         <?php endif; ?>
         <?php if ($success): ?>
-            <p class="message success"><?= htmlspecialchars($success) ?></p>
+            <p class="message success"><?= $success ?></p>
         <?php endif; ?>
 
         <form method="POST" action="">
@@ -144,18 +135,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             <label for="password">Contraseña</label>
             <input type="password" id="password" name="password" required>
 
-            <label>
-                <input type="checkbox" name="remember_me"> Recuérdame
-            </label>
+            <label for="confirm_password">Confirmar Contraseña</label>
+            <input type="password" id="confirm_password" name="confirm_password" required>
 
-            <input type="submit" value="Login">
+            <input type="submit" value="Registrar">
         </form>
-
-        <!-- Agregar el botón para redirigir al registro -->
-        <div style="text-align: center;">
-            <p>¿No tienes una cuenta?</p>
-            <a href="modules/auth/register.php" class="register-button">Regístrate aquí</a>
-        </div>
     </div>
 </body>
 </html>
