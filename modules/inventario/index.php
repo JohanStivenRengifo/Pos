@@ -72,6 +72,67 @@ $cantidad_productos_bajos = contarProductosBajos($_SESSION['user_id']);
     <title>Inventario</title>
     <link rel="stylesheet" href="../../css/modulos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha384-k6RqeWeci5ZR/Lv4MR0sA0FfDOM5ch3kFccf/dD4Hp/v5/a48Kt7E3/qErQAwz2" crossorigin="anonymous">
+    <style>
+        /* Estilos mejorados para la tabla */
+        .table-container {
+            overflow-x: auto;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        .table th,
+        .table td {
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #ddd;
+        }
+
+        .table th {
+            background-color: #f4f4f4;
+        }
+
+        .table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        .table tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        /* Estilos para la paginación */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            list-style: none;
+            padding: 0;
+        }
+
+        .pagination li {
+            margin: 0 5px;
+        }
+
+        .pagination a {
+            text-decoration: none;
+            padding: 8px 12px;
+            border: 1px solid #007bff;
+            border-radius: 5px;
+            color: #007bff;
+        }
+
+        .pagination a:hover {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .pagination .active a {
+            background-color: #007bff;
+            color: white;
+        }
+    </style>
 </head>
 
 <body>
@@ -104,7 +165,7 @@ $cantidad_productos_bajos = contarProductosBajos($_SESSION['user_id']);
             <a href="ventas_por_periodos.php" class="btn btn-primary">Ventas por Periodos</a>
             <a href="promociones.php" class="btn btn-primary">Promociones</a>
             <a href="catalogo.php" class="btn btn-primary">Catálogo</a>
-            <a href="kardex.php" class="btn btn-primary">kardex</a> 
+            <a href="kardex.php" class="btn btn-primary">Kardex</a> 
         </div>
 
         <h3>Valor Total de Inventario: $ <?= number_format($valor_total_inventario ?: 0, 2, ',', '.'); ?></h3>
@@ -135,8 +196,8 @@ $cantidad_productos_bajos = contarProductosBajos($_SESSION['user_id']);
                                 <td><?= htmlspecialchars($producto['stock']); ?></td>
                                 <td><?= '$ ' . number_format($producto['precio_costo'], 2, ',', '.'); ?></td>
                                 <td><?= '$ ' . number_format($producto['precio_venta'], 2, ',', '.'); ?></td>
-                                <td><?= htmlspecialchars($producto['departamento']); ?></td>
-                                <td><?= htmlspecialchars($producto['categoria']); ?></td>
+                                <td><?= htmlspecialchars($producto['departamento'] ?: 'No asociado'); ?></td>
+                                <td><?= htmlspecialchars($producto['categoria'] ?: 'No asociado'); ?></td>
                                 <td>
                                     <a href="modificar.php?codigo_barras=<?= urlencode($producto['codigo_barras']); ?>" class="btn btn-edit"><i class="fas fa-edit"></i> Modificar</a>
                                     <a href="eliminar.php?codigo_barras=<?= urlencode($producto['codigo_barras']); ?>" class="btn btn-delete" onclick="return confirm('¿Estás seguro de que deseas eliminar este producto?');"><i class="fas fa-trash"></i> Eliminar</a>
@@ -159,29 +220,26 @@ $cantidad_productos_bajos = contarProductosBajos($_SESSION['user_id']);
             $total_productos_query = $pdo->prepare("SELECT COUNT(*) FROM inventario WHERE user_id = ?");
             $total_productos_query->execute([$_SESSION['user_id']]);
             $total_productos = $total_productos_query->fetchColumn();
-
-            // Calcular el total de páginas
             $total_paginas = ceil($total_productos / $productos_por_pagina);
 
-            // Generar los enlaces de paginación
-            if ($total_paginas > 1): ?>
-                <nav>
-                    <ul class="pagination">
-                        <?php if ($pagina_actual > 1): ?>
-                            <li><a href="?pagina=<?= ($pagina_actual - 1); ?>" class="page-link">&laquo; Anterior</a></li>
-                        <?php endif; ?>
-                        <?php for ($i = 1; $i <= $total_paginas; $i++): ?>
-                            <li class="<?= ($i == $pagina_actual) ? 'active' : ''; ?>">
-                                <a href="?pagina=<?= $i; ?>" class="page-link"><?= $i; ?></a>
-                            </li>
-                        <?php endfor; ?>
-                        <?php if ($pagina_actual < $total_paginas): ?>
-                            <li><a href="?pagina=<?= ($pagina_actual + 1); ?>" class="page-link">Siguiente &raquo;</a></li>
-                        <?php endif; ?>
-                    </ul>
-                </nav>
-            <?php endif; ?>
+            // Mostrar botones de paginación
+            echo '<ul class="pagination">';
+            for ($i = 1; $i <= $total_paginas; $i++): ?>
+                <li class="<?= ($pagina_actual === $i) ? 'active' : ''; ?>">
+                    <a href="?pagina=<?= $i; ?>"><?= $i; ?></a>
+                </li>
+            <?php endfor;
+            echo '</ul>';
+            ?>
         </div>
+
+        <?php
+        if (isset($_POST['logout'])) {
+            session_destroy();
+            header("Location: ../../index.php");
+            exit();
+        }
+        ?>
     </div>
 </body>
 
