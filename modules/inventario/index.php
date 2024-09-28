@@ -9,7 +9,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // Configuración de paginación
-$productos_por_pagina = 10; // Número de productos a mostrar por página
+$productos_por_pagina = 80; // Número de productos a mostrar por página
 $pagina_actual = isset($_GET['pagina']) ? (int)$_GET['pagina'] : 1;
 $offset = ($pagina_actual - 1) * $productos_por_pagina;
 
