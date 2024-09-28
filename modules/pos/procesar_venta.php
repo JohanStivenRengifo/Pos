@@ -11,7 +11,8 @@ if (isset($_SESSION['user_id'])) {
 }
 
 if (isset($_POST['productos']) && isset($_POST['cliente_id'])) {
-    $productos = $_POST['productos'];
+    // Decodificar los productos de JSON
+    $productos = json_decode($_POST['productos'], true);
     $clienteId = (int)$_POST['cliente_id']; // Asegurarse de que el cliente_id esté definido
     $pdo->beginTransaction();
     
@@ -24,13 +25,13 @@ if (isset($_POST['productos']) && isset($_POST['cliente_id'])) {
             $total = $cantidad * $precio;
 
             // Verificar cantidad en inventario
-            $query = $pdo->prepare("SELECT cantidad FROM inventario WHERE id = ? AND user_id = ?");
+            $query = $pdo->prepare("SELECT stock FROM inventario WHERE id = ? AND user_id = ?"); // Asegúrate de usar el nombre correcto de la columna
             $query->execute([$productoId, $user_id]);
             $row = $query->fetch(PDO::FETCH_ASSOC);
 
-            if ($row && $row['cantidad'] >= $cantidad) {
+            if ($row && $row['stock'] >= $cantidad) { // Cambiado de 'cantidad' a 'stock'
                 // Descontar cantidad
-                $query = $pdo->prepare("UPDATE inventario SET cantidad = cantidad - ? WHERE id = ? AND user_id = ?");
+                $query = $pdo->prepare("UPDATE inventario SET stock = stock - ? WHERE id = ? AND user_id = ?"); // Cambiado de 'cantidad' a 'stock'
                 $query->execute([$cantidad, $productoId, $user_id]);
 
                 // Insertar en ventas
@@ -42,12 +43,12 @@ if (isset($_POST['productos']) && isset($_POST['cliente_id'])) {
             }
         }
         $pdo->commit();
-        echo "Venta procesada exitosamente.";
+        echo json_encode(['success' => true, 'message' => "Venta procesada exitosamente."]);
     } catch (Exception $e) {
         $pdo->rollBack();
-        echo "Error: " . $e->getMessage();
+        echo json_encode(['success' => false, 'message' => "Error: " . $e->getMessage()]);
     }
 } else {
-    echo "Error: Datos incompletos.";
+    echo json_encode(['success' => false, 'message' => "Error: Datos incompletos."]);
 }
 ?>

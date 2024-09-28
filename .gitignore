@@ -5,7 +5,7 @@
 /bazel-out
 
 # Node
-/node_modules
+*node_modules
 npm-debug.log
 yarn-error.log
 
@@ -43,3 +43,5 @@ Thumbs.db
 *.env
 *package-lock.json
 *webhook.js
+*config.php
+*db_errors.log

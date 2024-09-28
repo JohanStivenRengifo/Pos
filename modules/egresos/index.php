@@ -2,7 +2,6 @@
 session_start();
 require_once '../../config/db.php';
 
-// Verificar si el usuario está logueado mediante sesión o cookies
 $user_id = $_SESSION['user_id'] ?? $_COOKIE['user_id'] ?? null;
 $email = $_SESSION['email'] ?? $_COOKIE['email'] ?? null;
 
@@ -11,8 +10,17 @@ if (!$user_id || !$email) {
     exit();
 }
 
-// Función para obtener todos los egresos del usuario actual
-function getUserEgresos($user_id) {
+function getUserProveedores($user_id)
+{
+    global $pdo;
+    $query = "SELECT * FROM proveedores WHERE user_id = ?";
+    $stmt = $pdo->prepare($query);
+    $stmt->execute([$user_id]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function getUserEgresos($user_id)
+{
     global $pdo;
     $query = "SELECT * FROM egresos WHERE user_id = ?";
     $stmt = $pdo->prepare($query);
@@ -20,41 +28,41 @@ function getUserEgresos($user_id) {
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-// Función para agregar un nuevo egreso
-function addEgreso($user_id, $descripcion, $monto) {
+function addEgreso($user_id, $numero_factura, $proveedor, $descripcion, $monto, $fecha)
+{
     global $pdo;
-    $query = "INSERT INTO egresos (user_id, descripcion, monto) VALUES (?, ?, ?)";
+    $query = "INSERT INTO egresos (user_id, numero_factura, proveedor, descripcion, monto, fecha) VALUES (?, ?, ?, ?, ?, ?)";
     $stmt = $pdo->prepare($query);
-    return $stmt->execute([$user_id, $descripcion, $monto]);
+    return $stmt->execute([$user_id, $numero_factura, $proveedor, $descripcion, $monto, $fecha]);
 }
 
-// Función para eliminar un egreso
-function deleteEgreso($id) {
+function deleteEgreso($id)
+{
     global $pdo;
     $query = "DELETE FROM egresos WHERE id = ?";
     $stmt = $pdo->prepare($query);
     return $stmt->execute([$id]);
 }
 
-// Guardar nuevo egreso si se envía el formulario
 $message = '';
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['add_egreso'])) {
-        // Agregar egreso
+        $numero_factura = trim($_POST['numero_factura']);
+        $proveedor = trim($_POST['proveedor']);
         $descripcion = trim($_POST['descripcion']);
         $monto = (float)trim($_POST['monto']);
+        $fecha = $_POST['fecha'];
 
-        if (empty($descripcion) || $monto <= 0) {
+        if (empty($numero_factura) || empty($proveedor) || empty($descripcion) || $monto <= 0 || empty($fecha)) {
             $message = "Por favor, complete todos los campos correctamente.";
         } else {
-            if (addEgreso($user_id, $descripcion, $monto)) {
+            if (addEgreso($user_id, $numero_factura, $proveedor, $descripcion, $monto, $fecha)) {
                 $message = "Egreso agregado exitosamente.";
             } else {
                 $message = "Error al agregar el egreso.";
             }
         }
     } elseif (isset($_POST['delete_egreso'])) {
-        // Eliminar egreso
         $id = (int)$_POST['id'];
         if (deleteEgreso($id)) {
             $message = "Egreso eliminado exitosamente.";
@@ -64,8 +72,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 }
 
-// Obtener todos los egresos del usuario
 $egresos = getUserEgresos($user_id);
+
+function getConfig($user_id) {
+    global $pdo;
+    $query = "SELECT valor FROM configuracion WHERE user_id = ? AND tipo = 'numero_factura'";
+    $stmt = $pdo->prepare($query);
+    $stmt->execute([$user_id]);
+    return $stmt->fetch(PDO::FETCH_ASSOC);
+}
+
+$configuracion = getConfig($user_id);
+$numero_factura_default = $configuracion['valor'] ?? ''; 
 ?>
 
 <!DOCTYPE html>
@@ -109,12 +127,33 @@ $egresos = getUserEgresos($user_id);
             <h3>Agregar Nuevo Egreso</h3>
             <form method="POST" action="">
                 <div class="form-group">
+                    <label for="numero_factura">Número de Factura:</label>
+                    <input type="text" id="numero_factura" name="numero_factura" value="<?= htmlspecialchars($numero_factura_default); ?>" required>
+                </div>
+                <div class="form-group">
+                    <label for="proveedor">Proveedor:</label>
+                    <select id="proveedor" name="proveedor" required>
+                        <option value="">Seleccione un proveedor</option>
+                        <?php
+                        // Obtener proveedores y llenarlos en el select
+                        $proveedores = getUserProveedores($user_id);
+                        foreach ($proveedores as $prov) {
+                            echo '<option value="' . htmlspecialchars($prov['nombre']) . '">' . htmlspecialchars($prov['nombre']) . '</option>';
+                        }
+                        ?>
+                    </select>
+                </div>
+                <div class="form-group">
                     <label for="descripcion">Descripción:</label>
                     <textarea id="descripcion" name="descripcion" required></textarea>
                 </div>
                 <div class="form-group">
                     <label for="monto">Monto:</label>
                     <input type="number" step="0.01" id="monto" name="monto" required>
+                </div>
+                <div class="form-group">
+                    <label for="fecha">Fecha:</label>
+                    <input type="date" id="fecha" name="fecha" required>
                 </div>
                 <button type="submit" name="add_egreso" class="btn btn-primary">Agregar Egreso</button>
             </form>
@@ -127,8 +166,11 @@ $egresos = getUserEgresos($user_id);
                     <thead>
                         <tr>
                             <th>ID</th>
+                            <th>Número de Factura</th>
+                            <th>Proveedor</th>
                             <th>Descripción</th>
                             <th>Monto</th>
+                            <th>Fecha</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -136,8 +178,11 @@ $egresos = getUserEgresos($user_id);
                         <?php foreach ($egresos as $egreso): ?>
                             <tr>
                                 <td><?= htmlspecialchars($egreso['id']); ?></td>
+                                <td><?= htmlspecialchars($egreso['numero_factura']); ?></td>
+                                <td><?= htmlspecialchars($egreso['proveedor']); ?></td>
                                 <td><?= htmlspecialchars($egreso['descripcion']); ?></td>
                                 <td>$<?= htmlspecialchars(number_format($egreso['monto'], 2)); ?></td>
+                                <td><?= htmlspecialchars($egreso['fecha']); ?></td>
                                 <td>
                                     <form method="POST" action="" style="display:inline;">
                                         <input type="hidden" name="id" value="<?= htmlspecialchars($egreso['id']); ?>">

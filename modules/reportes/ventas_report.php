@@ -50,9 +50,8 @@ $total_pages = ceil($total_ventas / $limit);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ventas</title>
+    <title>Reporte de Ventas</title>
     <link rel="stylesheet" href="../../css/modulos.css">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 <body>
 
@@ -75,7 +74,7 @@ $total_pages = ceil($total_ventas / $limit);
 </div>
 
 <div class="main-content">
-    <h2>Listado de Ventas</h2>
+    <h2>Reporte de Ventas</h2>
     <div class="table-container">
         <?php if (count($ventas) > 0): ?>
             <table class="table">
@@ -85,8 +84,6 @@ $total_pages = ceil($total_ventas / $limit);
                         <th>Fecha</th>
                         <th>Cliente</th>
                         <th>Total</th>
-                        <th>Estado</th> <!-- Nueva columna para el estado -->
-                        <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -96,12 +93,6 @@ $total_pages = ceil($total_ventas / $limit);
                             <td><?= htmlspecialchars($venta['fecha_venta']); ?></td>
                             <td><?= htmlspecialchars($venta['cliente_nombre']); ?></td>
                             <td><?= htmlspecialchars(number_format($venta['total'], 2)); ?></td>
-                            <td><?= htmlspecialchars($venta['estado']); ?></td> <!-- Mostrar estado de la venta -->
-                            <td>
-                                <button class="btn-imprimir" data-id="<?= $venta['id']; ?>">Imprimir</button>
-                                <button class="btn-modificar" data-id="<?= $venta['id']; ?>">Modificar</button>
-                                <button class="btn-anular" data-id="<?= $venta['id']; ?>">Anular</button>
-                            </td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>
@@ -118,62 +109,6 @@ $total_pages = ceil($total_ventas / $limit);
         <?php endif; ?>
     </div>
 </div>
-
-<script>
-$(document).ready(function() {
-    $('.btn-imprimir').on('click', function() {
-        var venta_id = $(this).data('id');
-        window.location.href = "imprimir.php?id=" + venta_id;
-    });
-
-    $('.btn-modificar').on('click', function() {
-        var venta_id = $(this).data('id');
-        window.location.href = "editar.php?id=" + venta_id;
-    });
-
-    $('.btn-anular').on('click', function() {
-        var venta_id = $(this).data('id');
-        if (confirm("¿Estás seguro de que deseas anular esta venta?")) {
-            $.ajax({
-                url: 'anular_venta.php',
-                type: 'POST',
-                data: { id: venta_id },
-                success: function(response) {
-                    alert(response);
-                    location.reload(); // Recargar la página para actualizar la lista
-                },
-                error: function() {
-                    alert("Error al anular la venta.");
-                }
-            });
-        }
-    });
-});
-</script>
-
-<style>
-.pagination {
-    margin-top: 20px;
-}
-
-.pagination a {
-    margin: 0 5px;
-    padding: 8px 12px;
-    border: 1px solid #007BFF;
-    color: #007BFF;
-    text-decoration: none;
-}
-
-.pagination a.active {
-    background-color: #007BFF;
-    color: white;
-}
-
-.pagination a:hover {
-    background-color: #0056b3;
-    color: white;
-}
-</style>
 
 </body>
 </html>

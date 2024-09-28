@@ -2,7 +2,6 @@
 session_start();
 require_once '../../config/db.php';
 
-// Verificar si el usuario está logueado mediante sesión o cookies
 if (isset($_SESSION['user_id']) && isset($_SESSION['email'])) {
     $user_id = $_SESSION['user_id'];
     $email = $_SESSION['email'];
@@ -10,12 +9,10 @@ if (isset($_SESSION['user_id']) && isset($_SESSION['email'])) {
     $user_id = $_COOKIE['user_id'];
     $email = $_COOKIE['email'];
 } else {
-    // Redirigir al login si no está logueado
     header("Location: ../../index.php");
     exit();
 }
 
-// Función para obtener todos los ingresos del usuario actual
 function getUserIngresos($user_id)
 {
     global $pdo;
@@ -25,7 +22,6 @@ function getUserIngresos($user_id)
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-// Función para agregar un nuevo ingreso
 function addIngreso($user_id, $descripcion, $monto)
 {
     global $pdo;
@@ -34,17 +30,14 @@ function addIngreso($user_id, $descripcion, $monto)
     return $stmt->execute([$user_id, $descripcion, $monto]);
 }
 
-// Guardar nuevo ingreso si se envía el formulario
 $message = '';
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_ingreso'])) {
     $descripcion = trim($_POST['descripcion']);
     $monto = (float)trim($_POST['monto']);
 
-    // Validar los campos
     if (empty($descripcion) || $monto <= 0) {
         $message = "Por favor, complete todos los campos correctamente.";
     } else {
-        // Agregar ingreso
         if (addIngreso($user_id, $descripcion, $monto)) {
             $message = "Ingreso agregado exitosamente.";
         } else {
@@ -53,7 +46,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_ingreso'])) {
     }
 }
 
-// Obtener todos los ingresos del usuario
 $ingresos = getUserIngresos($user_id);
 ?>
 
@@ -89,15 +81,11 @@ $ingresos = getUserIngresos($user_id);
 
     <div class="main-content">
         <h2>Gestionar Ingresos</h2>
-
-        <!-- Mostrar mensaje de éxito o error -->
         <?php if (!empty($message)): ?>
             <div class="message">
                 <?= htmlspecialchars($message); ?>
             </div>
         <?php endif; ?>
-
-        <!-- Formulario para agregar nuevo ingreso -->
         <div class="form-container">
             <h3>Agregar Nuevo Ingreso</h3>
             <form method="POST" action="">
@@ -112,8 +100,6 @@ $ingresos = getUserIngresos($user_id);
                 <button type="submit" name="add_ingreso" class="btn btn-primary">Agregar Ingreso</button>
             </form>
         </div>
-
-        <!-- Mostrar tabla con la lista de ingresos -->
         <div class="table-container">
             <h3>Listado de Ingresos</h3>
             <?php if (count($ingresos) > 0): ?>

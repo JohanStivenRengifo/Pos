@@ -1,11 +1,10 @@
 <?php
 session_start();
 
-// Variables para el usuario
+// Verificar si el usuario está logueado
 $user_id = '';
 $email = '';
 
-// Verificar si el usuario está logueado mediante sesión o cookies
 if (isset($_SESSION['user_id']) && isset($_SESSION['email'])) {
     $user_id = $_SESSION['user_id'];
     $email = $_SESSION['email'];
@@ -13,45 +12,28 @@ if (isset($_SESSION['user_id']) && isset($_SESSION['email'])) {
     $user_id = $_COOKIE['user_id'];
     $email = $_COOKIE['email'];
 } else {
-    // Redirigir al login si no está logueado
     header("Location: index.php");
     exit();
 }
 
-// Funciones para obtener ingresos, egresos y ventas
+// Incluir la configuración de la base de datos
 require_once 'config/db.php';
 
-function getTotalIngresos($user_id)
-{
+// Funciones para obtener totales
+function getTotal($query, $user_id) {
     global $pdo;
-    $stmt = $pdo->prepare("SELECT SUM(monto) AS total FROM ingresos WHERE user_id = ?");
+    $stmt = $pdo->prepare($query);
     $stmt->execute([$user_id]);
     return $stmt->fetchColumn() ?: 0;
 }
 
-function getTotalEgresos($user_id)
-{
-    global $pdo;
-    $stmt = $pdo->prepare("SELECT SUM(monto) AS total FROM egresos WHERE user_id = ?");
-    $stmt->execute([$user_id]);
-    return $stmt->fetchColumn() ?: 0;
-}
+$totalIngresos = getTotal("SELECT SUM(monto) FROM ingresos WHERE user_id = ?", $user_id);
+$totalEgresos = getTotal("SELECT SUM(monto) FROM egresos WHERE user_id = ?", $user_id);
+$totalVentasCompletadas = getTotal("SELECT SUM(total) FROM ventas WHERE user_id = ? AND estado = 'completada'", $user_id);
+$totalVentasAnuladas = getTotal("SELECT SUM(total) FROM ventas WHERE user_id = ? AND estado = 'anulada'", $user_id);
 
-function getTotalVentas($user_id)
-{
-    global $pdo;
-    $stmt = $pdo->prepare("SELECT SUM(total) AS total FROM ventas WHERE user_id = ?");
-    $stmt->execute([$user_id]);
-    return $stmt->fetchColumn() ?: 0;
-}
-
-// Obtener totales
-$totalIngresos = getTotalIngresos($user_id);
-$totalEgresos = getTotalEgresos($user_id);
-$totalVentas = getTotalVentas($user_id);
-
-// Calcular el balance
-$balance = $totalVentas + $totalIngresos - $totalEgresos;
+// Calcular el balance neto
+$gananciasNetas = $totalVentasCompletadas - $totalVentasAnuladas + $totalIngresos - $totalEgresos;
 
 // Cerrar sesión
 if (isset($_POST['logout'])) {
@@ -63,20 +45,105 @@ if (isset($_POST['logout'])) {
     exit();
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bienvenido al Sistema POS</title>
-    <link rel="stylesheet" href="css/welcome.css">
+    <title>Dashboard - Sistema Contable</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+
+        .navbar {
+            background-color: #3A405A;
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .navbar h1 {
+            margin: 0;
+        }
+
+        .logout-button {
+            background-color: #FF6B6B;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .logout-button:hover {
+            background-color: #FF4B4B;
+        }
+
+        .welcome-container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+        }
+
+        .welcome-container h2 {
+            color: #3A405A;
+        }
+
+        .user-info {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+        }
+
+        .actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .card {
+            background-color: #e2e2e2;
+            padding: 2rem;
+            text-align: center;
+            border-radius: 10px;
+            transition: transform 0.3s, background-color 0.3s;
+        }
+
+        .card a {
+            text-decoration: none;
+            color: #333;
+            font-weight: bold;
+        }
+
+        .card:hover {
+            transform: translateY(-10px);
+            background-color: #d1d1d1;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 1rem;
+            background-color: #3A405A;
+            color: white;
+            margin-top: 2rem;
+        }
+    </style>
 </head>
 <body>
 
     <!-- Barra de navegación -->
     <div class="navbar">
-        <h1>Sistema POS</h1>
+        <h1>Sistema Contable</h1>
         <form method="POST" action="">
             <button type="submit" name="logout" class="logout-button">Cerrar Sesión</button>
         </form>
@@ -84,21 +151,37 @@ if (isset($_POST['logout'])) {
 
     <!-- Contenedor de bienvenida -->
     <div class="welcome-container">
-        <div class="content">
-            <h2>Bienvenido al Sistema Contable</h2>
-            <p class="user-info">Hola <strong><?= htmlspecialchars($email); ?></strong></p>
-            <p>Tu balance actual es: <strong>$<?= number_format($balance, 2); ?></strong></p>
+        <h2>Bienvenido al Sistema Contable</h2>
+        <p class="user-info">Hola, <strong><?= htmlspecialchars($email); ?></strong></p>
+        <p>Tu balance actual es: <strong>$<?= number_format($gananciasNetas, 2); ?></strong></p>
 
-            <div class="actions">
-                <a href="modules/pos/index.php" class="action-button">Realizar Venta</a>
-                <a href="modules/ventas/index.php" class="action-button">Ventas</a>
-                <a href="modules/reportes/index.php" class="action-button">Reportes</a>
-                <a href="modules/ingresos/index.php" class="action-button">Ingresos</a>
-                <a href="modules/egresos/index.php" class="action-button">Egresos</a>
-                <a href="modules/inventario/index.php" class="action-button">Productos</a>
-                <a href="modules/clientes/index.php" class="action-button">Clientes</a>
-                <a href="modules/proveedores/index.php" class="action-button">Proveedores</a>
-                <a href="modules/config/index.php" class="action-button">Configuración</a>
+        <div class="actions">
+            <div class="card">
+                <a href="modules/pos/index.php">Realizar Venta</a>
+            </div>
+            <div class="card">
+                <a href="modules/ventas/index.php">Ventas</a>
+            </div>
+            <div class="card">
+                <a href="modules/reportes/index.php">Reportes</a>
+            </div>
+            <div class="card">
+                <a href="modules/ingresos/index.php">Ingresos</a>
+            </div>
+            <div class="card">
+                <a href="modules/egresos/index.php">Egresos</a>
+            </div>
+            <div class="card">
+                <a href="modules/inventario/index.php">Productos</a>
+            </div>
+            <div class="card">
+                <a href="modules/clientes/index.php">Clientes</a>
+            </div>
+            <div class="card">
+                <a href="modules/proveedores/index.php">Proveedores</a>
+            </div>
+            <div class="card">
+                <a href="modules/config/index.php">Configuración</a>
             </div>
         </div>
     </div>

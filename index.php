@@ -42,6 +42,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -51,77 +52,105 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     <style>
         body {
             font-family: 'Arial', sans-serif;
-            background-color: #f4f4f4;
+            background-color: #f0f4f8;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
             margin: 0;
         }
+
         .login-container {
             background-color: #fff;
-            padding: 2rem;
-            border-radius: 10px;
-            box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+            padding: 2.5rem;
+            border-radius: 12px;
+            box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.1);
             width: 100%;
-            max-width: 400px;
+            max-width: 380px;
         }
+
         h2 {
             text-align: center;
             color: #333;
+            margin-bottom: 1.5rem;
         }
+
         label {
             display: block;
-            margin: 1rem 0 0.5rem 0;
+            margin-bottom: 0.5rem;
             color: #555;
+            font-weight: bold;
         }
+
         input[type="email"], input[type="password"] {
             width: 100%;
             padding: 0.75rem;
             margin-bottom: 1rem;
             border: 1px solid #ddd;
-            border-radius: 5px;
+            border-radius: 6px;
             font-size: 1rem;
+            background-color: #f9f9f9;
         }
+
         input[type="checkbox"] {
             margin-right: 0.5rem;
         }
+
         input[type="submit"] {
             width: 100%;
             padding: 0.75rem;
             background-color: #007bff;
             border: none;
-            border-radius: 5px;
+            border-radius: 6px;
             color: #fff;
             font-size: 1rem;
             cursor: pointer;
+            transition: background-color 0.3s ease;
         }
+
         input[type="submit"]:hover {
             background-color: #0056b3;
         }
+
         .message {
             text-align: center;
             margin-top: 1rem;
+            font-size: 0.9rem;
         }
+
         .error {
             color: #e74c3c;
         }
+
         .success {
             color: #2ecc71;
         }
+
         .register-button {
             display: inline-block;
             padding: 10px 20px;
             background-color: #007bff;
             color: white;
             border: none;
-            border-radius: 5px;
+            border-radius: 6px;
             cursor: pointer;
             text-decoration: none;
             margin-top: 10px;
+            transition: background-color 0.3s ease;
         }
+
         .register-button:hover {
             background-color: #0056b3;
+        }
+
+        .register-container {
+            text-align: center;
+            margin-top: 1.5rem;
+        }
+
+        .login-container .checkbox-container {
+            display: flex;
+            align-items: center;
         }
     </style>
 </head>
@@ -144,15 +173,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             <label for="password">Contraseña</label>
             <input type="password" id="password" name="password" required>
 
-            <label>
-                <input type="checkbox" name="remember_me"> Recuérdame
-            </label>
+            <div class="checkbox-container">
+                <input type="checkbox" name="remember_me"> <label for="remember_me">Recuérdame</label>
+            </div>
 
             <input type="submit" value="Login">
         </form>
 
         <!-- Agregar el botón para redirigir al registro -->
-        <div style="text-align: center;">
+        <div class="register-container">
             <p>¿No tienes una cuenta?</p>
             <a href="modules/auth/register.php" class="register-button">Regístrate aquí</a>
         </div>

@@ -2,100 +2,65 @@
 session_start();
 require_once '../../config/db.php';
 
-// Verificar si el usuario está logueado mediante sesión o cookies
-if (isset($_SESSION['user_id']) && isset($_SESSION['email'])) {
-    $user_id = $_SESSION['user_id'];
-    $email = $_SESSION['email'];
-} elseif (isset($_COOKIE['user_id']) && isset($_COOKIE['email'])) {
-    $user_id = $_COOKIE['user_id'];
-    $email = $_COOKIE['email'];
-} else {
+// Verificar si el usuario está logueado
+if (!isset($_SESSION['user_id'])) {
     header("Location: ../../index.php");
     exit();
 }
 
-// Función para obtener todos los productos del inventario del usuario actual
-function getUserInventario($user_id)
+// Configuración de paginación
+$productos_por_pagina = 10; // Número de productos a mostrar por página
+$pagina_actual = isset($_GET['pagina']) ? (int)$_GET['pagina'] : 1;
+$offset = ($pagina_actual - 1) * $productos_por_pagina;
+
+// Función para obtener los productos del inventario del usuario, incluyendo departamentos y categorías
+function obtenerProductos($user_id, $limit, $offset)
 {
     global $pdo;
-    $query = "SELECT * FROM inventario WHERE user_id = ?";
+    $query = "
+        SELECT inventario.*, departamentos.nombre AS departamento, categorias.nombre AS categoria
+        FROM inventario
+        LEFT JOIN departamentos ON inventario.departamento_id = departamentos.id
+        LEFT JOIN categorias ON inventario.categoria_id = categorias.id
+        WHERE inventario.user_id = ?
+        LIMIT ? OFFSET ?";
     $stmt = $pdo->prepare($query);
-    $stmt->execute([$user_id]);
+    $stmt->execute([$user_id, $limit, $offset]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-// Función para agregar un nuevo producto al inventario
-function addProducto($user_id, $nombre, $descripcion, $cantidad, $precio)
+// Función para obtener el valor total del inventario
+function obtenerValorTotalInventario($user_id)
 {
     global $pdo;
-    $query = "INSERT INTO inventario (user_id, nombre, descripcion, cantidad, precio) VALUES (?, ?, ?, ?, ?)";
+    $query = "
+        SELECT SUM(stock * precio_venta) AS valor_total
+        FROM inventario
+        WHERE user_id = ?";
     $stmt = $pdo->prepare($query);
-    return $stmt->execute([$user_id, $nombre, $descripcion, $cantidad, $precio]);
+    $stmt->execute([$user_id]);
+    return $stmt->fetchColumn();
 }
 
-// Función para actualizar un producto
-function updateProducto($id, $nombre, $descripcion, $cantidad, $precio)
+// Función para contar los productos con stock cero o menor a dos
+function contarProductosBajos($user_id)
 {
     global $pdo;
-    $query = "UPDATE inventario SET nombre = ?, descripcion = ?, cantidad = ?, precio = ? WHERE id = ?";
+    $query = "
+        SELECT COUNT(*) AS cantidad_bajos
+        FROM inventario
+        WHERE user_id = ? AND stock <= 2";
     $stmt = $pdo->prepare($query);
-    return $stmt->execute([$nombre, $descripcion, $cantidad, $precio, $id]);
+    $stmt->execute([$user_id]);
+    return $stmt->fetchColumn();
 }
 
-// Función para eliminar un producto
-function deleteProducto($id)
-{
-    global $pdo;
-    $query = "DELETE FROM inventario WHERE id = ?";
-    $stmt = $pdo->prepare($query);
-    return $stmt->execute([$id]);
-}
-
-// Guardar nuevo producto si se envía el formulario
-$message = '';
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    if (isset($_POST['add_producto'])) {
-        // Agregar producto
-        $nombre = trim($_POST['nombre']);
-        $descripcion = trim($_POST['descripcion']);
-        $cantidad = (int)trim($_POST['cantidad']);
-        $precio = (float)trim($_POST['precio']);
-
-        if (empty($nombre) || empty($descripcion) || $cantidad <= 0 || $precio <= 0) {
-            $message = "Por favor, complete todos los campos correctamente.";
-        } else {
-            if (addProducto($user_id, $nombre, $descripcion, $cantidad, $precio)) {
-                $message = "Producto agregado exitosamente.";
-            } else {
-                $message = "Error al agregar el producto.";
-            }
-        }
-    } elseif (isset($_POST['update_producto'])) {
-        // Actualizar producto
-        $id = (int)$_POST['id'];
-        $nombre = trim($_POST['nombre']);
-        $descripcion = trim($_POST['descripcion']);
-        $cantidad = (int)trim($_POST['cantidad']);
-        $precio = (float)trim($_POST['precio']);
-
-        if (updateProducto($id, $nombre, $descripcion, $cantidad, $precio)) {
-            $message = "Producto actualizado exitosamente.";
-        } else {
-            $message = "Error al actualizar el producto.";
-        }
-    } elseif (isset($_POST['delete_producto'])) {
-        // Eliminar producto
-        $id = (int)$_POST['id'];
-        if (deleteProducto($id)) {
-            $message = "Producto eliminado exitosamente.";
-        } else {
-            $message = "Error al eliminar el producto.";
-        }
-    }
-}
-
-// Obtener todos los productos del inventario del usuario
-$productos = getUserInventario($user_id);
+// Obtener productos del usuario
+$productos = obtenerProductos($_SESSION['user_id'], $productos_por_pagina, $offset);
+// Obtener valor total del inventario
+$valor_total_inventario = obtenerValorTotalInventario($_SESSION['user_id']);
+// Contar productos con stock cero o menor a dos
+$cantidad_productos_bajos = contarProductosBajos($_SESSION['user_id']);
 ?>
 
 <!DOCTYPE html>
@@ -106,142 +71,118 @@ $productos = getUserInventario($user_id);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inventario</title>
     <link rel="stylesheet" href="../../css/modulos.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha384-k6RqeWeci5ZR/Lv4MR0sA0FfDOM5ch3kFccf/dD4Hp/v5/a48Kt7E3/qErQAwz2" crossorigin="anonymous">
 </head>
 
 <body>
-
     <div class="sidebar">
         <h2>Menú Principal</h2>
         <ul>
             <li><a href="../../welcome.php">Inicio</a></li>
             <li><a href="../../modules/ventas/index.php">Ventas</a></li>
             <li><a href="../../modules/reportes/index.php">Reportes</a></li>
-            <li><a href="../../modules/ingresos/index.php">Ingresos</a></li>
-            <li><a href="../../modules/egresos/index.php">Egresos</a></li>
-            <li><a href="../../modules/inventario/index.php">Productos</a></li>
+            <li><a href="../../modules/inventario/index.php" class="active">Productos</a></li>
             <li><a href="../../modules/clientes/index.php">Clientes</a></li>
             <li><a href="../../modules/proveedores/index.php">Proveedores</a></li>
             <li><a href="../../modules/config/index.php">Configuración</a></li>
-            <form method="POST" action="">
-                <button type="submit" name="logout" class="logout-button">Cerrar Sesión</button>
-            </form>
+            <li>
+                <form method="POST" action="">
+                    <button type="submit" name="logout" class="logout-button">Cerrar Sesión</button>
+                </form>
+            </li>
         </ul>
     </div>
 
     <div class="main-content">
-        <h2>Gestionar Inventario</h2>
+        <h2>Ítems de Venta</h2>
+        <p>Crea, edita y administra cada detalle de tus ítems de venta</p>
 
-        <a href="../stock/index.php">Agregar Stock</a>
-        <?php if (!empty($message)): ?>
-            <div class="message"><?= htmlspecialchars($message); ?></div>
-        <?php endif; ?>
-
-        <div class="form-container">
-            <h3>Agregar Nuevo Producto</h3>
-            <form method="POST" action="">
-                <div class="form-group">
-                    <label for="nombre">Nombre del Producto:</label>
-                    <input type="text" id="nombre" name="nombre" required>
-                </div>
-                <div class="form-group">
-                    <label for="descripcion">Descripción:</label>
-                    <textarea id="descripcion" name="descripcion" required></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="cantidad">Cantidad:</label>
-                    <input type="number" id="cantidad" name="cantidad" min="1" required>
-                </div>
-                <div class="form-group">
-                    <label for="precio">Precio:</label>
-                    <input type="number" step="0.01" id="precio" name="precio" required>
-                </div>
-                <button type="submit" name="add_producto" class="btn btn-primary">Agregar Producto</button>
-            </form>
+        <div class="button-group">
+            <a href="crear.php" class="btn btn-primary">Nuevo Ítem de Venta</a>
+            <a href="surtir.php" class="btn btn-primary">Surtir Inventario</a>
+            <a href="https://import-exel-gc0outo0x-johanrengifos-projects.vercel.app/" class="btn btn-primary">Importar Archivos</a>
+            <a href="ventas_por_periodos.php" class="btn btn-primary">Ventas por Periodos</a>
+            <a href="promociones.php" class="btn btn-primary">Promociones</a>
+            <a href="catalogo.php" class="btn btn-primary">Catálogo</a>
+            <a href="kardex.php" class="btn btn-primary">kardex</a> 
         </div>
 
+        <h3>Valor Total de Inventario: $ <?= number_format($valor_total_inventario ?: 0, 2, ',', '.'); ?></h3>
+        <h4>Número de productos en cero o inferior a 2: <?= $cantidad_productos_bajos; ?></h4> <!-- Cantidad de productos bajos -->
+
+        <h3>Lista de Productos</h3>
+
         <div class="table-container">
-            <h3>Listado de Productos</h3>
-            <?php if (count($productos) > 0): ?>
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Nombre</th>
-                            <th>Descripción</th>
-                            <th>Cantidad</th>
-                            <th>Precio</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Código de Barras</th>
+                        <th>Cantidad</th>
+                        <th>Precio Costo</th>
+                        <th>Precio Venta</th>
+                        <th>Departamento</th>
+                        <th>Categoría</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (count($productos) > 0): ?>
                         <?php foreach ($productos as $producto): ?>
                             <tr>
-                                <td><?= htmlspecialchars($producto['id']); ?></td>
                                 <td><?= htmlspecialchars($producto['nombre']); ?></td>
-                                <td><?= htmlspecialchars($producto['descripcion']); ?></td>
-                                <td><?= htmlspecialchars($producto['cantidad']); ?></td>
-                                <td><?= htmlspecialchars($producto['precio']); ?></td>
+                                <td><?= htmlspecialchars($producto['codigo_barras']); ?></td>
+                                <td><?= htmlspecialchars($producto['stock']); ?></td>
+                                <td><?= '$ ' . number_format($producto['precio_costo'], 2, ',', '.'); ?></td>
+                                <td><?= '$ ' . number_format($producto['precio_venta'], 2, ',', '.'); ?></td>
+                                <td><?= htmlspecialchars($producto['departamento']); ?></td>
+                                <td><?= htmlspecialchars($producto['categoria']); ?></td>
                                 <td>
-                                    <form method="POST" action="" style="display:inline;">
-                                        <input type="hidden" name="id" value="<?= htmlspecialchars($producto['id']); ?>">
-                                        <button type="submit" name="delete_producto" class="btn btn-danger">Eliminar</button>
-                                    </form>
-                                    <button class="btn btn-edit" onclick="editProducto(<?= htmlspecialchars($producto['id']); ?>, '<?= htmlspecialchars($producto['nombre']); ?>', '<?= htmlspecialchars($producto['descripcion']); ?>', <?= htmlspecialchars($producto['cantidad']); ?>, <?= htmlspecialchars($producto['precio']); ?>)">Editar</button>
+                                    <a href="modificar.php?codigo_barras=<?= urlencode($producto['codigo_barras']); ?>" class="btn btn-edit"><i class="fas fa-edit"></i> Modificar</a>
+                                    <a href="eliminar.php?codigo_barras=<?= urlencode($producto['codigo_barras']); ?>" class="btn btn-delete" onclick="return confirm('¿Estás seguro de que deseas eliminar este producto?');"><i class="fas fa-trash"></i> Eliminar</a>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
-                    </tbody>
-                </table>
-            <?php else: ?>
-                <p>No hay productos registrados en el inventario.</p>
+                    <?php else: ?>
+                        <tr>
+                            <td colspan="8" class="text-center">No hay productos disponibles.</td>
+                        </tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Paginación -->
+        <div class="paginacion">
+            <?php
+            // Obtener el total de productos del usuario
+            $total_productos_query = $pdo->prepare("SELECT COUNT(*) FROM inventario WHERE user_id = ?");
+            $total_productos_query->execute([$_SESSION['user_id']]);
+            $total_productos = $total_productos_query->fetchColumn();
+
+            // Calcular el total de páginas
+            $total_paginas = ceil($total_productos / $productos_por_pagina);
+
+            // Generar los enlaces de paginación
+            if ($total_paginas > 1): ?>
+                <nav>
+                    <ul class="pagination">
+                        <?php if ($pagina_actual > 1): ?>
+                            <li><a href="?pagina=<?= ($pagina_actual - 1); ?>" class="page-link">&laquo; Anterior</a></li>
+                        <?php endif; ?>
+                        <?php for ($i = 1; $i <= $total_paginas; $i++): ?>
+                            <li class="<?= ($i == $pagina_actual) ? 'active' : ''; ?>">
+                                <a href="?pagina=<?= $i; ?>" class="page-link"><?= $i; ?></a>
+                            </li>
+                        <?php endfor; ?>
+                        <?php if ($pagina_actual < $total_paginas): ?>
+                            <li><a href="?pagina=<?= ($pagina_actual + 1); ?>" class="page-link">Siguiente &raquo;</a></li>
+                        <?php endif; ?>
+                    </ul>
+                </nav>
             <?php endif; ?>
         </div>
-
-        <!-- Modal para editar producto -->
-        <div id="editModal" class="modal" style="display:none;">
-            <div class="modal-content">
-                <span class="close" onclick="closeModal()">&times;</span>
-                <h3>Editar Producto</h3>
-                <form method="POST" action="">
-                    <input type="hidden" id="edit_id" name="id">
-                    <div class="form-group">
-                        <label for="edit_nombre">Nombre del Producto:</label>
-                        <input type="text" id="edit_nombre" name="nombre" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="edit_descripcion">Descripción:</label>
-                        <textarea id="edit_descripcion" name="descripcion" required></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="edit_cantidad">Cantidad:</label>
-                        <input type="number" id="edit_cantidad" name="cantidad" min="1" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="edit_precio">Precio:</label>
-                        <input type="number" step="0.01" id="edit_precio" name="precio" required>
-                    </div>
-                    <button type="submit" name="update_producto" class="btn btn-primary">Actualizar Producto</button>
-                </form>
-            </div>
-        </div>
-
     </div>
-
-    <script>
-        function editProducto(id, nombre, descripcion, cantidad, precio) {
-            document.getElementById('edit_id').value = id;
-            document.getElementById('edit_nombre').value = nombre;
-            document.getElementById('edit_descripcion').value = descripcion;
-            document.getElementById('edit_cantidad').value = cantidad;
-            document.getElementById('edit_precio').value = precio;
-            document.getElementById('editModal').style.display = 'block';
-        }
-
-        function closeModal() {
-            document.getElementById('editModal').style.display = 'none';
-        }
-    </script>
-
 </body>
 
 </html>
