@@ -1,4 +1,5 @@
 <?php
+// Inicializar sesión y requerir archivo de configuración
 session_start();
 require_once '../../config/db.php';
 
@@ -13,54 +14,71 @@ $productos_por_pagina = 80; // Número de productos a mostrar por página
 $pagina_actual = isset($_GET['pagina']) ? (int)$_GET['pagina'] : 1;
 $offset = ($pagina_actual - 1) * $productos_por_pagina;
 
-// Función para obtener los productos del inventario del usuario, incluyendo departamentos y categorías
-function obtenerProductos($user_id, $limit, $offset)
+// Parámetro de búsqueda
+$busqueda = isset($_GET['busqueda']) ? $_GET['busqueda'] : '';
+
+// Parámetros de ordenación
+$columna_orden = isset($_GET['columna']) ? $_GET['columna'] : 'nombre'; // Columna por defecto
+$direccion_orden = isset($_GET['direccion']) && $_GET['direccion'] === 'desc' ? 'desc' : 'asc'; // Dirección por defecto
+
+// Función para obtener los productos del inventario del usuario, con ordenación
+function obtenerProductos($user_id, $limit, $offset, $busqueda, $columna_orden, $direccion_orden)
 {
     global $pdo;
     $query = "
-        SELECT inventario.*, departamentos.nombre AS departamento, categorias.nombre AS categoria
-        FROM inventario
-        LEFT JOIN departamentos ON inventario.departamento_id = departamentos.id
-        LEFT JOIN categorias ON inventario.categoria_id = categorias.id
-        WHERE inventario.user_id = ?
-        LIMIT ? OFFSET ?";
+    SELECT inventario.*, 
+           (inventario.stock * inventario.precio_venta) AS valor_total, 
+           departamentos.nombre AS departamento, 
+           categorias.nombre AS categoria
+    FROM inventario
+    LEFT JOIN departamentos ON inventario.departamento_id = departamentos.id
+    LEFT JOIN categorias ON inventario.categoria_id = categorias.id
+    WHERE inventario.user_id = ? 
+    AND (inventario.nombre LIKE ? OR inventario.codigo_barras LIKE ?)
+    ORDER BY $columna_orden $direccion_orden
+    LIMIT ? OFFSET ?";
+
     $stmt = $pdo->prepare($query);
-    $stmt->execute([$user_id, $limit, $offset]);
+    $stmt->execute([$user_id, "%$busqueda%", "%$busqueda%", $limit, $offset]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-// Función para obtener el valor total del inventario
-function obtenerValorTotalInventario($user_id)
+function obtenerValorTotalInventario($user_id, $busqueda)
 {
     global $pdo;
     $query = "
-        SELECT SUM(stock * precio_venta) AS valor_total
+        SELECT SUM(inventario.stock * inventario.precio_venta) AS valor_total
         FROM inventario
-        WHERE user_id = ?";
+        WHERE inventario.user_id = ? AND (inventario.nombre LIKE ? OR inventario.codigo_barras LIKE ?)";
     $stmt = $pdo->prepare($query);
-    $stmt->execute([$user_id]);
-    return $stmt->fetchColumn();
+    $stmt->execute([$user_id, "%$busqueda%", "%$busqueda%"]);
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $result['valor_total'] ?? 0;
 }
 
-// Función para contar los productos con stock cero o menor a dos
-function contarProductosBajos($user_id)
+$valor_total_inventario = obtenerValorTotalInventario($_SESSION['user_id'], $busqueda);
+
+function obtenerCantidadProductosBajos($user_id, $busqueda)
 {
     global $pdo;
     $query = "
         SELECT COUNT(*) AS cantidad_bajos
         FROM inventario
-        WHERE user_id = ? AND stock <= 2";
+        WHERE inventario.user_id = ? AND inventario.stock <= 2 AND (inventario.nombre LIKE ? OR inventario.codigo_barras LIKE ?)";
     $stmt = $pdo->prepare($query);
-    $stmt->execute([$user_id]);
-    return $stmt->fetchColumn();
+    $stmt->execute([$user_id, "%$busqueda%", "%$busqueda%"]);
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $result['cantidad_bajos'] ?? 0;
 }
 
+$cantidad_productos_bajos = obtenerCantidadProductosBajos($_SESSION['user_id'], $busqueda);
+
+
 // Obtener productos del usuario
-$productos = obtenerProductos($_SESSION['user_id'], $productos_por_pagina, $offset);
-// Obtener valor total del inventario
-$valor_total_inventario = obtenerValorTotalInventario($_SESSION['user_id']);
-// Contar productos con stock cero o menor a dos
-$cantidad_productos_bajos = contarProductosBajos($_SESSION['user_id']);
+$productos = obtenerProductos($_SESSION['user_id'], $productos_por_pagina, $offset, $busqueda, $columna_orden, $direccion_orden);
+$valor_total_inventario = obtenerValorTotalInventario($_SESSION['user_id'], $busqueda);
+$cantidad_productos_bajos = obtenerCantidadProductosBajos($_SESSION['user_id'], $busqueda);
+
 ?>
 
 <!DOCTYPE html>
@@ -101,6 +119,19 @@ $cantidad_productos_bajos = contarProductosBajos($_SESSION['user_id']);
 
         .table tr:hover {
             background-color: #f1f1f1;
+        }
+
+        .table th a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        .table th a:hover {
+            color: #007bff;
+        }
+
+        .sort-icon {
+            margin-left: 5px;
         }
 
         /* Estilos para la paginación */
@@ -165,11 +196,17 @@ $cantidad_productos_bajos = contarProductosBajos($_SESSION['user_id']);
             <a href="ventas_por_periodos.php" class="btn btn-primary">Ventas por Periodos</a>
             <a href="promociones.php" class="btn btn-primary">Promociones</a>
             <a href="catalogo.php" class="btn btn-primary">Catálogo</a>
-            <a href="kardex.php" class="btn btn-primary">Kardex</a> 
+            <a href="kardex.php" class="btn btn-primary">Kardex</a>
         </div>
 
         <h3>Valor Total de Inventario: $ <?= number_format($valor_total_inventario ?: 0, 2, ',', '.'); ?></h3>
         <h4>Número de productos en cero o inferior a 2: <?= $cantidad_productos_bajos; ?></h4> <!-- Cantidad de productos bajos -->
+
+        <!-- Barra de búsqueda -->
+        <form method="GET" action="">
+            <input type="text" name="busqueda" placeholder="Buscar por nombre o código de barras" value="<?= htmlspecialchars($busqueda); ?>">
+            <button type="submit" class="btn btn-primary">Buscar</button>
+        </form>
 
         <h3>Lista de Productos</h3>
 
@@ -177,13 +214,14 @@ $cantidad_productos_bajos = contarProductosBajos($_SESSION['user_id']);
             <table class="table">
                 <thead>
                     <tr>
-                        <th>Nombre</th>
-                        <th>Código de Barras</th>
-                        <th>Cantidad</th>
-                        <th>Precio Costo</th>
-                        <th>Precio Venta</th>
-                        <th>Departamento</th>
-                        <th>Categoría</th>
+                        <th><a href="?columna=nombre&direccion=<?= $columna_orden === 'nombre' && $direccion_orden === 'asc' ? 'desc' : 'asc'; ?>&busqueda=<?= urlencode($busqueda); ?>">Nombre<?= $columna_orden === 'nombre' ? ($direccion_orden === 'asc' ? ' ↑' : ' ↓') : ''; ?></a></th>
+                        <th><a href="?columna=codigo_barras&direccion=<?= $columna_orden === 'codigo_barras' && $direccion_orden === 'asc' ? 'desc' : 'asc'; ?>&busqueda=<?= urlencode($busqueda); ?>">Código de Barras<?= $columna_orden === 'codigo_barras' ? ($direccion_orden === 'asc' ? ' ↑' : ' ↓') : ''; ?></a></th>
+                        <th><a href="?columna=stock&direccion=<?= $columna_orden === 'stock' && $direccion_orden === 'asc' ? 'desc' : 'asc'; ?>&busqueda=<?= urlencode($busqueda); ?>">Cantidad<?= $columna_orden === 'stock' ? ($direccion_orden === 'asc' ? ' ↑' : ' ↓') : ''; ?></a></th>
+                        <th><a href="?columna=precio_costo&direccion=<?= $columna_orden === 'precio_costo' && $direccion_orden === 'asc' ? 'desc' : 'asc'; ?>&busqueda=<?= urlencode($busqueda); ?>">Precio Costo<?= $columna_orden === 'precio_costo' ? ($direccion_orden === 'asc' ? ' ↑' : ' ↓') : ''; ?></a></th>
+                        <th><a href="?columna=precio_venta&direccion=<?= $columna_orden === 'precio_venta' && $direccion_orden === 'asc' ? 'desc' : 'asc'; ?>&busqueda=<?= urlencode($busqueda); ?>">Precio Venta<?= $columna_orden === 'precio_venta' ? ($direccion_orden === 'asc' ? ' ↑' : ' ↓') : ''; ?></a></th>
+                        <th><a href="?columna=valor_total&direccion=<?= $columna_orden === 'valor_total' && $direccion_orden === 'asc' ? 'desc' : 'asc'; ?>&busqueda=<?= urlencode($busqueda); ?>">Valor Total<?= $columna_orden === 'valor_total' ? ($direccion_orden === 'asc' ? ' ↑' : ' ↓') : ''; ?></a></th>
+                        <th><a href="?columna=departamento&direccion=<?= $columna_orden === 'departamento' && $direccion_orden === 'asc' ? 'desc' : 'asc'; ?>&busqueda=<?= urlencode($busqueda); ?>">Departamento<?= $columna_orden === 'departamento' ? ($direccion_orden === 'asc' ? ' ↑' : ' ↓') : ''; ?></a></th>
+                        <th><a href="?columna=categoria&direccion=<?= $columna_orden === 'categoria' && $direccion_orden === 'asc' ? 'desc' : 'asc'; ?>&busqueda=<?= urlencode($busqueda); ?>">Categoría<?= $columna_orden === 'categoria' ? ($direccion_orden === 'asc' ? ' ↑' : ' ↓') : ''; ?></a></th>
                         <th>Acciones</th>
                     </tr>
                 </thead>
@@ -196,6 +234,7 @@ $cantidad_productos_bajos = contarProductosBajos($_SESSION['user_id']);
                                 <td><?= htmlspecialchars($producto['stock']); ?></td>
                                 <td><?= '$ ' . number_format($producto['precio_costo'], 2, ',', '.'); ?></td>
                                 <td><?= '$ ' . number_format($producto['precio_venta'], 2, ',', '.'); ?></td>
+                                <td><?= '$ ' . number_format($producto['stock'] * $producto['precio_venta'], 2, ',', '.'); ?></td> <!-- Valor Total -->
                                 <td><?= htmlspecialchars($producto['departamento'] ?: 'No asociado'); ?></td>
                                 <td><?= htmlspecialchars($producto['categoria'] ?: 'No asociado'); ?></td>
                                 <td>
@@ -206,7 +245,7 @@ $cantidad_productos_bajos = contarProductosBajos($_SESSION['user_id']);
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="8" class="text-center">No hay productos disponibles.</td>
+                            <td colspan="9" class="text-center">No hay productos disponibles.</td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
@@ -216,9 +255,9 @@ $cantidad_productos_bajos = contarProductosBajos($_SESSION['user_id']);
         <!-- Paginación -->
         <div class="paginacion">
             <?php
-            // Obtener el total de productos del usuario
-            $total_productos_query = $pdo->prepare("SELECT COUNT(*) FROM inventario WHERE user_id = ?");
-            $total_productos_query->execute([$_SESSION['user_id']]);
+            // Obtener el total de productos del usuario, incluyendo la búsqueda
+            $total_productos_query = $pdo->prepare("SELECT COUNT(*) FROM inventario WHERE user_id = ? AND (nombre LIKE ? OR codigo_barras LIKE ?)");
+            $total_productos_query->execute([$_SESSION['user_id'], "%$busqueda%", "%$busqueda%"]);
             $total_productos = $total_productos_query->fetchColumn();
             $total_paginas = ceil($total_productos / $productos_por_pagina);
 
@@ -226,7 +265,7 @@ $cantidad_productos_bajos = contarProductosBajos($_SESSION['user_id']);
             echo '<ul class="pagination">';
             for ($i = 1; $i <= $total_paginas; $i++): ?>
                 <li class="<?= ($pagina_actual === $i) ? 'active' : ''; ?>">
-                    <a href="?pagina=<?= $i; ?>"><?= $i; ?></a>
+                    <a href="?pagina=<?= $i; ?>&busqueda=<?= urlencode($busqueda); ?>"><?= $i; ?></a>
                 </li>
             <?php endfor;
             echo '</ul>';

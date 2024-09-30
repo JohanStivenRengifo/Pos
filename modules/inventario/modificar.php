@@ -19,13 +19,15 @@ function obtenerProductoPorCodigo($codigo_barras)
 }
 
 // Función para actualizar un producto
-function actualizarProducto($id, $codigo_barras, $nombre, $descripcion, $stock, $precio_costo, $impuesto, $otro_dato)
+function actualizarProducto($id, $codigo_barras, $nombre, $descripcion, $stock, $precio_costo, $impuesto, $precio_venta, $otro_dato)
 {
     global $pdo;
 
-    // Calcular el precio de venta basado en el impuesto y redondear
-    $precio_venta = $precio_costo + ($precio_costo * ($impuesto / 100));
-    $precio_venta = round($precio_venta, 2);  // Redondear a 2 decimales
+    // Si no se proporciona el precio de venta, calcularlo automáticamente
+    if (empty($precio_venta)) {
+        $precio_venta = $precio_costo + ($precio_costo * ($impuesto / 100));
+        $precio_venta = round($precio_venta, 2);  // Redondear a 2 decimales
+    }
 
     $query = "UPDATE inventario SET codigo_barras = ?, nombre = ?, descripcion = ?, stock = ?, precio_costo = ?, impuesto = ?, precio_venta = ?, otro_dato = ? WHERE id = ?";
     $stmt = $pdo->prepare($query);
@@ -55,13 +57,14 @@ if (isset($_GET['codigo_barras'])) {
         $stock = (int)trim($_POST['stock']);
         $precio_costo = (float)trim($_POST['precio_costo']);
         $impuesto = (float)trim($_POST['impuesto']);
+        $precio_venta = isset($_POST['precio_venta']) ? (float)trim($_POST['precio_venta']) : null;
         $otro_dato = trim($_POST['otro_dato']);
 
         // Validar que los campos estén completos y correctos
         if (empty($nombre) || $stock < 0 || $precio_costo < 0 || $impuesto < 0) {
             $message = "Por favor, complete todos los campos correctamente.";
         } else {
-            if (actualizarProducto($id, $codigo_barras, $nombre, $descripcion, $stock, $precio_costo, $impuesto, $otro_dato)) {
+            if (actualizarProducto($id, $codigo_barras, $nombre, $descripcion, $stock, $precio_costo, $impuesto, $precio_venta, $otro_dato)) {
                 $message = "Producto actualizado exitosamente.";
                 // Actualizar la información del producto para mostrar los cambios
                 $product = obtenerProductoPorCodigo($codigo_barras);
@@ -137,6 +140,11 @@ if (isset($_GET['codigo_barras'])) {
                 <div class="form-group">
                     <label for="impuesto">Impuesto (%):</label>
                     <input type="number" step="0.01" id="impuesto" name="impuesto" value="<?= htmlspecialchars($product['impuesto']); ?>" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="precio_venta">Precio Venta:</label>
+                    <input type="number" step="0.01" id="precio_venta" name="precio_venta" value="<?= htmlspecialchars($product['precio_venta']); ?>">
                 </div>
 
                 <div class="form-group">

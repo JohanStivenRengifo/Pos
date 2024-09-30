@@ -14,7 +14,8 @@ if (isset($_SESSION['user_id']) && isset($_SESSION['email'])) {
     exit();
 }
 
-function obtenerCategorias() {
+function obtenerCategorias()
+{
     global $pdo;
     $query = "SELECT id, nombre FROM categorias"; // Sin WHERE user_id
     $stmt = $pdo->prepare($query);
@@ -22,7 +23,8 @@ function obtenerCategorias() {
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-function obtenerDepartamentos() {
+function obtenerDepartamentos()
+{
     global $pdo;
     $query = "SELECT id, nombre FROM departamentos"; // Sin WHERE user_id
     $stmt = $pdo->prepare($query);
@@ -30,8 +32,19 @@ function obtenerDepartamentos() {
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+// Función para verificar si el código de barras ya existe
+function codigoBarrasExistente($codigo_barras)
+{
+    global $pdo;
+    $query = "SELECT COUNT(*) FROM inventario WHERE codigo_barras = ?";
+    $stmt = $pdo->prepare($query);
+    $stmt->execute([$codigo_barras]);
+    return $stmt->fetchColumn() > 0; // Devuelve true si existe
+}
+
 // Función para agregar un nuevo producto al inventario
-function agregarProducto($user_id, $codigo_barras, $nombre, $descripcion, $stock, $precio_costo, $impuesto, $otro_dato, $categoria_id, $departamento_id) {
+function agregarProducto($user_id, $codigo_barras, $nombre, $descripcion, $stock, $precio_costo, $impuesto, $otro_dato, $categoria_id, $departamento_id)
+{
     global $pdo;
 
     // Calcular el precio de venta basado en el impuesto y redondear
@@ -60,6 +73,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     // Validación de campos requeridos
     if (empty($codigo_barras) || empty($nombre) || $stock <= 0 || $precio_costo <= 0 || $impuesto < 0 || $categoria_id == 0 || $departamento_id == 0) {
         $message = "Por favor, complete todos los campos obligatorios correctamente.";
+    } elseif (codigoBarrasExistente($codigo_barras)) {
+        // Validar si el código de barras ya existe
+        $message = "El código de barras ya está en uso. Por favor, ingrese uno diferente.";
     } else {
         // Intentar agregar el producto al inventario
         if (agregarProducto($user_id, $codigo_barras, $nombre, $descripcion, $stock, $precio_costo, $impuesto, $otro_dato, $categoria_id, $departamento_id)) {
@@ -71,23 +87,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 }
 
 // Obtener las categorías y departamentos para mostrarlas en el formulario
-$categorias = obtenerCategorias($user_id);
-$departamentos = obtenerDepartamentos($user_id);
+$categorias = obtenerCategorias();
+$departamentos = obtenerDepartamentos();
 
 // Formato de moneda
-function formatoMoneda($monto) {
+function formatoMoneda($monto)
+{
     return '$' . number_format($monto, 2, ',', '.'); // Cambia el formato según sea necesario
 }
 ?>
 
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Crear Producto</title>
     <link rel="stylesheet" href="../../css/modulos.css">
 </head>
+
 <body>
 
     <div class="sidebar">
@@ -148,6 +167,11 @@ function formatoMoneda($monto) {
                 <input type="number" step="0.01" id="impuesto" name="impuesto" required>
             </div>
 
+            <div class="form-group">
+                <label for="precio_venta">Precio Venta:</label>
+                <input type="number" step="0.01" id="precio_venta" name="precio_venta" readonly>
+            </div>
+
             <!-- Listado de Categorías -->
             <div class="form-group">
                 <label for="categoria">Categoría:</label>
@@ -179,5 +203,22 @@ function formatoMoneda($monto) {
         </form>
     </div>
 
+    <script>
+        document.getElementById('precio_costo').addEventListener('input', calcularPrecioVenta);
+        document.getElementById('impuesto').addEventListener('input', calcularPrecioVenta);
+
+        function calcularPrecioVenta() {
+            const precioCosto = parseFloat(document.getElementById('precio_costo').value) || 0;
+            const impuesto = parseFloat(document.getElementById('impuesto').value) || 0;
+
+            // Calcular precio de venta
+            const precioVenta = precioCosto + (precioCosto * (impuesto / 100));
+
+            // Redondear a dos decimales y mostrar en el campo
+            document.getElementById('precio_venta').value = precioVenta.toFixed(2);
+        }
+    </script>
+
 </body>
+
 </html>

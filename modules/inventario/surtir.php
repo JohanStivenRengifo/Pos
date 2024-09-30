@@ -31,9 +31,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (isset($_POST['nueva_cantidad'], $_POST['nuevo_precio_costo'], $_POST['nuevo_precio_venta'], $_POST['nuevo_impuesto'], $_POST['nueva_descripcion'])) {
                 $nueva_cantidad = (int)$_POST['nueva_cantidad'];
                 $nuevo_precio_costo = (float)str_replace(',', '.', str_replace('.', '', $_POST['nuevo_precio_costo'])); // Formato de moneda
-                $nuevo_precio_venta = (float)str_replace(',', '.', str_replace('.', '', $_POST['nuevo_precio_venta'])); // Formato de moneda
                 $nuevo_impuesto = (float)$_POST['nuevo_impuesto'];
                 $nueva_descripcion = $_POST['nueva_descripcion'];
+
+                // Calcular el precio de venta si no se proporciona
+                if (empty($_POST['nuevo_precio_venta'])) {
+                    $nuevo_precio_venta = $nuevo_precio_costo + ($nuevo_precio_costo * ($nuevo_impuesto / 100));
+                    $nuevo_precio_venta = round($nuevo_precio_venta, 2); // Redondear a 2 decimales
+                } else {
+                    $nuevo_precio_venta = (float)str_replace(',', '.', str_replace('.', '', $_POST['nuevo_precio_venta'])); // Formato de moneda
+                }
 
                 // Validar que los campos numéricos sean válidos
                 if (!is_numeric($nueva_cantidad) || !is_numeric($nuevo_precio_costo) || !is_numeric($nuevo_precio_venta) || !is_numeric($nuevo_impuesto)) {
@@ -113,7 +120,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <div class="form-group">
                 <label for="nuevo_precio_venta">Nuevo Precio Venta:</label>
-                <input type="text" name="nuevo_precio_venta" id="nuevo_precio_venta" value="<?= htmlspecialchars(number_format($producto['precio_venta'], 2, ',', '.')); ?>" required>
+                <input type="text" name="nuevo_precio_venta" id="nuevo_precio_venta" value="<?= htmlspecialchars(number_format($producto['precio_venta'], 2, ',', '.')); ?>">
+                <small>Si dejas este campo vacío, el precio de venta se calculará automáticamente.</small>
             </div>
 
             <div class="form-group">
