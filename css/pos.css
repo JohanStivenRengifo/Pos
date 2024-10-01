@@ -40,6 +40,12 @@ body, html {
     border: 1px solid #ccc;
     font-size: 1rem;
     margin-right: 10px; /* Espacio entre el input y el botón */
+    transition: border-color 0.3s ease;
+}
+
+.search-bar input:focus {
+    border-color: #00a991; /* Color al hacer foco */
+    outline: none; /* Eliminar el contorno por defecto */
 }
 
 .search-bar button {
@@ -50,11 +56,12 @@ body, html {
     color: white;
     font-size: 1rem;
     cursor: pointer;
-    transition: background-color 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.2s ease;
 }
 
 .search-bar button:hover {
     background-color: #007f73;
+    transform: translateY(-2px); /* Efecto de elevación */
 }
 
 /* Grid de productos */
@@ -143,6 +150,12 @@ body, html {
     border: 1px solid #d4d4d4;
     width: 48%;
     font-size: 1rem;
+    transition: border-color 0.3s ease;
+}
+
+.invoice-header select:focus,
+.invoice-header input:focus {
+    border-color: #00a991; /* Color al hacer foco */
 }
 
 /* Información del cliente */
@@ -158,6 +171,11 @@ body, html {
     border-radius: 8px;
     border: 1px solid #d4d4d4;
     margin-right: 10px; /* Espacio entre el input y el botón */
+    transition: border-color 0.3s ease;
+}
+
+.client-info input:focus {
+    border-color: #00a991; /* Color al hacer foco */
 }
 
 .add-client-button {
@@ -169,11 +187,12 @@ body, html {
     cursor: pointer;
     width: 60px;
     font-size: 1rem;
-    transition: background-color 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.2s ease;
 }
 
 .add-client-button:hover {
     background-color: #007f73;
+    transform: translateY(-2px); /* Efecto de elevación */
 }
 
 /* Lista de productos vendidos */
@@ -199,11 +218,12 @@ body, html {
     width: 100%;
     font-size: 1.2rem;
     margin-top: 20px;
-    transition: background-color 0.3s ease;
+    transition: background-color 0.3s ease, transform 0.2s ease;
 }
 
 .sell-button:hover {
     background-color: #007f73;
+    transform: translateY(-2px);
 }
 
 /* Botón de cancelar */
@@ -215,6 +235,7 @@ body, html {
     font-size: 1rem;
     cursor: pointer;
     text-decoration: underline;
+    transition: color 0.3s ease;
 }
 
 .cancel-button:hover {
@@ -229,7 +250,7 @@ body, html {
 
     .left-panel, .right-panel {
         width: 100%;
-        height: auto; /* Cambiado a auto para mejor responsividad */
+        height: auto;
     }
 
     .product-list {
@@ -237,11 +258,11 @@ body, html {
     }
 
     .search-bar input {
-        margin-right: 0; /* Elimina margen derecho en móviles */
+        margin-right: 0;
     }
 
     .invoice-header select,
     .invoice-header input {
-        width: 100%; /* Ajustar ancho a 100% en móviles */
+        width: 100%; 
     }
 }
