@@ -2,14 +2,19 @@
 session_start();
 require './config/db.php'; 
 
+// Función para limpiar entradas
+function sanitizeInput($data) {
+    return htmlspecialchars(trim($data));
+}
+
 // Variables para mensajes
 $error = '';
 $success = '';
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     // Recoger los datos del formulario y sanitizarlos
-    $email = filter_var(trim($_POST['email']), FILTER_SANITIZE_EMAIL);
-    $password = trim($_POST['password']);
+    $email = filter_var(sanitizeInput($_POST['email']), FILTER_SANITIZE_EMAIL);
+    $password = sanitizeInput($_POST['password']);
     
     // Validar que los campos no estén vacíos
     if (empty($email) || empty($password)) {
@@ -49,9 +54,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
     <style>
         body {
-            font-family: 'Arial', sans-serif;
+            font-family: 'Roboto', sans-serif;
             background-color: #f0f4f8;
             display: flex;
             justify-content: center;
@@ -62,11 +68,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         .login-container {
             background-color: #fff;
-            padding: 2.5rem;
+            padding: 2rem;
             border-radius: 12px;
-            box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
             width: 100%;
-            max-width: 380px;
+            max-width: 400px;
         }
 
         h2 {
@@ -79,7 +85,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             display: block;
             margin-bottom: 0.5rem;
             color: #555;
-            font-weight: bold;
+            font-weight: 500;
         }
 
         input[type="email"], input[type="password"] {
@@ -90,6 +96,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             border-radius: 6px;
             font-size: 1rem;
             background-color: #f9f9f9;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="email"]:focus, input[type="password"]:focus {
+            border-color: #007bff;
         }
 
         input[type="checkbox"] {
@@ -129,7 +140,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         .register-button {
             display: inline-block;
             padding: 10px 20px;
-            background-color: #007bff;
+            background-color: #28a745;
             color: white;
             border: none;
             border-radius: 6px;
@@ -140,7 +151,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         }
 
         .register-button:hover {
-            background-color: #0056b3;
+            background-color: #218838;
         }
 
         .register-container {
@@ -174,7 +185,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             <input type="password" id="password" name="password" required>
 
             <div class="checkbox-container">
-                <input type="checkbox" name="remember_me"> <label for="remember_me">Recuérdame</label>
+                <input type="checkbox" name="remember_me" id="remember_me">
+                <label for="remember_me">Recuérdame</label>
             </div>
 
             <input type="submit" value="Login">

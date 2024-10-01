@@ -51,93 +51,8 @@ if (isset($_POST['logout'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Sistema Contable</title>
-    <style>
-        body {
-            font-family: 'Arial', sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #f4f4f4;
-            color: #333;
-        }
-
-        .navbar {
-            background-color: #3A405A;
-            color: white;
-            padding: 1rem;
-            text-align: center;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .navbar h1 {
-            margin: 0;
-        }
-
-        .logout-button {
-            background-color: #FF6B6B;
-            border: none;
-            color: white;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-
-        .logout-button:hover {
-            background-color: #FF4B4B;
-        }
-
-        .welcome-container {
-            max-width: 1200px;
-            margin: 2rem auto;
-            background-color: white;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            padding: 2rem;
-        }
-
-        .welcome-container h2 {
-            color: #3A405A;
-        }
-
-        .user-info {
-            font-size: 1.2rem;
-            margin-bottom: 1rem;
-        }
-
-        .actions {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-        }
-
-        .card {
-            background-color: #e2e2e2;
-            padding: 2rem;
-            text-align: center;
-            border-radius: 10px;
-            transition: transform 0.3s, background-color 0.3s;
-        }
-
-        .card a {
-            text-decoration: none;
-            color: #333;
-            font-weight: bold;
-        }
-
-        .card:hover {
-            transform: translateY(-10px);
-            background-color: #d1d1d1;
-        }
-
-        .footer {
-            text-align: center;
-            padding: 1rem;
-            background-color: #3A405A;
-            color: white;
-            margin-top: 2rem;
-        }
-    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <!-- Librería para gráficos -->
+    <link rel="stylesheet" href="css/welcome.css">
 </head>
 <body>
 
@@ -149,39 +64,53 @@ if (isset($_POST['logout'])) {
         </form>
     </div>
 
-    <!-- Contenedor de bienvenida -->
-    <div class="welcome-container">
+    <!-- Barra lateral -->
+    <div class="sidebar">
+        <h3>Menú</h3>
+        <div class="card">
+            <a href="modules/pos/index.php">Realizar Venta</a>
+        </div>
+        <div class="card">
+            <a href="modules/ventas/index.php">Ventas</a>
+        </div>
+        <div class="card">
+            <a href="modules/reportes/index.php">Reportes</a>
+        </div>
+        <div class="card">
+            <a href="modules/ingresos/index.php">Ingresos</a>
+        </div>
+        <div class="card">
+            <a href="modules/egresos/index.php">Egresos</a>
+        </div>
+        <div class="card">
+            <a href="modules/inventario/index.php">Productos</a>
+        </div>
+        <div class="card">
+            <a href="modules/clientes/index.php">Clientes</a>
+        </div>
+        <div class="card">
+            <a href="modules/proveedores/index.php">Proveedores</a>
+        </div>
+        <div class="card">
+            <a href="modules/config/index.php">Configuración</a>
+        </div>
+    </div>
+
+    <!-- Contenido principal -->
+    <div class="content">
         <h2>Bienvenido al Sistema Contable</h2>
-        <p class="user-info">Hola, <strong><?= htmlspecialchars($email); ?></strong></p>
+        <p>Hola, <strong><?= htmlspecialchars($email); ?></strong></p>
         <p>Tu balance actual es: <strong>$<?= number_format($gananciasNetas, 2); ?></strong></p>
 
-        <div class="actions">
-            <div class="card">
-                <a href="modules/pos/index.php">Realizar Venta</a>
+        <div class="charts">
+            <!-- Gráfico de ingresos vs egresos -->
+            <div class="chart-container">
+                <canvas id="balanceChart"></canvas>
             </div>
-            <div class="card">
-                <a href="modules/ventas/index.php">Ventas</a>
-            </div>
-            <div class="card">
-                <a href="modules/reportes/index.php">Reportes</a>
-            </div>
-            <div class="card">
-                <a href="modules/ingresos/index.php">Ingresos</a>
-            </div>
-            <div class="card">
-                <a href="modules/egresos/index.php">Egresos</a>
-            </div>
-            <div class="card">
-                <a href="modules/inventario/index.php">Productos</a>
-            </div>
-            <div class="card">
-                <a href="modules/clientes/index.php">Clientes</a>
-            </div>
-            <div class="card">
-                <a href="modules/proveedores/index.php">Proveedores</a>
-            </div>
-            <div class="card">
-                <a href="modules/config/index.php">Configuración</a>
+
+            <!-- Gráfico de ventas completadas vs anuladas -->
+            <div class="chart-container">
+                <canvas id="ventasChart"></canvas>
             </div>
         </div>
     </div>
@@ -191,5 +120,45 @@ if (isset($_POST['logout'])) {
         <p>&copy; <?= date("Y"); ?> Sistema POS. Todos los derechos reservados.</p>
     </div>
 
+    <script>
+        // Gráfico de balance (Ingresos vs Egresos)
+        const balanceChart = new Chart(document.getElementById('balanceChart'), {
+            type: 'bar',
+            data: {
+                labels: ['Ingresos', 'Egresos'],
+                datasets: [{
+                    label: 'Monto ($)',
+                    data: [<?= $totalIngresos; ?>, <?= $totalEgresos; ?>],
+                    backgroundColor: ['#4CAF50', '#FF6B6B'],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        // Gráfico de ventas (Completadas vs Anuladas)
+        const ventasChart = new Chart(document.getElementById('ventasChart'), {
+            type: 'pie',
+            data: {
+                labels: ['Ventas Completadas', 'Ventas Anuladas'],
+                datasets: [{
+                    label: 'Ventas ($)',
+                    data: [<?= $totalVentasCompletadas; ?>, <?= $totalVentasAnuladas; ?>],
+                    backgroundColor: ['#007bff', '#FF6B6B'],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+            }
+        });
+    </script>
 </body>
 </html>
