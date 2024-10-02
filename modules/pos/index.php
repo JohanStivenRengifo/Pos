@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once '../../config/db.php';
+require_once '../../config/db.php'; // Asegúrate de que este archivo define y establece la variable $pdo
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: ../../index.php");
@@ -8,26 +8,23 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $user_id = $_SESSION['user_id'];
-$clientes = obtenerClientes($user_id);
-$productos = obtenerProductos($user_id);
+$clientes = obtenerClientes($pdo, $user_id);
+$productos = obtenerProductos($pdo, $user_id);
 
-function obtenerClientes($userId)
+function obtenerClientes($pdo, $userId)
 {
-    global $pdo;
     $clientes_stmt = $pdo->prepare("SELECT id, nombre FROM clientes WHERE user_id = ?");
     $clientes_stmt->execute([$userId]);
     return $clientes_stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-function obtenerProductos($userId)
+function obtenerProductos($pdo, $userId)
 {
-    global $pdo;
     $productos_stmt = $pdo->prepare("SELECT id, nombre, precio_venta AS precio, stock AS cantidad, codigo_barras FROM inventario WHERE user_id = ?");
     $productos_stmt->execute([$userId]);
     return $productos_stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 ?>
-
 
 <!DOCTYPE html>
 <html lang="es">
@@ -145,7 +142,6 @@ function obtenerProductos($userId)
     </style>
 </head>
 
-
 <body>
 
     <div class="container">
@@ -178,16 +174,13 @@ function obtenerProductos($userId)
                     data-nombre="<?= htmlspecialchars($producto['nombre']); ?>"
                     data-precio="<?= $producto['precio']; ?>"
                     data-cantidad="<?= $producto['cantidad']; ?>"
-                    data-codigo="<?= $producto['codigo_barras']; ?>">
+                    data-codigo="<?= htmlspecialchars($producto['codigo_barras']); ?>">
                     <div class="card h-100 shadow-sm position-relative" style="border-radius: 12px; border: 1px solid #e0e0e0;">
-                        <p class="position-absolute text-secondary bg-light rounded p-1" style="top: 10px; left: 10px;"><?= $producto['codigo_barras']; ?></p>
+                        <p class="position-absolute text-secondary bg-light rounded p-1" style="top: 10px; left: 10px;"><?= htmlspecialchars($producto['codigo_barras']); ?></p>
                         <div class="card-body d-flex flex-column justify-content-between p-3">
                             <div class="text-center">
                                 <div class="item-image-zone d-flex align-items-center justify-content-center mb-3">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tag text-muted">
-                                        <path d="M7.5 7.5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0"></path>
-                                        <path d="M3 6v5.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.408 0l5.592 -5.592a2.41 2.41 0 0 0 0 -3.408l-7.71 -7.71a2 2 0 0 0 -1.414 -.586h-5.172a3 3 0 0 0 -3 3z"></path>
-                                    </svg>
+                                    <!-- SVG ícono de producto -->
                                 </div>
                                 <p class="item-view__name text-center text-truncate font-weight-bold mb-1"><?= htmlspecialchars($producto['nombre']); ?></p>
                                 <p class="item-view__quantity text-center text-muted">Inventario: <?= $producto['cantidad']; ?></p>
@@ -204,10 +197,183 @@ function obtenerProductos($userId)
             <h4>Factura de venta</h4>
             <div id="venta-lista" class="mb-3"></div>
             <div class="venta-total" id="venta-total"><strong>Total: $0.00</strong></div>
-            <button class="venta-boton" id="venta-boton" aria-label="Vender productos" title="Vender productos">Vender</button>
+            <button class="venta-boton" id="venta-boton" aria-label="Realizar venta">Confirmar Venta</button>
         </div>
 
-        <script src="./script.js" defer></script>
+        <!-- Modal de confirmación de venta -->
+        <div id="confirmacionVentaModal" class="modal fade" tabindex="-1" role="dialog">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Confirmar Venta</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <p>¿Estás seguro de que deseas procesar esta venta?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+                        <button type="button" id="confirmarVenta" class="btn btn-primary">Confirmar Venta</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal para imprimir ticket -->
+        <div id="imprimirTicketModal" class="modal fade" tabindex="-1" role="dialog">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Imprimir Ticket</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <p>La venta se ha procesado correctamente. ¿Quieres imprimir el ticket?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">No Imprimir</button>
+                        <button type="button" id="imprimirTicket" class="btn btn-primary">Imprimir Ticket</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+    <script src="./script.js"></script>
+    <script>
+$(document).ready(function() {
+    // Al hacer clic en un producto, se añade a la lista de venta
+    $('.product-card').click(function() {
+        const id = $(this).data('id');
+        const nombre = $(this).data('nombre');
+        const precio = $(this).data('precio');
+        const cantidad = $(this).data('cantidad');
+        agregarProducto(id, nombre, precio, cantidad);
+    });
+
+    // Función para agregar producto a la venta
+    function agregarProducto(id, nombre, precio, cantidad) {
+        const listaVenta = $('#venta-lista');
+        const totalVenta = parseFloat($('#venta-total strong').text().replace('$', '').replace(',', ''));
+
+        // Verifica si el producto ya está en la lista
+        if (listaVenta.find(`.producto-${id}`).length > 0) {
+            alert('Este producto ya está en la lista.');
+            return;
+        }
+
+        const nuevoProducto = $(`
+            <div class="venta-producto producto-${id}">
+                <p>${nombre} - $${precio.toFixed(2)}</p>
+                <button class="btn btn-danger btn-sm eliminar-producto" data-id="${id}">Eliminar</button>
+            </div>
+        `);
+
+        listaVenta.append(nuevoProducto);
+        // Actualiza el total
+        $('#venta-total strong').text(`Total: $${(totalVenta + precio).toFixed(2)}`);
+        agregarEliminarProducto(nuevoProducto);
+    }
+
+    // Función para manejar la eliminación de productos
+    function agregarEliminarProducto(element) {
+        element.find('.eliminar-producto').click(function() {
+            const precio = parseFloat(element.text().split('- $')[1]);
+            const totalVenta = parseFloat($('#venta-total strong').text().replace('$', '').replace(',', ''));
+            $('#venta-total strong').text(`Total: $${(totalVenta - precio).toFixed(2)}`);
+            element.remove();
+        });
+    }
+
+    // Confirmar venta al hacer clic en el botón
+    $('#venta-boton').click(function() {
+        $('#confirmacionVentaModal').modal('show');
+    });
+
+    // Al confirmar la venta, procesar la venta
+    $('#confirmarVenta').click(function() {
+        $('#confirmacionVentaModal').modal('hide');
+        $('#imprimirTicketModal').modal('show');
+    });
+
+    // Generar el HTML del ticket
+    function generarTicketHTML() {
+        const listaVenta = $('#venta-lista').html();
+        const total = $('#venta-total strong').text();
+        return `
+            <html>
+                <head>
+                    <title>Ticket de Venta</title>
+                    <style>
+                        /* Aquí puedes añadir estilos para el ticket */
+                        body { font-family: Arial, sans-serif; }
+                        .ticket { width: 300px; margin: 0 auto; }
+                        .producto { margin-bottom: 10px; }
+                        .total { font-weight: bold; }
+                    </style>
+                </head>
+                <body>
+                    <div class="ticket">
+                        <h2>Ticket de Venta</h2>
+                        <div>${listaVenta}</div>
+                        <p class="total">${total}</p>
+                    </div>
+                </body>
+            </html>
+        `;
+    }
+
+    // Imprimir el ticket
+    function imprimirTicket() {
+        const ticketHTML = generarTicketHTML();
+        const ventanaImpresion = window.open('', '', 'width=600,height=400');
+        ventanaImpresion.document.write(ticketHTML);
+        ventanaImpresion.document.close();
+        ventanaImpresion.print();
+        ventanaImpresion.close();
+    }
+
+    // Al hacer clic en "Imprimir Ticket"
+    $('#imprimirTicket').click(function() {
+        imprimirTicket();
+        $('#imprimirTicketModal').modal('hide');
+        vaciarCarrito();
+    });
+
+    // Vaciar el carrito después de imprimir
+    function vaciarCarrito() {
+        $('#venta-lista').empty();
+        $('#venta-total strong').text('Total: $0.00');
+    }
+
+    // Búsqueda de productos
+    $('#buscar-producto').on('input', function() {
+        const valorBuscado = $(this).val().toLowerCase();
+        $('.product-card').each(function() {
+            const nombreProducto = $(this).data('nombre').toLowerCase();
+            const codigoBarras = $(this).data('codigo').toLowerCase();
+            if (nombreProducto.includes(valorBuscado) || codigoBarras.includes(valorBuscado)) {
+                $(this).show();
+            } else {
+                $(this).hide();
+            }
+        });
+    });
+
+    // Capturar Ctrl + P para imprimir el ticket
+    $(document).keydown(function(e) {
+        if (e.ctrlKey && e.key === 'p') {
+            e.preventDefault(); // Evita la acción por defecto de imprimir
+            imprimirTicket(); // Llama a la función para imprimir el ticket
+        }
+    });
+});
+</script>
+
 
 </body>
 

@@ -43,11 +43,11 @@ $(".product-card").click(function () {
 function actualizarListaVenta() {
     totalVenta = 0;
     $("#venta-lista").empty();
-    
+
     ventaProductos.forEach((producto, index) => {
         const subtotal = producto.precio * producto.cantidad;
         totalVenta += subtotal;
-        
+
         $("#venta-lista").append(`
             <div class="venta-producto">
                 <div>${producto.nombre} (x${producto.cantidad})</div>
@@ -61,7 +61,7 @@ function actualizarListaVenta() {
             </div>
         `);
     });
-    
+
     $("#venta-total").html(`<strong>Total: $${totalVenta.toFixed(2)}</strong>`);
 }
 
@@ -113,15 +113,22 @@ document.getElementById('buscar-producto').addEventListener('input', debounce(fu
     });
 }, 300));
 
-// Función para procesar la venta
+// Función para mostrar la confirmación de venta
 $("#venta-boton").click(function () {
     if (ventaProductos.length === 0) {
         mostrarAlerta("No hay productos en el carrito para vender.", "warning");
         return;
     }
 
+    // Mostrar el modal de confirmación
+    $("#confirmacionVentaModal").modal('show');
+});
+
+// Evento para confirmar la venta en el modal
+$("#confirmarVenta").click(function () {
     const clienteId = $("#cliente-select").val();
 
+    // Procesar la venta después de confirmar
     $.ajax({
         url: './procesar_venta.php',
         type: 'POST',
@@ -129,22 +136,61 @@ $("#venta-boton").click(function () {
             cliente_id: clienteId,
             productos: JSON.stringify(ventaProductos) // Asegúrate de enviar los productos como JSON
         },
-        dataType: 'json', // Esperar un JSON de respuesta
+        dataType: 'json',
         success: function (result) {
-            if (result.status === 'success') {
-                mostrarAlerta("Venta procesada con éxito. ID de venta: " + result.venta_id, "success");
-                ventaProductos = []; // Limpiar el carrito
+            if (result.success) {
+                mostrarAlerta("Venta procesada con éxito.", "success");
+
+                // Mostrar el modal de impresión de ticket
+                $("#imprimirTicketModal").modal('show');
+                $("#ticketVenta").html(generarTicketHTML());
+
+                // Limpiar el carrito
+                ventaProductos = [];
                 actualizarListaVenta();
+
+                // Recargar la página después de la impresión
+                $("#imprimirTicket").off("click").on("click", function () {
+                    window.print(); // Imprimir el ticket
+                    location.reload(); // Recargar la página
+                });
             } else {
                 mostrarAlerta(result.message || "Error desconocido", "danger");
             }
         },
         error: function (jqXHR) {
-            // Manejo de errores más específico
             const errorMessage = jqXHR.responseJSON?.message || "Error al procesar la venta. Intenta de nuevo.";
             mostrarAlerta(errorMessage, "danger");
         }
     });
+
+    // Cerrar el modal de confirmación
+    $("#confirmacionVentaModal").modal('hide');
+});
+
+// Función para generar el HTML del ticket
+function generarTicketHTML() {
+    let ticketHTML = `<h3>Ticket de Venta</h3>`;
+    ventaProductos.forEach(producto => {
+        ticketHTML += `
+            <div>Producto: ${producto.nombre}</div>
+            <div>Cantidad: ${producto.cantidad}</div>
+            <div>Precio: $${producto.precio.toFixed(2)}</div>
+            <hr>
+        `;
+    });
+    ticketHTML += `<div>Total Venta: $${totalVenta.toFixed(2)}</div>`;
+    return ticketHTML;
+}
+
+// Capturar Ctrl + P para imprimir el ticket
+$(document).keydown(function (e) {
+    if (e.ctrlKey && e.key === 'p') {
+        e.preventDefault(); // Evita la acción por defecto de imprimir
+        $("#imprimirTicketModal").modal('show');
+        $("#ticketVenta").html(generarTicketHTML());
+        window.print(); // Imprimir el ticket
+    }
 });
 
 // Función de debounce

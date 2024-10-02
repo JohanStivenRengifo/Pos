@@ -20,20 +20,22 @@ if (isset($_SESSION['user_id']) && isset($_SESSION['email'])) {
 require_once 'config/db.php';
 
 // Funciones para obtener totales
-function getTotal($query, $user_id) {
+function getTotal($query, $params) {
     global $pdo;
     $stmt = $pdo->prepare($query);
-    $stmt->execute([$user_id]);
+    $stmt->execute($params);
     return $stmt->fetchColumn() ?: 0;
 }
 
-$totalIngresos = getTotal("SELECT SUM(monto) FROM ingresos WHERE user_id = ?", $user_id);
-$totalEgresos = getTotal("SELECT SUM(monto) FROM egresos WHERE user_id = ?", $user_id);
-$totalVentasCompletadas = getTotal("SELECT SUM(total) FROM ventas WHERE user_id = ? AND estado = 'completada'", $user_id);
-$totalVentasAnuladas = getTotal("SELECT SUM(total) FROM ventas WHERE user_id = ? AND estado = 'anulada'", $user_id);
+// Obtener el total de ventas del día actual
+$totalVentasDia = getTotal("SELECT SUM(total) FROM ventas WHERE user_id = ? AND DATE(fecha_venta) = CURDATE() AND estado = 'completada'", [$user_id]);
 
-// Calcular el balance neto
-$gananciasNetas = $totalVentasCompletadas - $totalVentasAnuladas + $totalIngresos - $totalEgresos;
+// Obtener otros totales si es necesario
+$totalIngresos = getTotal("SELECT SUM(monto) FROM ingresos WHERE user_id = ?", [$user_id]);
+$totalEgresos = getTotal("SELECT SUM(monto) FROM egresos WHERE user_id = ?", [$user_id]);
+
+// Calcular el balance diario
+$gananciasNetas = $totalVentasDia + $totalIngresos - $totalEgresos;
 
 // Cerrar sesión
 if (isset($_POST['logout'])) {
@@ -100,7 +102,7 @@ if (isset($_POST['logout'])) {
     <div class="content">
         <h2>Bienvenido al Sistema Contable</h2>
         <p>Hola, <strong><?= htmlspecialchars($email); ?></strong></p>
-        <p>Tu balance actual es: <strong>$<?= number_format($gananciasNetas, 2); ?></strong></p>
+        <p>Tu balance del día es: <strong>$<?= number_format($gananciasNetas, 2); ?></strong></p>
 
         <div class="charts">
             <!-- Gráfico de ingresos vs egresos -->
@@ -108,7 +110,7 @@ if (isset($_POST['logout'])) {
                 <canvas id="balanceChart"></canvas>
             </div>
 
-            <!-- Gráfico de ventas completadas vs anuladas -->
+            <!-- Gráfico de ventas completadas del día -->
             <div class="chart-container">
                 <canvas id="ventasChart"></canvas>
             </div>
@@ -143,15 +145,15 @@ if (isset($_POST['logout'])) {
             }
         });
 
-        // Gráfico de ventas (Completadas vs Anuladas)
+        // Gráfico de ventas completadas del día
         const ventasChart = new Chart(document.getElementById('ventasChart'), {
             type: 'pie',
             data: {
-                labels: ['Ventas Completadas', 'Ventas Anuladas'],
+                labels: ['Ventas Completadas del Día'],
                 datasets: [{
                     label: 'Ventas ($)',
-                    data: [<?= $totalVentasCompletadas; ?>, <?= $totalVentasAnuladas; ?>],
-                    backgroundColor: ['#007bff', '#FF6B6B'],
+                    data: [<?= $totalVentasDia; ?>],
+                    backgroundColor: ['#007bff'],
                     borderWidth: 1
                 }]
             },

@@ -3,24 +3,26 @@ session_start();
 require_once '../../config/db.php';
 
 // Verificar si el usuario está logueado
-if (isset($_SESSION['user_id'])) {
-    $user_id = $_SESSION['user_id'];
-} else {
+if (!isset($_SESSION['user_id'])) {
     header("Location: ../../index.php");
     exit();
 }
 
+$user_id = $_SESSION['user_id'];
+
 if (isset($_POST['productos']) && isset($_POST['cliente_id'])) {
     // Decodificar los productos de JSON
     $productos = json_decode($_POST['productos'], true);
-    $clienteId = (int)$_POST['cliente_id']; 
+    $clienteId = filter_var($_POST['cliente_id'], FILTER_SANITIZE_NUMBER_INT); // Sanitizar el ID del cliente
+
+    // Iniciar transacción
     $pdo->beginTransaction();
     
     try {
         foreach ($productos as $producto) {
-            $productoId = (int)$producto['id'];
-            $cantidad = (int)$producto['cantidad'];
-            $precio = (float)$producto['precio'];
+            $productoId = filter_var($producto['id'], FILTER_SANITIZE_NUMBER_INT); // Sanitizar el ID del producto
+            $cantidad = filter_var($producto['cantidad'], FILTER_SANITIZE_NUMBER_INT); // Sanitizar cantidad
+            $precio = filter_var($producto['precio'], FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION); // Sanitizar precio
             $fechaVenta = date('Y-m-d H:i:s');
             $total = $cantidad * $precio;
 
@@ -39,12 +41,15 @@ if (isset($_POST['productos']) && isset($_POST['cliente_id'])) {
                 $estado = 'completada';
                 $query->execute([$user_id, $productoId, $clienteId, $fechaVenta, $cantidad, $total, $estado]);
             } else {
-                throw new Exception("Inventario insuficiente para el producto: " . $producto['nombre']);
+                throw new Exception("Inventario insuficiente para el producto: " . htmlspecialchars($producto['nombre']));
             }
         }
+        
+        // Si todo sale bien, confirmar la transacción
         $pdo->commit();
         echo json_encode(['success' => true, 'message' => "Venta procesada exitosamente."]);
     } catch (Exception $e) {
+        // Si ocurre un error, revertir la transacción
         $pdo->rollBack();
         echo json_encode(['success' => false, 'message' => "Error: " . $e->getMessage()]);
     }
