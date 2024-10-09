@@ -138,3 +138,14 @@ body, html {
         grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
     }
 }
+
+.loading {
+    text-align: center;
+    padding: 20px;
+    font-size: 18px;
+    color: #666;
+}
+
+.loading i {
+    margin-right: 10px;
+}

@@ -3,6 +3,14 @@ $(document).ready(function () {
     const listaVenta = $('#venta-lista');
     const totalVentaElement = $('#venta-total strong');
     const alertContainer = $('#alertContainer');
+    const buscarProductoInput = $('#buscar-producto');
+    const clienteSelect = $('#cliente-select');
+    const descuentoInput = $('#descuento');
+    const metodoPagoSelect = $('#metodo-pago');
+    const ventaBoton = $('#venta-boton');
+    const productsGrid = $('#products-grid');
+    const tipoDocumentoSelect = $('#tipo-documento');
+    const tituloDocumento = $('#titulo-documento');
 
     // Función para mostrar alertas
     function mostrarAlerta(mensaje, tipo = 'warning') {
@@ -53,13 +61,16 @@ $(document).ready(function () {
             `);
         });
 
-        const descuentoPorcentaje = parseFloat($('#descuento').val()) || 0;
+        const descuentoPorcentaje = parseFloat(descuentoInput.val()) || 0;
         const descuento = subtotal * (descuentoPorcentaje / 100);
         const total = subtotal - descuento;
 
-        totalVentaElement.text(`Total: ${formatearPrecioCOP(total)}`);
+        totalVentaElement.text(formatearPrecioCOP(total));
         $('#subtotal').text(`Subtotal: ${formatearPrecioCOP(subtotal)}`);
         $('#descuento-monto').text(`Descuento: ${formatearPrecioCOP(descuento)}`);
+
+        // Habilitar o deshabilitar el botón de venta
+        ventaBoton.prop('disabled', carrito.length === 0);
     }
 
     // Función para agregar producto al carrito
@@ -86,8 +97,8 @@ $(document).ready(function () {
     }
 
     // Función para filtrar productos
-    function filtrarProductos(valorBuscado) {
-        valorBuscado = valorBuscado.toLowerCase();
+    function filtrarProductos() {
+        const valorBuscado = buscarProductoInput.val().toLowerCase();
         $('.product-card').each(function () {
             const nombreProducto = $(this).data('nombre').toLowerCase();
             const codigoBarras = $(this).data('codigo').toLowerCase();
@@ -95,16 +106,39 @@ $(document).ready(function () {
         });
     }
 
-    // Evento para buscar y filtrar productos
-    $('#buscar-producto').on('input', function () {
-        const valorBuscado = $(this).val().toLowerCase();
-        filtrarProductos(valorBuscado);
+    // Evento para cambiar entre factura y cotización
+    tipoDocumentoSelect.on('change', function() {
+        const tipoDocumento = $(this).val();
+        if (tipoDocumento === 'factura') {
+            tituloDocumento.text('Factura de venta');
+            ventaBoton.text('Confirmar Venta');
+            metodoPagoSelect.prop('disabled', false);
+        } else {
+            tituloDocumento.text('Cotización');
+            ventaBoton.text('Generar Cotización');
+            metodoPagoSelect.prop('disabled', true);
+        }
     });
 
+    // Agregar un evento para mostrar/ocultar campos adicionales para el crédito
+    metodoPagoSelect.on('change', function() {
+        const metodoPago = $(this).val();
+        if (metodoPago === 'credito') {
+            // Mostrar campos adicionales para el crédito
+            $('#campos-credito').show();
+        } else {
+            // Ocultar campos adicionales para el crédito
+            $('#campos-credito').hide();
+        }
+    });
+
+    // Evento para buscar y filtrar productos
+    buscarProductoInput.on('input', filtrarProductos);
+
     // Evento para agregar producto al presionar Enter en el buscador
-    $('#buscar-producto').on('keypress', function (e) {
-        if (e.which === 13) { // Enter key
-            const valorBuscado = $(this).val().trim();
+    buscarProductoInput.on('keypress', function (e) {
+        if (e.which === 13) {
+            e.preventDefault();
             const productoEncontrado = $('.product-card:visible').first();
             
             if (productoEncontrado.length) {
@@ -114,7 +148,7 @@ $(document).ready(function () {
                 const stock = parseInt(productoEncontrado.data('cantidad'));
                 agregarProducto(id, nombre, precio, stock);
                 $(this).val('');
-                filtrarProductos(''); // Mostrar todos los productos
+                filtrarProductos();
             } else {
                 mostrarAlerta('Producto no encontrado', 'danger');
             }
@@ -122,7 +156,7 @@ $(document).ready(function () {
     });
 
     // Evento para agregar producto al hacer clic
-    $('.product-card').on('click', function () {
+    $(document).on('click', '.product-card', function () {
         const id = $(this).data('id');
         const nombre = $(this).data('nombre');
         const precio = parseFloat($(this).data('precio'));
@@ -151,73 +185,96 @@ $(document).ready(function () {
     });
 
     // Agregar evento para aplicar descuento
-    $('#descuento').on('input', actualizarCarrito);
+    descuentoInput.on('input', actualizarCarrito);
 
-    // Evento para confirmar la venta
-    $('#venta-boton').on('click', function () {
+    // Evento para confirmar la venta o generar cotización
+    ventaBoton.on('click', function () {
         if (carrito.length === 0) {
             mostrarAlerta('No hay productos en el carrito.', 'warning');
             return;
         }
 
-        const clienteId = $('#cliente-select').val();
+        const clienteId = clienteSelect.val();
         if (!clienteId) {
             mostrarAlerta('Por favor, seleccione un cliente.', 'warning');
             return;
         }
 
-        const descuento = parseFloat($('#descuento').val()) || 0;
-        const metodoPago = $('#metodo-pago').val();
+        const tipoDocumento = tipoDocumentoSelect.val();
+        const descuento = parseFloat(descuentoInput.val()) || 0;
+        const metodoPago = metodoPagoSelect.val();
         const subtotal = carrito.reduce((sum, item) => sum + (item.precio * item.cantidad), 0);
         const total = subtotal * (1 - descuento / 100);
 
-        const venta = {
+        const datos = {
+            tipo_documento: tipoDocumento,
             cliente_id: clienteId,
-            productos: carrito,
+            productos: carrito.map(item => ({
+                id: item.id,
+                cantidad: item.cantidad,
+                precio: item.precio
+            })),
             total: total,
             descuento: descuento,
             metodo_pago: metodoPago
         };
 
-        console.log('Datos de venta a enviar:', venta); // Para depuración
+        // Agregar información de crédito si es necesario
+        if (metodoPago === 'credito') {
+            datos.credito = {
+                plazo: $('#plazo-credito').val(),
+                interes: $('#interes-credito').val()
+            };
+        }
+
+        console.log('Datos a enviar:', datos); // Para depuración
+
+        ventaBoton.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Procesando...');
 
         $.ajax({
-            url: 'procesar_venta.php',
+            url: 'procesar_documento.php',
             method: 'POST',
-            data: { venta: JSON.stringify(venta) },
+            data: { datos: JSON.stringify(datos) },
             dataType: 'json',
             success: function (response) {
                 if (response.success) {
-                    mostrarAlerta(`Venta procesada correctamente. Número de factura: ${response.numero_factura}`, 'success');
+                    mostrarAlerta(`<i class="fas fa-check-circle"></i> ${tipoDocumento === 'factura' ? 'Venta' : 'Cotización'} procesada correctamente. Número de documento: ${response.numero_documento}`, 'success');
                     
-                    if (confirm('¿Desea imprimir la factura?')) {
-                        imprimirFactura(response.datos_impresion);
+                    if (confirm(`¿Desea imprimir la ${tipoDocumento === 'factura' ? 'factura' : 'cotización'}?`)) {
+                        imprimirDocumento(response.datos_impresion);
                     }
                     
-                    // Actualizar el stock en la página con la información del servidor
-                    response.productos_actualizados.forEach(producto => {
-                        const productoCard = $(`.product-card[data-id="${producto.id}"]`);
-                        productoCard.data('cantidad', producto.nuevo_stock);
-                        productoCard.find('small:contains("Stock:")').text(`Stock: ${producto.nuevo_stock}`);
-                    });
+                    if (tipoDocumento === 'factura') {
+                        // Actualizar el stock en la página con la información del servidor
+                        response.productos_actualizados.forEach(producto => {
+                            const productoCard = $(`.product-card[data-id="${producto.id}"]`);
+                            productoCard.data('cantidad', producto.nuevo_stock);
+                            productoCard.find('small:contains("Stock:")').text(`Stock: ${producto.nuevo_stock}`);
+                        });
+                    }
                     
+                    // Reiniciar el formulario
                     carrito = [];
                     actualizarCarrito();
-                    $('#descuento').val(0);
-                    $('#cliente-select').val('');
-                    $('#metodo-pago').val('efectivo');
+                    descuentoInput.val(0);
+                    clienteSelect.val('');
+                    metodoPagoSelect.val('efectivo');
+                    buscarProductoInput.val('').focus();
                 } else {
-                    mostrarAlerta('Error al procesar la venta: ' + response.message, 'danger');
+                    mostrarAlerta(`<i class="fas fa-exclamation-triangle"></i> Error al procesar el documento: ${response.message}`, 'danger');
                 }
             },
             error: function (xhr, status, error) {
                 console.error('Error en la solicitud AJAX:', status, error);
-                mostrarAlerta('Error en la comunicación con el servidor.', 'danger');
+                mostrarAlerta('<i class="fas fa-exclamation-circle"></i> Error en la comunicación con el servidor.', 'danger');
+            },
+            complete: function() {
+                ventaBoton.prop('disabled', false).html(tipoDocumento === 'factura' ? 'Confirmar Venta' : 'Generar Cotización');
             }
         });
     });
 
-    function imprimirFactura(datos) {
+    function imprimirDocumento(datos) {
         const ventanaImpresion = window.open('', '', 'width=300,height=600');
         
         const estiloCSS = `
@@ -248,8 +305,8 @@ $(document).ready(function () {
         let contenidoHTML = `
             ${estiloCSS}
             <div class="header">
-                <h1>Factura de Venta</h1>
-                <p><strong>Número:</strong> ${datos.numero_factura}</p>
+                <h1>${datos.tipo_documento === 'factura' ? 'Factura de Venta' : 'Cotización'}</h1>
+                <p><strong>Número:</strong> ${datos.numero_documento}</p>
                 <p><strong>Fecha:</strong> ${datos.fecha}</p>
                 <p><strong>Cliente:</strong> ${datos.cliente}</p>
             </div>
@@ -293,5 +350,8 @@ $(document).ready(function () {
     }
 
     // Enfocar automáticamente el campo de búsqueda al cargar la página
-    $('#buscar-producto').focus();
+    buscarProductoInput.focus();
+
+    // Inicializar el carrito
+    actualizarCarrito();
 });

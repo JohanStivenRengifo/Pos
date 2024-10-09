@@ -21,7 +21,7 @@ $productos = obtenerProductos($pdo, $user_id);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>POS - Realizar Venta</title>
+    <title>POS - Realizar Venta o Cotización</title>
     <link rel="stylesheet" href="../../css/pos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
@@ -72,9 +72,17 @@ $productos = obtenerProductos($pdo, $user_id);
                 </div>
             </div>
 
-            <!-- Panel derecho: Resumen de venta -->
+            <!-- Panel derecho: Resumen de venta o cotización -->
             <div class="col-md-4 venta-sidebar">
-                <h4 class="mb-3">Factura de venta</h4>
+                <div class="form-group">
+                    <label for="tipo-documento">Tipo de Documento</label>
+                    <select id="tipo-documento" class="form-control">
+                        <option value="factura">Factura de Venta</option>
+                        <option value="cotizacion">Cotización</option>
+                    </select>
+                </div>
+
+                <h4 class="mb-3" id="titulo-documento">Factura de venta</h4>
                 
                 <div class="form-group">
                     <label for="cliente-select">Cliente</label>
@@ -116,7 +124,20 @@ $productos = obtenerProductos($pdo, $user_id);
                         <option value="efectivo">Efectivo</option>
                         <option value="tarjeta">Tarjeta</option>
                         <option value="transferencia">Transferencia</option>
+                        <option value="credito">Crédito</option>
                     </select>
+                </div>
+
+                <!-- Campos adicionales para el crédito -->
+                <div id="campos-credito" style="display: none;">
+                    <div class="form-group">
+                        <label for="plazo-credito">Plazo (meses)</label>
+                        <input type="number" id="plazo-credito" class="form-control" min="1" value="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="interes-credito">Interés (%)</label>
+                        <input type="number" id="interes-credito" class="form-control" min="0" step="0.01" value="0">
+                    </div>
                 </div>
 
                 <button class="venta-boton btn btn-success btn-block" id="venta-boton">Confirmar Venta</button>
