@@ -14,15 +14,16 @@ if (!$user_id || !$email) {
 // Función para obtener datos de ventas netas por mes
 function getVentasNetasPorMes($user_id) {
     global $pdo;
-    $query = "SELECT MONTH(fecha_venta) AS mes, SUM(total) AS total_ventas 
+    $query = "SELECT MONTH(fecha) AS mes, SUM(total) AS total_ventas 
               FROM ventas 
-              WHERE user_id = ? AND estado = 'completada' 
-              GROUP BY MONTH(fecha_venta) 
+              WHERE user_id = ? 
+              GROUP BY MONTH(fecha) 
               ORDER BY mes";
     $stmt = $pdo->prepare($query);
     $stmt->execute([$user_id]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
+
 
 // Función para obtener datos de egresos por mes
 function getEgresosPorMes($user_id) {
@@ -40,15 +41,16 @@ function getEgresosPorMes($user_id) {
 // Función para obtener datos de devoluciones (anuladas) por mes
 function getDevolucionesPorMes($user_id) {
     global $pdo;
-    $query = "SELECT MONTH(fecha_venta) AS mes, SUM(total) AS total_devoluciones 
+    $query = "SELECT MONTH(fecha) AS mes, SUM(total) AS total_devoluciones 
               FROM ventas 
-              WHERE user_id = ? AND estado = 'anulada' 
-              GROUP BY MONTH(fecha_venta) 
+              WHERE user_id = ? 
+              GROUP BY MONTH(fecha) 
               ORDER BY mes";
     $stmt = $pdo->prepare($query);
     $stmt->execute([$user_id]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
+
 
 
 // Obtener datos para gráficos

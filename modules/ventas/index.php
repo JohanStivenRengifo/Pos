@@ -20,11 +20,11 @@ $offset = ($page - 1) * $limit;
 function getUserVentas($user_id, $limit, $offset) {
     global $pdo;
     $query = "SELECT v.*, c.nombre AS cliente_nombre 
-              FROM ventas v 
-              LEFT JOIN clientes c ON v.cliente_id = c.id 
-              WHERE v.user_id = ? 
-              ORDER BY v.fecha_venta DESC 
-              LIMIT ? OFFSET ?";
+          FROM ventas v 
+          LEFT JOIN clientes c ON v.cliente_id = c.id 
+          WHERE v.user_id = ? 
+          ORDER BY v.fecha DESC 
+          LIMIT ? OFFSET ?";
     $stmt = $pdo->prepare($query);
     $stmt->execute([$user_id, $limit, $offset]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -85,7 +85,7 @@ $total_pages = ceil($total_ventas / $limit);
                         <th>Fecha</th>
                         <th>Cliente</th>
                         <th>Total</th>
-                        <th>Estado</th> <!-- Nueva columna para el estado -->
+                        <th>Numero de Factura</th>
                         <th>Acciones</th>
                     </tr>
                 </thead>
@@ -93,10 +93,10 @@ $total_pages = ceil($total_ventas / $limit);
                     <?php foreach ($ventas as $venta): ?>
                         <tr>
                             <td><?= htmlspecialchars($venta['id']); ?></td>
-                            <td><?= htmlspecialchars($venta['fecha_venta']); ?></td>
-                            <td><?= htmlspecialchars($venta['cliente_nombre']); ?></td>
+                            <td><?= htmlspecialchars($venta['fecha']); ?></td>
+                            <td><?= htmlspecialchars($venta['cliente_id']); ?></td>
                             <td><?= htmlspecialchars(number_format($venta['total'], 2)); ?></td>
-                            <td><?= htmlspecialchars($venta['estado']); ?></td> <!-- Mostrar estado de la venta -->
+                            <td><?= htmlspecialchars($venta['numero_factura']); ?></td>
                             <td>
                                 <button class="btn-imprimir" data-id="<?= $venta['id']; ?>">Imprimir</button>
                                 <button class="btn-modificar" data-id="<?= $venta['id']; ?>">Modificar</button>
