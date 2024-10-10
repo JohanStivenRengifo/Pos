@@ -92,14 +92,45 @@ $(document).ready(function () {
         actualizarCarrito();
     }
 
+    // Función para debounce
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
     // Función para filtrar productos
-    function filtrarProductos() {
-        const valorBuscado = buscarProductoInput.val().toLowerCase();
+    function filtrarProductos(valorBuscado) {
+        valorBuscado = valorBuscado.toLowerCase();
         $('.product-card').each(function () {
             const nombreProducto = $(this).data('nombre').toLowerCase();
-            const codigoBarras = $(this).data('codigo').toLowerCase();
+            const codigoBarras = $(this).data('codigo').toString().toLowerCase();
             $(this).toggle(nombreProducto.includes(valorBuscado) || codigoBarras.includes(valorBuscado));
         });
+    }
+
+    // Función para buscar producto por código de barras
+    function buscarPorCodigoBarras(codigo) {
+        const productoEncontrado = $('.product-card').filter(function() {
+            return $(this).data('codigo').toString().toLowerCase() === codigo.toLowerCase();
+        }).first();
+
+        if (productoEncontrado.length) {
+            const id = productoEncontrado.data('id');
+            const nombre = productoEncontrado.data('nombre');
+            const precio = parseFloat(productoEncontrado.data('precio'));
+            const stock = parseInt(productoEncontrado.data('cantidad'));
+            agregarProducto(id, nombre, precio, stock);
+            buscarProductoInput.val('');
+            return true;
+        }
+        return false;
     }
 
     // Evento para cambiar entre factura y cotización
@@ -129,27 +160,36 @@ $(document).ready(function () {
     });
 
     // Evento para buscar y filtrar productos
-    buscarProductoInput.on('input', function() {
-        filtrarProductos();
-    });
+    buscarProductoInput.on('input', debounce(function() {
+        const valorBuscado = $(this).val().trim();
+        filtrarProductos(valorBuscado);
+
+        if (valorBuscado.length >= 8) {
+            buscarPorCodigoBarras(valorBuscado);
+        }
+    }, 300));
 
     // Evento para agregar producto al presionar Enter en el buscador
     buscarProductoInput.on('keypress', function (e) {
         if (e.which === 13) {
             e.preventDefault();
-            const productoEncontrado = $('.product-card:visible').first();
+            const valorBuscado = $(this).val().trim();
             
-            if (productoEncontrado.length) {
-                const id = productoEncontrado.data('id');
-                const nombre = productoEncontrado.data('nombre');
-                const precio = parseFloat(productoEncontrado.data('precio'));
-                const stock = parseInt(productoEncontrado.data('cantidad'));
-                agregarProducto(id, nombre, precio, stock);
-                $(this).val('');
-                filtrarProductos();
-            } else {
-                mostrarAlertaError('Producto no encontrado');
+            if (!buscarPorCodigoBarras(valorBuscado)) {
+                const productoEncontrado = $('.product-card:visible').first();
+                
+                if (productoEncontrado.length) {
+                    const id = productoEncontrado.data('id');
+                    const nombre = productoEncontrado.data('nombre');
+                    const precio = parseFloat(productoEncontrado.data('precio'));
+                    const stock = parseInt(productoEncontrado.data('cantidad'));
+                    agregarProducto(id, nombre, precio, stock);
+                } else {
+                    mostrarAlertaError('Producto no encontrado');
+                }
             }
+            $(this).val('');
+            filtrarProductos('');
         }
     });
 
