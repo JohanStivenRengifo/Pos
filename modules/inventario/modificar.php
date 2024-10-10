@@ -65,9 +65,9 @@ if (isset($_GET['codigo_barras'])) {
             $message = "Por favor, complete todos los campos correctamente.";
         } else {
             if (actualizarProducto($id, $codigo_barras, $nombre, $descripcion, $stock, $precio_costo, $impuesto, $precio_venta, $otro_dato)) {
-                $message = "Producto actualizado exitosamente.";
-                // Actualizar la información del producto para mostrar los cambios
-                $product = obtenerProductoPorCodigo($codigo_barras);
+                // Redirigir al index con un mensaje de éxito
+                header("Location: index.php?mensaje=producto_actualizado");
+                exit();
             } else {
                 $message = "Error al actualizar el producto.";
             }
@@ -85,29 +85,79 @@ if (isset($_GET['codigo_barras'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Modificar Producto</title>
     <link rel="stylesheet" href="../../css/modulos.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        .main-content {
+            margin-left: 250px;
+            padding: 20px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"], input[type="number"], textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+        }
+        .btn-success:hover {
+            background-color: #218838;
+        }
+        .message {
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+    </style>
 </head>
 <body>
 
     <div class="sidebar">
         <h2>Menú Principal</h2>
         <ul>
-            <li><a href="../../welcome.php">Inicio</a></li>
-            <li><a href="../../modules/ventas/index.php">Ventas</a></li>
-            <li><a href="../../modules/reportes/index.php">Reportes</a></li>
-            <li><a href="../../modules/ingresos/index.php">Ingresos</a></li>
-            <li><a href="../../modules/egresos/index.php">Egresos</a></li>
-            <li><a href="../../modules/inventario/index.php">Productos</a></li>
-            <li><a href="../../modules/clientes/index.php">Clientes</a></li>
-            <li><a href="../../modules/proveedores/index.php">Proveedores</a></li>
-            <li><a href="../../modules/config/index.php">Configuración</a></li>
+            <li><a href="../../welcome.php"><i class="fas fa-home"></i> Inicio</a></li>
+            <li><a href="../../modules/ventas/index.php"><i class="fas fa-shopping-cart"></i> Ventas</a></li>
+            <li><a href="../../modules/reportes/index.php"><i class="fas fa-chart-bar"></i> Reportes</a></li>
+            <li><a href="../../modules/ingresos/index.php"><i class="fas fa-plus-circle"></i> Ingresos</a></li>
+            <li><a href="../../modules/egresos/index.php"><i class="fas fa-minus-circle"></i> Egresos</a></li>
+            <li><a href="../../modules/inventario/index.php"><i class="fas fa-box"></i> Productos</a></li>
+            <li><a href="../../modules/clientes/index.php"><i class="fas fa-users"></i> Clientes</a></li>
+            <li><a href="../../modules/proveedores/index.php"><i class="fas fa-truck"></i> Proveedores</a></li>
+            <li><a href="../../modules/config/index.php"><i class="fas fa-cog"></i> Configuración</a></li>
             <form method="POST" action="">
-                <button type="submit" name="logout" class="logout-button">Cerrar Sesión</button>
+                <button type="submit" name="logout" class="logout-button"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</button>
             </form>
         </ul>
     </div>
 
     <div class="main-content">
-        <h2>Modificar Producto</h2>
+        <h2><i class="fas fa-edit"></i> Modificar Producto</h2>
 
         <?php if (!empty($message)): ?>
             <div class="message"><?= htmlspecialchars($message); ?></div>
@@ -152,7 +202,7 @@ if (isset($_GET['codigo_barras'])) {
                     <input type="text" id="otro_dato" name="otro_dato" value="<?= htmlspecialchars($product['otro_dato']); ?>">
                 </div>
 
-                <button type="submit" name="update" class="btn btn-success">Actualizar Producto</button>
+                <button type="submit" name="update" class="btn btn-success"><i class="fas fa-save"></i> Actualizar Producto</button>
             </form>
         <?php endif; ?>
     </div>

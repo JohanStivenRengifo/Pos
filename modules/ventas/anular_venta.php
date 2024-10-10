@@ -6,28 +6,56 @@ require_once '../../config/db.php';
 $user_id = $_SESSION['user_id'] ?? null;
 
 if (!$user_id) {
-    header("Location: ../../index.php");
+    echo json_encode(['success' => false, 'message' => 'Usuario no autenticado']);
     exit();
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $venta_id = (int)$_POST['id'];
+    $venta_id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
 
-    // Verificar que el ID de la venta es válido
-    if ($venta_id > 0) {
-        // Marcar la venta como anulada
-        $stmt = $pdo->prepare("UPDATE ventas SET estado = 'anulada' WHERE id = ? AND user_id = ?");
-        if ($stmt->execute([$venta_id, $user_id])) {
-            echo "Venta anulada con éxito.";
-        } else {
-            // Captura el error
-            $errorInfo = $stmt->errorInfo();
-            echo "Error al anular la venta: " . htmlspecialchars($errorInfo[2]);
+    if ($venta_id === false || $venta_id === null) {
+        echo json_encode(['success' => false, 'message' => 'ID de venta inválido']);
+        exit();
+    }
+
+    try {
+        $pdo->beginTransaction();
+
+        // Verificar si la venta pertenece al usuario
+        $stmt = $pdo->prepare("SELECT id, total, descuento FROM ventas WHERE id = ? AND user_id = ?");
+        $stmt->execute([$venta_id, $user_id]);
+        $venta = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$venta) {
+            throw new Exception('Venta no encontrada o no pertenece al usuario');
         }
-    } else {
-        echo "ID de venta inválido.";
+
+        // Obtener los detalles de la venta
+        $stmt = $pdo->prepare("SELECT producto_id, cantidad, precio_unitario FROM venta_detalles WHERE venta_id = ?");
+        $stmt->execute([$venta_id]);
+        $detalles = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Actualizar el stock en la tabla inventario
+        foreach ($detalles as $detalle) {
+            $stmt = $pdo->prepare("UPDATE inventario SET stock = stock + ? WHERE id = ?");
+            $stmt->execute([$detalle['cantidad'], $detalle['producto_id']]);
+        }
+
+        // Eliminar los detalles de la venta
+        $stmt = $pdo->prepare("DELETE FROM venta_detalles WHERE venta_id = ?");
+        $stmt->execute([$venta_id]);
+
+        // Eliminar la venta
+        $stmt = $pdo->prepare("DELETE FROM ventas WHERE id = ?");
+        $stmt->execute([$venta_id]);
+
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => 'Venta eliminada con éxito']);
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        echo json_encode(['success' => false, 'message' => 'Error al eliminar la venta: ' . $e->getMessage()]);
     }
 } else {
-    echo "Método no permitido.";
+    echo json_encode(['success' => false, 'message' => 'Método no permitido']);
 }
 ?>

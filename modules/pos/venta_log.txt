@@ -1,0 +1,4 @@
+2024-10-10 14:11:11 - Iniciando venta para usuario ID: 4
+2024-10-10 14:11:11 - Información del usuario: {"id":4,"nombre":null,"empresa_id":2,"email":"johan_c6969@hotmail.com","password":"$2y$10$L1GkH1MvzY8242ESViywUO2.Iu2neydQFECtCphXu.GSLO\/JEr2eS","fecha_creacion":"2024-09-26 09:13:39","fecha_actualizacion":"2024-09-26 09:13:39"}
+2024-10-10 14:18:07 - Iniciando venta para usuario ID: 4
+2024-10-10 14:18:07 - Información del usuario: {"id":4,"nombre":null,"empresa_id":2,"email":"johan_c6969@hotmail.com","password":"$2y$10$L1GkH1MvzY8242ESViywUO2.Iu2neydQFECtCphXu.GSLO\/JEr2eS","fecha_creacion":"2024-09-26 09:13:39","fecha_actualizacion":"2024-09-26 09:13:39"}

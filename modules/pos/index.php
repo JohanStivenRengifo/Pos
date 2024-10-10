@@ -81,6 +81,7 @@ $productos = obtenerProductos($pdo, $user_id);
                     <select id="tipo-documento" class="form-control">
                         <option value="factura">Factura de Venta</option>
                         <option value="cotizacion">Cotización</option>
+                        <option value="factura_electronica">Factura Electrónica DIAN</option>
                     </select>
                 </div>
 
@@ -142,11 +143,33 @@ $productos = obtenerProductos($pdo, $user_id);
                     </div>
                 </div>
 
+                <!-- Campos adicionales para la factura electrónica -->
+                <div id="campos-factura-electronica" style="display: none;">
+                    <div class="form-group">
+                        <label for="numero-resolucion">Número de Resolución DIAN</label>
+                        <input type="text" id="numero-resolucion" class="form-control" placeholder="Ingrese el número de resolución">
+                    </div>
+                    <div class="form-group">
+                        <label for="fecha-resolucion">Fecha de Resolución</label>
+                        <input type="date" id="fecha-resolucion" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="prefijo-factura">Prefijo de Factura</label>
+                        <input type="text" id="prefijo-factura" class="form-control" placeholder="Ingrese el prefijo de factura">
+                    </div>
+                </div>
+
                 <button class="venta-boton btn btn-success btn-block" id="venta-boton">Confirmar Venta</button>
+
+                <!-- Nuevo botón para imprimir tickets anteriores -->
+                <button class="btn btn-info btn-block mt-3" id="imprimir-ticket-anterior">Imprimir Ticket Anterior</button>
+
             </div>
         </div>
     </div>
 
     <script src="./ventas.js"></script>
+    <!-- Eliminar o comentar la siguiente línea -->
+    <!-- <script src="./imprimir_ticket.js"></script> -->
 </body>
 </html>

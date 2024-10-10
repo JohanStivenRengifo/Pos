@@ -53,6 +53,9 @@ $total_pages = ceil($total_ventas / $limit);
     <title>Ventas</title>
     <link rel="stylesheet" href="../../css/modulos.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Incluir SweetAlert2 CSS y JS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.all.min.js"></script>
 </head>
 <body>
 
@@ -94,7 +97,7 @@ $total_pages = ceil($total_ventas / $limit);
                         <tr>
                             <td><?= htmlspecialchars($venta['id']); ?></td>
                             <td><?= htmlspecialchars($venta['fecha']); ?></td>
-                            <td><?= htmlspecialchars($venta['cliente_id']); ?></td>
+                            <td><?= htmlspecialchars($venta['cliente_nombre'] ?? 'N/A'); ?></td>
                             <td><?= htmlspecialchars(number_format($venta['total'], 2)); ?></td>
                             <td><?= htmlspecialchars($venta['numero_factura']); ?></td>
                             <td>
@@ -122,31 +125,60 @@ $total_pages = ceil($total_ventas / $limit);
 <script>
 $(document).ready(function() {
     $('.btn-imprimir').on('click', function() {
-        var venta_id = $(this).data('id');
-        window.location.href = "imprimir.php?id=" + venta_id;
+        var ventaId = $(this).data('id');
+        window.open(`../../modules/pos/imprimir_ticket.php?id=${ventaId}`, '_blank');
     });
 
     $('.btn-modificar').on('click', function() {
-        var venta_id = $(this).data('id');
-        window.location.href = "editar.php?id=" + venta_id;
+        var ventaId = $(this).data('id');
+        window.location.href = `editar.php?id=${ventaId}`;
     });
 
     $('.btn-anular').on('click', function() {
-        var venta_id = $(this).data('id');
-        if (confirm("¿Estás seguro de que deseas anular esta venta?")) {
-            $.ajax({
-                url: 'anular_venta.php',
-                type: 'POST',
-                data: { id: venta_id },
-                success: function(response) {
-                    alert(response);
-                    location.reload(); // Recargar la página para actualizar la lista
-                },
-                error: function() {
-                    alert("Error al anular la venta.");
-                }
-            });
-        }
+        var ventaId = $(this).data('id');
+        Swal.fire({
+            title: '¿Estás seguro?',
+            text: "¿Deseas anular esta venta? Esta acción no se puede deshacer.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Sí, anular venta',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $.ajax({
+                    url: 'anular_venta.php',
+                    type: 'POST',
+                    data: { id: ventaId },
+                    dataType: 'json',
+                    success: function(response) {
+                        if (response.success) {
+                            Swal.fire(
+                                '¡Anulada!',
+                                response.message,
+                                'success'
+                            ).then(() => {
+                                location.reload();
+                            });
+                        } else {
+                            Swal.fire(
+                                'Error',
+                                response.message,
+                                'error'
+                            );
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        Swal.fire(
+                            'Error',
+                            'Error al anular la venta: ' + error,
+                            'error'
+                        );
+                    }
+                });
+            }
+        });
     });
 });
 </script>

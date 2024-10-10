@@ -21,7 +21,7 @@ $(document).ready(function () {
             toast: true,
             position: 'top-end',
             showConfirmButton: false,
-            timer: 3000,
+            timer: 5000,
             timerProgressBar: true
         });
     }
@@ -230,23 +230,32 @@ $(document).ready(function () {
         ventaBoton.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Procesando...');
 
         $.ajax({
-            url: 'procesar_documento.php',
+            url: 'procesar_venta.php',
             method: 'POST',
-            data: { datos: JSON.stringify(datos) },
+            data: { venta: JSON.stringify(datos) },
             dataType: 'json',
             success: function (response) {
                 if (response.success) {
                     Swal.fire({
                         icon: 'success',
                         title: 'Éxito',
-                        text: `${tipoDocumento === 'factura' ? 'Venta' : 'Cotización'} procesada correctamente. Número de documento: ${response.numero_documento}`,
+                        text: `${tipoDocumento === 'factura' ? 'Venta' : 'Cotización'} procesada correctamente. Número de documento: ${response.numero_factura}`,
                         showConfirmButton: false,
-                        timer: 2000
+                        timer: 5000
                     });
                     
-                    if (confirm(`¿Desea imprimir la ${tipoDocumento === 'factura' ? 'factura' : 'cotización'}?`)) {
-                        imprimirDocumento(response.datos_impresion);
-                    }
+                    Swal.fire({
+                        title: 'Imprimir documento',
+                        text: `¿Desea imprimir la ${tipoDocumento === 'factura' ? 'factura' : 'cotización'}?`,
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonText: 'Sí, imprimir',
+                        cancelButtonText: 'No, gracias'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            imprimirDocumento(response.venta_id);
+                        }
+                    });
                     
                     if (tipoDocumento === 'factura') {
                         // Actualizar el stock en la página con la información del servidor
@@ -278,84 +287,85 @@ $(document).ready(function () {
         });
     });
 
-    function imprimirDocumento(datos) {
-        const ventanaImpresion = window.open('', '', 'width=300,height=600');
-        
-        const estiloCSS = `
-            <style>
-                @media print {
-                    @page { margin: 0; }
-                }
-                body { 
-                    font-family: 'Arial', sans-serif; 
-                    font-size: 12px; 
-                    width: 80mm; 
-                    margin: 0; 
-                    padding: 10px; 
-                }
-                .header { text-align: center; margin-bottom: 10px; }
-                .header h1 { font-size: 16px; margin: 0; }
-                .header p { font-size: 12px; margin: 5px 0; }
-                table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-                th, td { text-align: left; padding: 5px; }
-                th { border-bottom: 1px solid #ddd; }
-                .totals { margin-top: 10px; }
-                .totals p { margin: 5px 0; text-align: right; }
-                .total { font-weight: bold; font-size: 14px; }
-                .footer { margin-top: 20px; text-align: center; font-size: 10px; }
-            </style>
-        `;
-        
-        let contenidoHTML = `
-            ${estiloCSS}
-            <div class="header">
-                <h1>${datos.tipo_documento === 'factura' ? 'Factura de Venta' : 'Cotización'}</h1>
-                <p><strong>Número:</strong> ${datos.numero_documento}</p>
-                <p><strong>Fecha:</strong> ${datos.fecha}</p>
-                <p><strong>Cliente:</strong> ${datos.cliente}</p>
-            </div>
-            <table>
-                <tr>
-                    <th>Producto</th>
-                    <th>Cant.</th>
-                    <th>Precio</th>
-                    <th>Subtotal</th>
-                </tr>
-        `;
-        
-        datos.productos.forEach(producto => {
-            contenidoHTML += `
-                <tr>
-                    <td>${producto.nombre}</td>
-                    <td>${producto.cantidad}</td>
-                    <td>${formatearPrecioCOP(producto.precio)}</td>
-                    <td>${formatearPrecioCOP(producto.cantidad * producto.precio)}</td>
-                </tr>
-            `;
-        });
-        
-        contenidoHTML += `
-            </table>
-            <div class="totals">
-                <p><strong>Subtotal:</strong> ${formatearPrecioCOP(datos.subtotal)}</p>
-                <p><strong>Descuento:</strong> ${formatearPrecioCOP(datos.descuento)}</p>
-                <p class="total"><strong>Total:</strong> ${formatearPrecioCOP(datos.total)}</p>
-                <p><strong>Método de Pago:</strong> ${datos.metodo_pago}</p>
-            </div>
-            <div class="footer">
-                <p>Gracias por su compra</p>
-            </div>
-        `;
-        
-        ventanaImpresion.document.write(contenidoHTML);
-        ventanaImpresion.document.close();
-        ventanaImpresion.print();
-        ventanaImpresion.close();
-    }
-
     // Enfocar automáticamente el campo de búsqueda al cargar la página
     buscarProductoInput.focus();
 
     // Inicializar el carrito
     actualizarCarrito();
+
+    // Evento para imprimir ticket anterior
+    $('#imprimir-ticket-anterior').on('click', function() {
+        console.log('Botón de imprimir ticket anterior clickeado'); // Para depuración
+        $.ajax({
+            url: 'obtener_ventas.php',
+            method: 'GET',
+            dataType: 'json',
+            success: function(ventas) {
+                console.log('Ventas obtenidas:', ventas); // Para depuración
+                if (ventas.length > 0) {
+                    mostrarModalVentas(ventas);
+                } else {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Sin ventas',
+                        text: 'No se encontraron ventas anteriores.',
+                    });
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error al obtener las ventas:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'No se pudieron cargar las ventas anteriores.',
+                });
+            }
+        });
+    });
+
+    function mostrarModalVentas(ventas) {
+        let ventasHtml = '<div class="list-group" style="max-height: 300px; overflow-y: auto;">';
+        ventas.forEach(venta => {
+            ventasHtml += `
+                <button type="button" class="list-group-item list-group-item-action imprimir-venta" data-venta-id="${venta.id}">
+                    Factura: ${venta.numero_factura} - Fecha: ${venta.fecha}
+                </button>`;
+        });
+        ventasHtml += '</div>';
+
+        Swal.fire({
+            title: 'Seleccionar Venta para Imprimir',
+            html: ventasHtml,
+            showCloseButton: true,
+            showConfirmButton: false,
+            width: '600px',
+            didOpen: () => {
+                $('.imprimir-venta').on('click', function() {
+                    const ventaId = $(this).data('venta-id');
+                    imprimirDocumento(ventaId);
+                    Swal.close();
+                });
+            }
+        });
+    }
+
+    function imprimirDocumento(ventaId) {
+        const url = `imprimir_ticket.php?id=${ventaId}`;
+        const windowName = 'ImprimirTicket';
+        const windowSize = 'width=800,height=600';
+        
+        const printWindow = window.open(url, windowName, windowSize);
+        
+        if (!printWindow) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'El navegador bloqueó la ventana emergente. Por favor, permita las ventanas emergentes para este sitio.',
+            });
+        } else {
+            printWindow.onload = function() {
+                printWindow.print();
+            };
+        }
+    }
 });

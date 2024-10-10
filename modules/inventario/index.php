@@ -105,57 +105,93 @@ $cantidad_productos_bajos = obtenerCantidadProductosBajos($_SESSION['user_id'], 
     <title>Inventario</title>
     <link rel="stylesheet" href="../../css/modulos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha384-k6RqeWeci5ZR/Lv4MR0sA0FfDOM5ch3kFccf/dD4Hp/v5/a48Kt7E3/qErQAwz2" crossorigin="anonymous">
-    <link rel="stylesheet" href="../../css/notificaciones.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.min.css">
     <style>
-        /* Estilos mejorados para la tabla */
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+
+        .main-content {
+            margin-left: 250px;
+            padding: 20px;
+        }
+
+        h2, h3, h4 {
+            color: #333;
+        }
+
+        .button-group {
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 10px 15px;
+            margin-right: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #bd2130;
+        }
+
         .table-container {
-            overflow-x: auto;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
         }
 
         .table {
             width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
+            border-collapse: separate;
+            border-spacing: 0;
         }
 
         .table th,
         .table td {
             padding: 12px;
             text-align: left;
-            border: 1px solid #ddd;
+            border-bottom: 1px solid #ddd;
         }
 
         .table th {
-            background-color: #f4f4f4;
+            background-color: #f8f9fa;
+            font-weight: bold;
+            color: #333;
         }
 
-        .table tr:nth-child(even) {
-            background-color: #f9f9f9;
+        .table tr:last-child td {
+            border-bottom: none;
         }
 
         .table tr:hover {
-            background-color: #f1f1f1;
+            background-color: #f5f5f5;
         }
 
-        .table th a {
-            color: inherit;
-            text-decoration: none;
-        }
-
-        .table th a:hover {
-            color: #007bff;
-        }
-
-        .sort-icon {
-            margin-left: 5px;
-        }
-
-        /* Estilos para la paginación */
         .pagination {
             display: flex;
             justify-content: center;
-            list-style: none;
-            padding: 0;
+            margin-top: 20px;
         }
 
         .pagination li {
@@ -168,25 +204,36 @@ $cantidad_productos_bajos = obtenerCantidadProductosBajos($_SESSION['user_id'], 
             border: 1px solid #007bff;
             border-radius: 5px;
             color: #007bff;
+            transition: all 0.3s;
         }
 
-        .pagination a:hover {
-            background-color: #007bff;
-            color: white;
-        }
-
+        .pagination a:hover,
         .pagination .active a {
             background-color: #007bff;
             color: white;
         }
+
+        /* Estilos adicionales aquí */
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.all.min.js"></script>
     <script>
     function confirmarEliminacion() {
-        if (confirm("¿Estás seguro de que deseas eliminar TODOS los productos? Esta acción no se puede deshacer.")) {
-            document.getElementById('confirmar_eliminacion').value = 'true';
-            return true;
-        }
-        return false;
+        return Swal.fire({
+            title: '¿Estás seguro?',
+            text: "¿Deseas eliminar TODOS los productos? Esta acción no se puede deshacer.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Sí, eliminar todo',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                document.getElementById('confirmar_eliminacion').value = 'true';
+                return true;
+            }
+            return false;
+        });
     }
     </script>
 </head>
@@ -221,7 +268,6 @@ $cantidad_productos_bajos = obtenerCantidadProductosBajos($_SESSION['user_id'], 
             <a href="ventas_por_periodos.php" class="btn btn-primary">Ventas por Periodos</a>
             <a href="promociones.php" class="btn btn-primary">Promociones</a>
             <a href="catalogo.php" class="btn btn-primary">Catálogo</a>
-            <a href="kardex.php" class="btn btn-primary">Kardex</a>
         </div>
 
         <h3>Valor Total de Inventario: $ <?= number_format($valor_total_inventario ?: 0, 2, ',', '.'); ?></h3>
@@ -305,35 +351,6 @@ $cantidad_productos_bajos = obtenerCantidadProductosBajos($_SESSION['user_id'], 
         }
         ?>
 
-        <!-- En la parte HTML, donde quieras mostrar el mensaje -->
-        <div id="notificaciones">
-            <?php
-            if (isset($_GET['mensaje'])) {
-                $tipo = 'info';
-                switch ($_GET['mensaje']) {
-                    case 'importacion_exitosa':
-                        $mensaje = "La importación se ha realizado con éxito.";
-                        $tipo = 'exito';
-                        break;
-                    case 'eliminacion_exitosa':
-                        $mensaje = "Todos los productos han sido eliminados.";
-                        $tipo = 'exito';
-                        break;
-                    case 'error_eliminacion':
-                        $mensaje = "Hubo un error al intentar eliminar todos los productos.";
-                        $tipo = 'error';
-                        break;
-                    default:
-                        $mensaje = $_GET['mensaje'];
-                }
-                echo "<div class='notificacion notificacion-$tipo'>";
-                echo "<span class='notificacion-cerrar' onclick='this.parentElement.style.display=\"none\";'>&times;</span>";
-                echo $mensaje;
-                echo "</div>";
-            }
-            ?>
-        </div>
-
         <!-- Agregar este botón después de la tabla de productos -->
         <form method="POST" onsubmit="return confirmarEliminacion()">
             <input type="hidden" name="confirmar_eliminacion" id="confirmar_eliminacion" value="false">
@@ -348,15 +365,32 @@ $cantidad_productos_bajos = obtenerCantidadProductosBajos($_SESSION['user_id'], 
 
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        var notificaciones = document.querySelectorAll('.notificacion');
-        notificaciones.forEach(function(notificacion) {
-            setTimeout(function() {
-                notificacion.style.opacity = '0';
-                setTimeout(function() {
-                    notificacion.style.display = 'none';
-                }, 500);
-            }, 5000);
-        });
+        <?php
+        if (isset($_GET['mensaje'])) {
+            $tipo = 'info';
+            switch ($_GET['mensaje']) {
+                case 'importacion_exitosa':
+                    $mensaje = "La importación se ha realizado con éxito.";
+                    $tipo = 'success';
+                    break;
+                case 'eliminacion_exitosa':
+                    $mensaje = "Todos los productos han sido eliminados.";
+                    $tipo = 'success';
+                    break;
+                case 'error_eliminacion':
+                    $mensaje = "Hubo un error al intentar eliminar todos los productos.";
+                    $tipo = 'error';
+                    break;
+                default:
+                    $mensaje = $_GET['mensaje'];
+            }
+            echo "Swal.fire({
+                icon: '$tipo',
+                title: 'Notificación',
+                text: '$mensaje'
+            });";
+        }
+        ?>
     });
     </script>
 </body>

@@ -24,14 +24,14 @@ function getEmpresaInfo($empresa_id) {
     return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
-function saveEmpresa($empresa_id, $nombre_empresa, $direccion, $telefono, $correo_contacto, $numeracion_factura) {
+function saveEmpresa($empresa_id, $nombre_empresa, $direccion, $telefono, $correo_contacto, $prefijo_factura, $numero_inicial, $numero_final) {
     global $pdo;
     if ($empresa_id) {
-        $stmt = $pdo->prepare("UPDATE empresas SET nombre_empresa = ?, direccion = ?, telefono = ?, correo_contacto = ?, numeracion_factura = ? WHERE id = ?");
-        return $stmt->execute([$nombre_empresa, $direccion, $telefono, $correo_contacto, $numeracion_factura, $empresa_id]);
+        $stmt = $pdo->prepare("UPDATE empresas SET nombre_empresa = ?, direccion = ?, telefono = ?, correo_contacto = ?, prefijo_factura = ?, numero_inicial = ?, numero_final = ? WHERE id = ?");
+        return $stmt->execute([$nombre_empresa, $direccion, $telefono, $correo_contacto, $prefijo_factura, $numero_inicial, $numero_final, $empresa_id]);
     } else {
-        $stmt = $pdo->prepare("INSERT INTO empresas (nombre_empresa, direccion, telefono, correo_contacto, numeracion_factura) VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute([$nombre_empresa, $direccion, $telefono, $correo_contacto, $numeracion_factura]);
+        $stmt = $pdo->prepare("INSERT INTO empresas (nombre_empresa, direccion, telefono, correo_contacto, prefijo_factura, numero_inicial, numero_final) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$nombre_empresa, $direccion, $telefono, $correo_contacto, $prefijo_factura, $numero_inicial, $numero_final]);
         return $pdo->lastInsertId();
     }
 }
@@ -96,19 +96,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $direccion = trim($_POST['direccion']);
         $telefono = trim($_POST['telefono']);
         $correo_contacto = trim($_POST['correo_contacto']);
-        $numeracion_factura = (int)$_POST['numeracion_factura'];
+        $prefijo_factura = trim($_POST['prefijo_factura']);
+        $numero_inicial = (int)$_POST['numero_inicial'];
+        $numero_final = (int)$_POST['numero_final'];
 
-        if (!empty($nombre_empresa) && !empty($direccion) && !empty($telefono) && filter_var($correo_contacto, FILTER_VALIDATE_EMAIL)) {
-            if (saveEmpresa($empresa_id, $nombre_empresa, $direccion, $telefono, $correo_contacto, $numeracion_factura)) {
-                if (!$empresa_id) {
-                    associateEmpresaToUser($user_id, $pdo->lastInsertId());
-                }
+        if (!empty($nombre_empresa) && !empty($direccion) && !empty($telefono) && filter_var($correo_contacto, FILTER_VALIDATE_EMAIL) && !empty($prefijo_factura) && $numero_inicial > 0 && $numero_final > $numero_inicial) {
+            $new_empresa_id = saveEmpresa($empresa_id, $nombre_empresa, $direccion, $telefono, $correo_contacto, $prefijo_factura, $numero_inicial, $numero_final);
+            if ($new_empresa_id) {
+                associateEmpresaToUser($user_id, $new_empresa_id);
                 $message = "Empresa guardada correctamente.";
             } else {
                 $message = "Error al guardar la empresa.";
             }
         } else {
-            $message = "Complete correctamente todos los campos de la empresa.";
+            $message = "Complete correctamente todos los campos de la empresa. Asegúrese de que el número inicial sea mayor que cero y el número final sea mayor que el inicial.";
         }
     } elseif (isset($_POST['delete_empresa'])) {
         $empresa_id = $_POST['empresa_id'];
@@ -122,7 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 }
 
 $user_info = getUserInfo($user_id);
-$empresa_info = getEmpresaInfo($user_info['empresa_id']);
+$empresa_info = $user_info['empresa_id'] ? getEmpresaInfo($user_info['empresa_id']) : null;
 
 ?>
 
@@ -193,6 +194,7 @@ $empresa_info = getEmpresaInfo($user_info['empresa_id']);
             <h3>Información de la Empresa</h3>
 
             <?php if ($empresa_info): ?>
+                <!-- Formulario para editar la empresa existente -->
                 <form method="POST" action="">
                     <input type="hidden" name="empresa_id" value="<?= htmlspecialchars($empresa_info['id']); ?>">
                     <div class="form-group">
@@ -212,14 +214,53 @@ $empresa_info = getEmpresaInfo($user_info['empresa_id']);
                         <input type="email" id="correo_contacto" name="correo_contacto" value="<?= htmlspecialchars($empresa_info['correo_contacto'] ?? ''); ?>" required>
                     </div>
                     <div class="form-group">
-                        <label for="numeracion_factura">Numeración de Factura:</label>
-                        <input type="number" id="numeracion_factura" name="numeracion_factura" value="<?= htmlspecialchars($empresa_info['numeracion_factura'] ?? ''); ?>" required>
+                        <label for="prefijo_factura">Prefijo de Factura:</label>
+                        <input type="text" id="prefijo_factura" name="prefijo_factura" value="<?= htmlspecialchars($empresa_info['prefijo_factura'] ?? ''); ?>" required>
                     </div>
-                    <button type="submit" name="save_empresa" class="btn btn-primary">Guardar Empresa</button>
+                    <div class="form-group">
+                        <label for="numero_inicial">Número Inicial de Factura:</label>
+                        <input type="number" id="numero_inicial" name="numero_inicial" value="<?= htmlspecialchars($empresa_info['numero_inicial'] ?? ''); ?>" required min="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="numero_final">Número Final de Factura:</label>
+                        <input type="number" id="numero_final" name="numero_final" value="<?= htmlspecialchars($empresa_info['numero_final'] ?? ''); ?>" required min="1">
+                    </div>
+                    <button type="submit" name="save_empresa" class="btn btn-primary">Actualizar Empresa</button>
                     <button type="submit" name="delete_empresa" class="btn btn-danger" onclick="return confirm('¿Estás seguro de que quieres eliminar esta empresa?');">Eliminar Empresa</button>
                 </form>
             <?php else: ?>
-                <p>No se encontró información de la empresa.</p>
+                <!-- Formulario para crear una nueva empresa -->
+                <form method="POST" action="">
+                    <div class="form-group">
+                        <label for="nombre_empresa">Nombre de la Empresa:</label>
+                        <input type="text" id="nombre_empresa" name="nombre_empresa" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="direccion">Dirección:</label>
+                        <input type="text" id="direccion" name="direccion" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="telefono">Teléfono:</label>
+                        <input type="text" id="telefono" name="telefono" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="correo_contacto">Correo de Contacto:</label>
+                        <input type="email" id="correo_contacto" name="correo_contacto" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="prefijo_factura">Prefijo de Factura:</label>
+                        <input type="text" id="prefijo_factura" name="prefijo_factura" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="numero_inicial">Número Inicial de Factura:</label>
+                        <input type="number" id="numero_inicial" name="numero_inicial" required min="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="numero_final">Número Final de Factura:</label>
+                        <input type="number" id="numero_final" name="numero_final" required min="1">
+                    </div>
+                    <button type="submit" name="save_empresa" class="btn btn-primary">Crear Empresa</button>
+                </form>
             <?php endif; ?>
         </div>
     </div>
