@@ -12,21 +12,18 @@ $(document).ready(function () {
     const tipoDocumentoSelect = $('#tipo-documento');
     const tituloDocumento = $('#titulo-documento');
 
-    // Función para mostrar alertas
-    function mostrarAlerta(mensaje, tipo = 'warning') {
-        const alertElement = $(`<div class="alert alert-${tipo} alert-dismissible fade show" role="alert">
-            ${mensaje}
-            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
-                <span aria-hidden="true">&times;</span>
-            </button>
-        </div>`);
-        
-        alertContainer.append(alertElement);
-        
-        // Desaparecer la alerta después de 5 segundos
-        setTimeout(() => {
-            alertElement.alert('close');
-        }, 5000);
+    // Función para mostrar alertas de error
+    function mostrarAlertaError(mensaje) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: mensaje,
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true
+        });
     }
 
     // Función para formatear precios en COP
@@ -76,7 +73,7 @@ $(document).ready(function () {
     // Función para agregar producto al carrito
     function agregarProducto(id, nombre, precio, stock, cantidad = 1) {
         if (stock <= 0) {
-            mostrarAlerta(`No hay stock disponible para ${nombre}`, 'danger');
+            mostrarAlertaError(`No hay stock disponible para ${nombre}`);
             return;
         }
 
@@ -84,7 +81,7 @@ $(document).ready(function () {
 
         if (productoExistente) {
             if (productoExistente.cantidad + cantidad > stock) {
-                mostrarAlerta(`No hay suficiente stock para ${nombre}`, 'warning');
+                mostrarAlertaError(`No hay suficiente stock para ${nombre}`);
                 return;
             }
             productoExistente.cantidad += cantidad;
@@ -93,7 +90,6 @@ $(document).ready(function () {
         }
 
         actualizarCarrito();
-        mostrarAlerta(`${nombre} agregado al carrito`, 'success');
     }
 
     // Función para filtrar productos
@@ -133,7 +129,9 @@ $(document).ready(function () {
     });
 
     // Evento para buscar y filtrar productos
-    buscarProductoInput.on('input', filtrarProductos);
+    buscarProductoInput.on('input', function() {
+        filtrarProductos();
+    });
 
     // Evento para agregar producto al presionar Enter en el buscador
     buscarProductoInput.on('keypress', function (e) {
@@ -150,7 +148,7 @@ $(document).ready(function () {
                 $(this).val('');
                 filtrarProductos();
             } else {
-                mostrarAlerta('Producto no encontrado', 'danger');
+                mostrarAlertaError('Producto no encontrado');
             }
         }
     });
@@ -175,7 +173,7 @@ $(document).ready(function () {
         const producto = carrito.find(item => item.id === id);
         if (producto) {
             if (nuevaCantidad > producto.stock) {
-                mostrarAlerta(`No hay suficiente stock para ${producto.nombre}`, 'warning');
+                mostrarAlertaError(`No hay suficiente stock para ${producto.nombre}`);
                 $(this).val(producto.cantidad);
                 return;
             }
@@ -190,13 +188,13 @@ $(document).ready(function () {
     // Evento para confirmar la venta o generar cotización
     ventaBoton.on('click', function () {
         if (carrito.length === 0) {
-            mostrarAlerta('No hay productos en el carrito.', 'warning');
+            mostrarAlertaError('No hay productos en el carrito.');
             return;
         }
 
         const clienteId = clienteSelect.val();
         if (!clienteId) {
-            mostrarAlerta('Por favor, seleccione un cliente.', 'warning');
+            mostrarAlertaError('Por favor, seleccione un cliente.');
             return;
         }
 
@@ -238,7 +236,13 @@ $(document).ready(function () {
             dataType: 'json',
             success: function (response) {
                 if (response.success) {
-                    mostrarAlerta(`<i class="fas fa-check-circle"></i> ${tipoDocumento === 'factura' ? 'Venta' : 'Cotización'} procesada correctamente. Número de documento: ${response.numero_documento}`, 'success');
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Éxito',
+                        text: `${tipoDocumento === 'factura' ? 'Venta' : 'Cotización'} procesada correctamente. Número de documento: ${response.numero_documento}`,
+                        showConfirmButton: false,
+                        timer: 2000
+                    });
                     
                     if (confirm(`¿Desea imprimir la ${tipoDocumento === 'factura' ? 'factura' : 'cotización'}?`)) {
                         imprimirDocumento(response.datos_impresion);
@@ -261,12 +265,12 @@ $(document).ready(function () {
                     metodoPagoSelect.val('efectivo');
                     buscarProductoInput.val('').focus();
                 } else {
-                    mostrarAlerta(`<i class="fas fa-exclamation-triangle"></i> Error al procesar el documento: ${response.message}`, 'danger');
+                    mostrarAlertaError(`Error al procesar el documento: ${response.message}`);
                 }
             },
             error: function (xhr, status, error) {
                 console.error('Error en la solicitud AJAX:', status, error);
-                mostrarAlerta('<i class="fas fa-exclamation-circle"></i> Error en la comunicación con el servidor.', 'danger');
+                mostrarAlertaError('Error en la comunicación con el servidor.');
             },
             complete: function() {
                 ventaBoton.prop('disabled', false).html(tipoDocumento === 'factura' ? 'Confirmar Venta' : 'Generar Cotización');

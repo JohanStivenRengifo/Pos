@@ -1,0 +1,17 @@
+{
+    "name": "johan/pos-system",
+    "autoload": {
+        "psr-4": {
+            "Johan\\PosSystem\\": "modules/"
+        }
+    },
+    "authors": [
+        {
+            "name": "JohanRengifo",
+            "email": "johanstivenrengifo@outlook.com"
+        }
+    ],
+    "require": {
+        "phpoffice/phpspreadsheet": "^3.3"
+    }
+}

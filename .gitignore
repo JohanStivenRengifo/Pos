@@ -45,3 +45,6 @@ Thumbs.db
 *webhook.js
 *config.php
 *db_errors.log
+
+#composer
+/vendor/

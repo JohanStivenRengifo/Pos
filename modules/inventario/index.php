@@ -1,5 +1,4 @@
 <?php
-// Inicializar sesión y requerir archivo de configuración
 session_start();
 require_once '../../config/db.php';
 
@@ -10,7 +9,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // Configuración de paginación
-$productos_por_pagina = 80; // Número de productos a mostrar por página
+$productos_por_pagina = 100; 
 $pagina_actual = isset($_GET['pagina']) ? (int)$_GET['pagina'] : 1;
 $offset = ($pagina_actual - 1) * $productos_por_pagina;
 
@@ -18,8 +17,8 @@ $offset = ($pagina_actual - 1) * $productos_por_pagina;
 $busqueda = isset($_GET['busqueda']) ? $_GET['busqueda'] : '';
 
 // Parámetros de ordenación
-$columna_orden = isset($_GET['columna']) ? $_GET['columna'] : 'nombre'; // Columna por defecto
-$direccion_orden = isset($_GET['direccion']) && $_GET['direccion'] === 'desc' ? 'desc' : 'asc'; // Dirección por defecto
+$columna_orden = isset($_GET['columna']) ? $_GET['columna'] : 'nombre'; 
+$direccion_orden = isset($_GET['direccion']) && $_GET['direccion'] === 'desc' ? 'desc' : 'asc';
 
 // Función para obtener los productos del inventario del usuario, con ordenación
 function obtenerProductos($user_id, $limit, $offset, $busqueda, $columna_orden, $direccion_orden)
@@ -73,6 +72,22 @@ function obtenerCantidadProductosBajos($user_id, $busqueda)
 
 $cantidad_productos_bajos = obtenerCantidadProductosBajos($_SESSION['user_id'], $busqueda);
 
+// Agregar esta función para eliminar todos los productos
+function eliminarTodosLosProductos($user_id) {
+    global $pdo;
+    $query = "DELETE FROM inventario WHERE user_id = ?";
+    $stmt = $pdo->prepare($query);
+    return $stmt->execute([$user_id]);
+}
+
+// Manejar la solicitud de eliminación de todos los productos
+if (isset($_POST['eliminar_todos']) && isset($_POST['confirmar_eliminacion'])) {
+    if (eliminarTodosLosProductos($_SESSION['user_id'])) {
+        $mensaje = "Todos los productos han sido eliminados.";
+    } else {
+        $mensaje = "Hubo un error al intentar eliminar todos los productos.";
+    }
+}
 
 // Obtener productos del usuario
 $productos = obtenerProductos($_SESSION['user_id'], $productos_por_pagina, $offset, $busqueda, $columna_orden, $direccion_orden);
@@ -90,6 +105,7 @@ $cantidad_productos_bajos = obtenerCantidadProductosBajos($_SESSION['user_id'], 
     <title>Inventario</title>
     <link rel="stylesheet" href="../../css/modulos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha384-k6RqeWeci5ZR/Lv4MR0sA0FfDOM5ch3kFccf/dD4Hp/v5/a48Kt7E3/qErQAwz2" crossorigin="anonymous">
+    <link rel="stylesheet" href="../../css/notificaciones.css">
     <style>
         /* Estilos mejorados para la tabla */
         .table-container {
@@ -164,6 +180,15 @@ $cantidad_productos_bajos = obtenerCantidadProductosBajos($_SESSION['user_id'], 
             color: white;
         }
     </style>
+    <script>
+    function confirmarEliminacion() {
+        if (confirm("¿Estás seguro de que deseas eliminar TODOS los productos? Esta acción no se puede deshacer.")) {
+            document.getElementById('confirmar_eliminacion').value = 'true';
+            return true;
+        }
+        return false;
+    }
+    </script>
 </head>
 
 <body>
@@ -192,7 +217,7 @@ $cantidad_productos_bajos = obtenerCantidadProductosBajos($_SESSION['user_id'], 
         <div class="button-group">
             <a href="crear.php" class="btn btn-primary">Nuevo Ítem de Venta</a>
             <a href="surtir.php" class="btn btn-primary">Surtir Inventario</a>
-            <a href="https://import-exel-gc0outo0x-johanrengifos-projects.vercel.app/" class="btn btn-primary">Importar Archivos</a>
+            <a href="importar_archivos.php" class="btn btn-primary">Importar Archivos</a>
             <a href="ventas_por_periodos.php" class="btn btn-primary">Ventas por Periodos</a>
             <a href="promociones.php" class="btn btn-primary">Promociones</a>
             <a href="catalogo.php" class="btn btn-primary">Catálogo</a>
@@ -279,7 +304,61 @@ $cantidad_productos_bajos = obtenerCantidadProductosBajos($_SESSION['user_id'], 
             exit();
         }
         ?>
+
+        <!-- En la parte HTML, donde quieras mostrar el mensaje -->
+        <div id="notificaciones">
+            <?php
+            if (isset($_GET['mensaje'])) {
+                $tipo = 'info';
+                switch ($_GET['mensaje']) {
+                    case 'importacion_exitosa':
+                        $mensaje = "La importación se ha realizado con éxito.";
+                        $tipo = 'exito';
+                        break;
+                    case 'eliminacion_exitosa':
+                        $mensaje = "Todos los productos han sido eliminados.";
+                        $tipo = 'exito';
+                        break;
+                    case 'error_eliminacion':
+                        $mensaje = "Hubo un error al intentar eliminar todos los productos.";
+                        $tipo = 'error';
+                        break;
+                    default:
+                        $mensaje = $_GET['mensaje'];
+                }
+                echo "<div class='notificacion notificacion-$tipo'>";
+                echo "<span class='notificacion-cerrar' onclick='this.parentElement.style.display=\"none\";'>&times;</span>";
+                echo $mensaje;
+                echo "</div>";
+            }
+            ?>
+        </div>
+
+        <!-- Agregar este botón después de la tabla de productos -->
+        <form method="POST" onsubmit="return confirmarEliminacion()">
+            <input type="hidden" name="confirmar_eliminacion" id="confirmar_eliminacion" value="false">
+            <button type="submit" name="eliminar_todos" class="btn btn-danger">Eliminar Todos los Productos</button>
+        </form>
+
+        <!-- Mostrar mensaje de éxito o error -->
+        <?php if (isset($mensaje)): ?>
+            <div class="mensaje"><?php echo $mensaje; ?></div>
+        <?php endif; ?>
     </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var notificaciones = document.querySelectorAll('.notificacion');
+        notificaciones.forEach(function(notificacion) {
+            setTimeout(function() {
+                notificacion.style.opacity = '0';
+                setTimeout(function() {
+                    notificacion.style.display = 'none';
+                }, 500);
+            }, 5000);
+        });
+    });
+    </script>
 </body>
 
 </html>
