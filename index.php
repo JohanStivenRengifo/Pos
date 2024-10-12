@@ -1,51 +1,52 @@
 <?php
 session_start();
-require './config/db.php'; 
-
-// Función para limpiar entradas
-function sanitizeInput($data) {
-    return htmlspecialchars(trim($data));
-}
+require_once './config/db.php';
+require_once './includes/functions.php';
 
 // Variables para mensajes
 $error = '';
 $success = '';
 
+// Verificar si el usuario ya está autenticado
+if (isUserLoggedIn()) {
+    header("Location: welcome.php");
+    exit();
+}
+
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    // Recoger los datos del formulario y sanitizarlos
     $email = filter_var(sanitizeInput($_POST['email']), FILTER_SANITIZE_EMAIL);
     $password = sanitizeInput($_POST['password']);
     
-    // Validar que los campos no estén vacíos
     if (empty($email) || empty($password)) {
         $error = 'Por favor ingrese su correo electrónico y contraseña.';
     } else {
-        // Preparar la consulta para evitar inyecciones SQL
-        $sql = "SELECT * FROM users WHERE email = :email LIMIT 1";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute(['email' => $email]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        $user = getUserByEmail($pdo, $email);
         
-        // Validar usuario y contraseña
         if ($user && password_verify($password, $user['password'])) {
-            // Guardar user_id y email en la sesión
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['email'] = $user['email'];
+            if (checkBruteForce($user['id'])) {
+                $error = "Demasiados intentos fallidos. Por favor, intente más tarde.";
+            } else {
+                loginUser($user);
+                resetLoginAttempts($pdo, $user['id']);
+                
+                if (isset($_POST['remember_me'])) {
+                    setRememberMeCookie($pdo, $user);
+                }
 
-            // Manejo de "Recuérdame"
-            $cookie_duration = isset($_POST['remember_me']) ? (86400 * 30) : (86400 * 5);
-            setcookie('user_id', $user['id'], time() + $cookie_duration, "/");
-            setcookie('email', $user['email'], time() + $cookie_duration, "/");
-
-            // Redirigir al usuario a la página de bienvenida o éxito
-            $success = "Inicio de sesión exitoso. Redirigiendo...";
-            header("refresh:2;url=welcome.php"); // Redirigir después de 2 segundos
-            exit();
+                $success = "Inicio de sesión exitoso. Redirigiendo...";
+                header("refresh:2;url=welcome.php");
+                exit();
+            }
         } else {
             $error = "Correo electrónico o contraseña incorrectos.";
+            if ($user) {
+                incrementLoginAttempts($pdo, $user['id']);
+            }
         }
     }
 }
+
+// Resto del código HTML sin cambios
 ?>
 
 <!DOCTYPE html>
