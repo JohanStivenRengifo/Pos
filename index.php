@@ -8,7 +8,7 @@ $error = '';
 $success = '';
 
 // Verificar si el usuario ya está autenticado
-if (isUserLoggedIn()) {
+if (isUserLoggedIn($pdo)) {
     header("Location: welcome.php");
     exit();
 }
@@ -23,7 +23,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $user = getUserByEmail($pdo, $email);
         
         if ($user && password_verify($password, $user['password'])) {
-            if (checkBruteForce($user['id'])) {
+            if (checkBruteForce($pdo, $user['id'])) {
                 $error = "Demasiados intentos fallidos. Por favor, intente más tarde.";
             } else {
                 loginUser($user);

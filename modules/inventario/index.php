@@ -32,13 +32,18 @@ function obtenerProductos($user_id, $limit, $offset, $busqueda, $columna_orden, 
     FROM inventario
     LEFT JOIN departamentos ON inventario.departamento_id = departamentos.id
     LEFT JOIN categorias ON inventario.categoria_id = categorias.id
-    WHERE inventario.user_id = ? 
-    AND (inventario.nombre LIKE ? OR inventario.codigo_barras LIKE ?)
-    ORDER BY $columna_orden $direccion_orden
-    LIMIT ? OFFSET ?";
+    WHERE inventario.user_id = :user_id 
+    AND (inventario.nombre LIKE :busqueda OR inventario.codigo_barras LIKE :busqueda)
+    ORDER BY " . $columna_orden . " " . $direccion_orden . "
+    LIMIT :limit OFFSET :offset";
 
     $stmt = $pdo->prepare($query);
-    $stmt->execute([$user_id, "%$busqueda%", "%$busqueda%", $limit, $offset]);
+    $busqueda_param = "%$busqueda%";
+    $stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
+    $stmt->bindParam(':busqueda', $busqueda_param, PDO::PARAM_STR);
+    $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+    $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+    $stmt->execute();
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 

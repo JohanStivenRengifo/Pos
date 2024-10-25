@@ -22,11 +22,14 @@ function getUserVentas($user_id, $limit, $offset) {
     $query = "SELECT v.*, c.nombre AS cliente_nombre 
           FROM ventas v 
           LEFT JOIN clientes c ON v.cliente_id = c.id 
-          WHERE v.user_id = ? 
+          WHERE v.user_id = :user_id 
           ORDER BY v.fecha DESC 
-          LIMIT ? OFFSET ?";
+          LIMIT :limit OFFSET :offset";
     $stmt = $pdo->prepare($query);
-    $stmt->execute([$user_id, $limit, $offset]);
+    $stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
+    $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+    $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+    $stmt->execute();
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 

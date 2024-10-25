@@ -11,6 +11,10 @@ $(document).ready(function () {
     const productsGrid = $('#products-grid');
     const tipoDocumentoSelect = $('#tipo-documento');
     const tituloDocumento = $('#titulo-documento');
+    const clienteBusqueda = $('#cliente-busqueda');
+    const clienteLista = $('#cliente-lista');
+    const nuevoClienteForm = $('#nuevo-cliente-form');
+    const cantidadTotalElement = $('#cantidad-total');
 
     // Función para mostrar alertas de error
     function mostrarAlertaError(mensaje) {
@@ -33,12 +37,21 @@ $(document).ready(function () {
 
     // Función para actualizar el carrito
     function actualizarCarrito() {
+        const listaVenta = $('#venta-lista tbody');
         listaVenta.empty();
         let subtotal = 0;
+        let cantidadTotal = 0;
+
+        if (carrito.length === 0) {
+            $('#venta-lista-empty').show();
+        } else {
+            $('#venta-lista-empty').hide();
+        }
 
         carrito.forEach(item => {
             const subtotalItem = item.precio * item.cantidad;
             subtotal += subtotalItem;
+            cantidadTotal += item.cantidad;
 
             listaVenta.append(`
                 <tr class="producto-${item.id}">
@@ -58,22 +71,22 @@ $(document).ready(function () {
             `);
         });
 
-        const descuentoPorcentaje = parseFloat(descuentoInput.val()) || 0;
+        const descuentoPorcentaje = parseFloat($('#descuento').val()) || 0;
         const descuento = subtotal * (descuentoPorcentaje / 100);
         const total = subtotal - descuento;
 
-        totalVentaElement.text(formatearPrecioCOP(total));
-        $('#subtotal').text(`Subtotal: ${formatearPrecioCOP(subtotal)}`);
-        $('#descuento-monto').text(`Descuento: ${formatearPrecioCOP(descuento)}`);
+        $('#subtotal').text(formatearPrecioCOP(subtotal));
+        $('#descuento-monto').text(formatearPrecioCOP(descuento));
+        $('#venta-total').text(formatearPrecioCOP(total));
+        $('#cantidad-total').text(cantidadTotal);
 
-        // Habilitar o deshabilitar el botón de venta
-        ventaBoton.prop('disabled', carrito.length === 0);
+        $('#venta-boton').prop('disabled', carrito.length === 0);
     }
 
     // Función para agregar producto al carrito
     function agregarProducto(id, nombre, precio, stock, cantidad = 1) {
         if (stock <= 0) {
-            mostrarAlertaError(`No hay stock disponible para ${nombre}`);
+            mostrarAlerta('error', 'Error', `No hay stock disponible para ${nombre}`);
             return;
         }
 
@@ -81,7 +94,7 @@ $(document).ready(function () {
 
         if (productoExistente) {
             if (productoExistente.cantidad + cantidad > stock) {
-                mostrarAlertaError(`No hay suficiente stock para ${nombre}`);
+                mostrarAlerta('error', 'Error', `No hay suficiente stock para ${nombre}`);
                 return;
             }
             productoExistente.cantidad += cantidad;
@@ -408,4 +421,133 @@ $(document).ready(function () {
             };
         }
     }
+
+    // Función para buscar clientes
+    function buscarClientes(query) {
+        $.ajax({
+            url: 'buscar_clientes.php',
+            method: 'GET',
+            data: { query: query },
+            success: function(response) {
+                const clientes = JSON.parse(response);
+                mostrarResultadosClientes(clientes);
+            },
+            error: function(xhr, status, error) {
+                console.error("Error al buscar clientes:", error);
+            }
+        });
+    }
+
+    // Función para mostrar los resultados de la búsqueda de clientes
+    function mostrarResultadosClientes(clientes) {
+        const listaClientes = $('#cliente-lista');
+        listaClientes.empty();
+
+        if (clientes.length > 0) {
+            clientes.forEach(function(cliente) {
+                listaClientes.append(`
+                    <a href="#" class="list-group-item list-group-item-action" data-id="${cliente.id}" data-nombre="${cliente.nombre}">
+                        ${cliente.nombre} - ${cliente.documento}
+                    </a>
+                `);
+            });
+            listaClientes.show();
+        } else {
+            listaClientes.hide();
+        }
+    }
+
+    // Evento para buscar clientes mientras se escribe
+    $('#cliente-busqueda').on('input', function() {
+        const query = $(this).val().trim();
+        if (query.length >= 2) {
+            buscarClientes(query);
+        } else {
+            $('#cliente-lista').hide();
+        }
+    });
+
+    // Evento para seleccionar un cliente de la lista
+    $('#cliente-lista').on('click', 'a', function(e) {
+        e.preventDefault();
+        const clienteId = $(this).data('id');
+        const clienteNombre = $(this).data('nombre');
+        seleccionarCliente(clienteId, clienteNombre);
+    });
+
+    // Función para seleccionar un cliente
+    function seleccionarCliente(clienteId, clienteNombre) {
+        $('#cliente-id').val(clienteId);
+        $('#nombre-cliente-seleccionado').text(clienteNombre);
+        $('#cliente-seleccionado').show();
+        $('#cliente-busqueda').val('').hide();
+        $('#cliente-lista').hide();
+    }
+
+    // Evento para cambiar el cliente seleccionado
+    $('#cambiar-cliente').on('click', function() {
+        $('#cliente-id').val('');
+        $('#cliente-seleccionado').hide();
+        $('#cliente-busqueda').val('').show().focus();
+    });
+
+    // Evento para mostrar formulario de nuevo cliente
+    $('#nuevo-cliente').on('click', function() {
+        nuevoClienteForm.show();
+        clienteSelect.hide();
+    });
+
+    // Función para guardar un nuevo cliente
+    function guardarNuevoCliente() {
+        const nuevoCliente = {
+            nombre: $('#nuevo-cliente-nombre').val(),
+            documento: $('#nuevo-cliente-documento').val(),
+            email: $('#nuevo-cliente-email').val()
+        };
+
+        $.ajax({
+            url: 'guardar_cliente.php',
+            method: 'POST',
+            data: nuevoCliente,
+            success: function(response) {
+                const clienteGuardado = JSON.parse(response);
+                // Agregar el nuevo cliente al select
+                clienteSelect.append($('<option>', {
+                    value: clienteGuardado.id,
+                    text: clienteGuardado.nombre
+                }));
+                // Seleccionar el nuevo cliente
+                clienteSelect.val(clienteGuardado.id);
+                nuevoClienteForm.hide();
+                clienteSelect.show();
+                // Limpiar los campos del formulario
+                $('#nuevo-cliente-nombre, #nuevo-cliente-documento, #nuevo-cliente-email').val('');
+                // Mostrar mensaje de éxito
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Cliente guardado',
+                    text: 'El cliente ha sido guardado y seleccionado exitosamente'
+                });
+            },
+            error: function(xhr, status, error) {
+                console.error("Error al guardar el cliente:", error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'No se pudo guardar el cliente. Por favor, intente nuevamente.'
+                });
+            }
+        });
+    }
+
+    // Evento para guardar un nuevo cliente
+    $('#guardar-nuevo-cliente').on('click', function() {
+        guardarNuevoCliente();
+    });
+
+    // Evento para cancelar nuevo cliente
+    $('#cancelar-nuevo-cliente').on('click', function() {
+        nuevoClienteForm.hide();
+        clienteSelect.show();
+    });
 });
