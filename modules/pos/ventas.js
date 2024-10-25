@@ -1,8 +1,7 @@
 $(document).ready(function () {
     let carrito = [];
-    const listaVenta = $('#venta-lista');
-    const totalVentaElement = $('#venta-total strong');
-    const alertContainer = $('#alertContainer');
+    const listaVenta = $('#venta-lista tbody');
+    const totalVentaElement = $('#venta-total');
     const buscarProductoInput = $('#buscar-producto');
     const clienteSelect = $('#cliente-select');
     const descuentoInput = $('#descuento');
@@ -11,42 +10,33 @@ $(document).ready(function () {
     const productsGrid = $('#products-grid');
     const tipoDocumentoSelect = $('#tipo-documento');
     const tituloDocumento = $('#titulo-documento');
-    const clienteBusqueda = $('#cliente-busqueda');
-    const clienteLista = $('#cliente-lista');
-    const nuevoClienteForm = $('#nuevo-cliente-form');
     const cantidadTotalElement = $('#cantidad-total');
+    const camposCredito = $('#campos-credito');
 
-    // Función para mostrar alertas de error
-    function mostrarAlertaError(mensaje) {
+    // Función para mostrar alertas
+    function mostrarAlerta(icon, title, text) {
         Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: mensaje,
+            icon,
+            title,
+            text,
             toast: true,
             position: 'top-end',
             showConfirmButton: false,
-            timer: 5000,
+            timer: 3000,
             timerProgressBar: true
         });
     }
 
     // Función para formatear precios en COP
-    function formatearPrecioCOP(precio) {
-        return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(precio);
-    }
+    const formatearPrecioCOP = precio => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(precio);
 
     // Función para actualizar el carrito
     function actualizarCarrito() {
-        const listaVenta = $('#venta-lista tbody');
         listaVenta.empty();
         let subtotal = 0;
         let cantidadTotal = 0;
 
-        if (carrito.length === 0) {
-            $('#venta-lista-empty').show();
-        } else {
-            $('#venta-lista-empty').hide();
-        }
+        $('#venta-lista-empty').toggle(carrito.length === 0);
 
         carrito.forEach(item => {
             const subtotalItem = item.precio * item.cantidad;
@@ -71,16 +61,16 @@ $(document).ready(function () {
             `);
         });
 
-        const descuentoPorcentaje = parseFloat($('#descuento').val()) || 0;
+        const descuentoPorcentaje = parseFloat(descuentoInput.val()) || 0;
         const descuento = subtotal * (descuentoPorcentaje / 100);
         const total = subtotal - descuento;
 
         $('#subtotal').text(formatearPrecioCOP(subtotal));
         $('#descuento-monto').text(formatearPrecioCOP(descuento));
-        $('#venta-total').text(formatearPrecioCOP(total));
-        $('#cantidad-total').text(cantidadTotal);
+        totalVentaElement.text(formatearPrecioCOP(total));
+        cantidadTotalElement.text(cantidadTotal);
 
-        $('#venta-boton').prop('disabled', carrito.length === 0);
+        ventaBoton.prop('disabled', carrito.length === 0);
     }
 
     // Función para agregar producto al carrito
@@ -108,13 +98,9 @@ $(document).ready(function () {
     // Función para debounce
     function debounce(func, wait) {
         let timeout;
-        return function executedFunction(...args) {
-            const later = () => {
-                clearTimeout(timeout);
-                func(...args);
-            };
+        return function(...args) {
             clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
+            timeout = setTimeout(() => func.apply(this, args), wait);
         };
     }
 
@@ -135,44 +121,26 @@ $(document).ready(function () {
         }).first();
 
         if (productoEncontrado.length) {
-            const id = productoEncontrado.data('id');
-            const nombre = productoEncontrado.data('nombre');
-            const precio = parseFloat(productoEncontrado.data('precio'));
-            const stock = parseInt(productoEncontrado.data('cantidad'));
-            agregarProducto(id, nombre, precio, stock);
+            const { id, nombre, precio, cantidad: stock } = productoEncontrado.data();
+            agregarProducto(id, nombre, parseFloat(precio), parseInt(stock));
             buscarProductoInput.val('');
             return true;
         }
         return false;
     }
 
-    // Evento para cambiar entre factura y cotización
+    // Eventos
     tipoDocumentoSelect.on('change', function() {
-        const tipoDocumento = $(this).val();
-        if (tipoDocumento === 'factura') {
-            tituloDocumento.text('Factura de venta');
-            ventaBoton.text('Confirmar Venta');
-            metodoPagoSelect.prop('disabled', false);
-        } else {
-            tituloDocumento.text('Cotización');
-            ventaBoton.text('Generar Cotización');
-            metodoPagoSelect.prop('disabled', true);
-        }
+        const esFactura = $(this).val() === 'factura';
+        tituloDocumento.text(esFactura ? 'Factura de venta' : 'Cotización');
+        ventaBoton.text(esFactura ? 'Confirmar Venta' : 'Generar Cotización');
+        metodoPagoSelect.prop('disabled', !esFactura);
     });
 
-    // Agregar un evento para mostrar/ocultar campos adicionales para el crédito
     metodoPagoSelect.on('change', function() {
-        const metodoPago = $(this).val();
-        if (metodoPago === 'credito') {
-            // Mostrar campos adicionales para el crédito
-            $('#campos-credito').show();
-        } else {
-            // Ocultar campos adicionales para el crédito
-            $('#campos-credito').hide();
-        }
+        camposCredito.toggle($(this).val() === 'credito');
     });
 
-    // Evento para buscar y filtrar productos
     buscarProductoInput.on('input', debounce(function() {
         const valorBuscado = $(this).val().trim();
         filtrarProductos(valorBuscado);
@@ -182,7 +150,6 @@ $(document).ready(function () {
         }
     }, 300));
 
-    // Evento para agregar producto al presionar Enter en el buscador
     buscarProductoInput.on('keypress', function (e) {
         if (e.which === 13) {
             e.preventDefault();
@@ -192,13 +159,10 @@ $(document).ready(function () {
                 const productoEncontrado = $('.product-card:visible').first();
                 
                 if (productoEncontrado.length) {
-                    const id = productoEncontrado.data('id');
-                    const nombre = productoEncontrado.data('nombre');
-                    const precio = parseFloat(productoEncontrado.data('precio'));
-                    const stock = parseInt(productoEncontrado.data('cantidad'));
-                    agregarProducto(id, nombre, precio, stock);
+                    const { id, nombre, precio, cantidad: stock } = productoEncontrado.data();
+                    agregarProducto(id, nombre, parseFloat(precio), parseInt(stock));
                 } else {
-                    mostrarAlertaError('Producto no encontrado');
+                    mostrarAlerta('error', 'Error', 'Producto no encontrado');
                 }
             }
             $(this).val('');
@@ -206,48 +170,43 @@ $(document).ready(function () {
         }
     });
 
-    // Evento para agregar producto al hacer clic
-    $(document).on('click', '.product-card', function () {
-        const id = $(this).data('id');
-        const nombre = $(this).data('nombre');
-        const precio = parseFloat($(this).data('precio'));
-        const stock = parseInt($(this).data('cantidad'));
-        agregarProducto(id, nombre, precio, stock);
+    productsGrid.on('click', '.product-card', function () {
+        const { id, nombre, precio, cantidad: stock } = $(this).data();
+        agregarProducto(id, nombre, parseFloat(precio), parseInt(stock));
     });
 
-    // Eventos para eliminar producto y cambiar cantidad
-    listaVenta.on('click', '.eliminar-producto', function () {
-        const id = $(this).data('id');
-        carrito = carrito.filter(item => item.id !== id);
-        actualizarCarrito();
-    }).on('change', '.cantidad-producto', function () {
-        const id = $(this).data('id');
-        const nuevaCantidad = parseInt($(this).val());
-        const producto = carrito.find(item => item.id === id);
-        if (producto) {
-            if (nuevaCantidad > producto.stock) {
-                mostrarAlertaError(`No hay suficiente stock para ${producto.nombre}`);
-                $(this).val(producto.cantidad);
-                return;
-            }
-            producto.cantidad = nuevaCantidad;
+    listaVenta
+        .on('click', '.eliminar-producto', function () {
+            const id = $(this).data('id');
+            carrito = carrito.filter(item => item.id !== id);
             actualizarCarrito();
-        }
-    });
+        })
+        .on('change', '.cantidad-producto', function () {
+            const id = $(this).data('id');
+            const nuevaCantidad = parseInt($(this).val());
+            const producto = carrito.find(item => item.id === id);
+            if (producto) {
+                if (nuevaCantidad > producto.stock) {
+                    mostrarAlerta('error', 'Error', `No hay suficiente stock para ${producto.nombre}`);
+                    $(this).val(producto.cantidad);
+                    return;
+                }
+                producto.cantidad = nuevaCantidad;
+                actualizarCarrito();
+            }
+        });
 
-    // Agregar evento para aplicar descuento
     descuentoInput.on('input', actualizarCarrito);
 
-    // Evento para confirmar la venta o generar cotización
     ventaBoton.on('click', function () {
         if (carrito.length === 0) {
-            mostrarAlertaError('No hay productos en el carrito.');
+            mostrarAlerta('error', 'Error', 'No hay productos en el carrito.');
             return;
         }
 
         const clienteId = clienteSelect.val();
         if (!clienteId) {
-            mostrarAlertaError('Por favor, seleccione un cliente.');
+            mostrarAlerta('error', 'Error', 'Por favor, seleccione un cliente.');
             return;
         }
 
@@ -260,25 +219,18 @@ $(document).ready(function () {
         const datos = {
             tipo_documento: tipoDocumento,
             cliente_id: clienteId,
-            productos: carrito.map(item => ({
-                id: item.id,
-                cantidad: item.cantidad,
-                precio: item.precio
-            })),
-            total: total,
-            descuento: descuento,
+            productos: carrito.map(({ id, cantidad, precio }) => ({ id, cantidad, precio })),
+            total,
+            descuento,
             metodo_pago: metodoPago
         };
 
-        // Agregar información de crédito si es necesario
         if (metodoPago === 'credito') {
             datos.credito = {
                 plazo: $('#plazo-credito').val(),
                 interes: $('#interes-credito').val()
             };
         }
-
-        console.log('Datos a enviar:', datos); // Para depuración
 
         ventaBoton.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Procesando...');
 
@@ -289,13 +241,7 @@ $(document).ready(function () {
             dataType: 'json',
             success: function (response) {
                 if (response.success) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Éxito',
-                        text: `${tipoDocumento === 'factura' ? 'Venta' : 'Cotización'} procesada correctamente. Número de documento: ${response.numero_factura}`,
-                        showConfirmButton: false,
-                        timer: 5000
-                    });
+                    mostrarAlerta('success', 'Éxito', `${tipoDocumento === 'factura' ? 'Venta' : 'Cotización'} procesada correctamente. Número de documento: ${response.numero_factura}`);
                     
                     Swal.fire({
                         title: 'Imprimir documento',
@@ -311,11 +257,10 @@ $(document).ready(function () {
                     });
                     
                     if (tipoDocumento === 'factura') {
-                        // Actualizar el stock en la página con la información del servidor
                         response.productos_actualizados.forEach(producto => {
                             const productoCard = $(`.product-card[data-id="${producto.id}"]`);
-                            productoCard.data('cantidad', producto.nuevo_stock);
-                            productoCard.find('small:contains("Stock:")').text(`Stock: ${producto.nuevo_stock}`);
+                            productoCard.data('cantidad', producto.nuevo_stock)
+                                .find('small:contains("Stock:")').text(`Stock: ${producto.nuevo_stock}`);
                         });
                     }
                     
@@ -324,15 +269,15 @@ $(document).ready(function () {
                     actualizarCarrito();
                     descuentoInput.val(0);
                     clienteSelect.val('');
-                    metodoPagoSelect.val('efectivo');
+                    metodoPagoSelect.val('efectivo').trigger('change');
                     buscarProductoInput.val('').focus();
                 } else {
-                    mostrarAlertaError(`Error al procesar el documento: ${response.message}`);
+                    mostrarAlerta('error', 'Error', `Error al procesar el documento: ${response.message}`);
                 }
             },
             error: function (xhr, status, error) {
                 console.error('Error en la solicitud AJAX:', status, error);
-                mostrarAlertaError('Error en la comunicación con el servidor.');
+                mostrarAlerta('error', 'Error', 'Error en la comunicación con el servidor.');
             },
             complete: function() {
                 ventaBoton.prop('disabled', false).html(tipoDocumento === 'factura' ? 'Confirmar Venta' : 'Generar Cotización');
@@ -340,38 +285,26 @@ $(document).ready(function () {
         });
     });
 
-    // Enfocar automáticamente el campo de búsqueda al cargar la página
+    // Inicialización
     buscarProductoInput.focus();
-
-    // Inicializar el carrito
     actualizarCarrito();
 
-    // Evento para imprimir ticket anterior
+    // Imprimir ticket anterior
     $('#imprimir-ticket-anterior').on('click', function() {
-        console.log('Botón de imprimir ticket anterior clickeado'); // Para depuración
         $.ajax({
             url: 'obtener_ventas.php',
             method: 'GET',
             dataType: 'json',
             success: function(ventas) {
-                console.log('Ventas obtenidas:', ventas); // Para depuración
                 if (ventas.length > 0) {
                     mostrarModalVentas(ventas);
                 } else {
-                    Swal.fire({
-                        icon: 'info',
-                        title: 'Sin ventas',
-                        text: 'No se encontraron ventas anteriores.',
-                    });
+                    mostrarAlerta('info', 'Sin ventas', 'No se encontraron ventas anteriores.');
                 }
             },
             error: function(xhr, status, error) {
                 console.error('Error al obtener las ventas:', error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'No se pudieron cargar las ventas anteriores.',
-                });
+                mostrarAlerta('error', 'Error', 'No se pudieron cargar las ventas anteriores.');
             }
         });
     });
@@ -394,8 +327,7 @@ $(document).ready(function () {
             width: '600px',
             didOpen: () => {
                 $('.imprimir-venta').on('click', function() {
-                    const ventaId = $(this).data('venta-id');
-                    imprimirDocumento(ventaId);
+                    imprimirDocumento($(this).data('venta-id'));
                     Swal.close();
                 });
             }
@@ -410,144 +342,11 @@ $(document).ready(function () {
         const printWindow = window.open(url, windowName, windowSize);
         
         if (!printWindow) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'El navegador bloqueó la ventana emergente. Por favor, permita las ventanas emergentes para este sitio.',
-            });
+            mostrarAlerta('error', 'Error', 'El navegador bloqueó la ventana emergente. Por favor, permita las ventanas emergentes para este sitio.');
         } else {
             printWindow.onload = function() {
                 printWindow.print();
             };
         }
     }
-
-    // Función para buscar clientes
-    function buscarClientes(query) {
-        $.ajax({
-            url: 'buscar_clientes.php',
-            method: 'GET',
-            data: { query: query },
-            success: function(response) {
-                const clientes = JSON.parse(response);
-                mostrarResultadosClientes(clientes);
-            },
-            error: function(xhr, status, error) {
-                console.error("Error al buscar clientes:", error);
-            }
-        });
-    }
-
-    // Función para mostrar los resultados de la búsqueda de clientes
-    function mostrarResultadosClientes(clientes) {
-        const listaClientes = $('#cliente-lista');
-        listaClientes.empty();
-
-        if (clientes.length > 0) {
-            clientes.forEach(function(cliente) {
-                listaClientes.append(`
-                    <a href="#" class="list-group-item list-group-item-action" data-id="${cliente.id}" data-nombre="${cliente.nombre}">
-                        ${cliente.nombre} - ${cliente.documento}
-                    </a>
-                `);
-            });
-            listaClientes.show();
-        } else {
-            listaClientes.hide();
-        }
-    }
-
-    // Evento para buscar clientes mientras se escribe
-    $('#cliente-busqueda').on('input', function() {
-        const query = $(this).val().trim();
-        if (query.length >= 2) {
-            buscarClientes(query);
-        } else {
-            $('#cliente-lista').hide();
-        }
-    });
-
-    // Evento para seleccionar un cliente de la lista
-    $('#cliente-lista').on('click', 'a', function(e) {
-        e.preventDefault();
-        const clienteId = $(this).data('id');
-        const clienteNombre = $(this).data('nombre');
-        seleccionarCliente(clienteId, clienteNombre);
-    });
-
-    // Función para seleccionar un cliente
-    function seleccionarCliente(clienteId, clienteNombre) {
-        $('#cliente-id').val(clienteId);
-        $('#nombre-cliente-seleccionado').text(clienteNombre);
-        $('#cliente-seleccionado').show();
-        $('#cliente-busqueda').val('').hide();
-        $('#cliente-lista').hide();
-    }
-
-    // Evento para cambiar el cliente seleccionado
-    $('#cambiar-cliente').on('click', function() {
-        $('#cliente-id').val('');
-        $('#cliente-seleccionado').hide();
-        $('#cliente-busqueda').val('').show().focus();
-    });
-
-    // Evento para mostrar formulario de nuevo cliente
-    $('#nuevo-cliente').on('click', function() {
-        nuevoClienteForm.show();
-        clienteSelect.hide();
-    });
-
-    // Función para guardar un nuevo cliente
-    function guardarNuevoCliente() {
-        const nuevoCliente = {
-            nombre: $('#nuevo-cliente-nombre').val(),
-            documento: $('#nuevo-cliente-documento').val(),
-            email: $('#nuevo-cliente-email').val()
-        };
-
-        $.ajax({
-            url: 'guardar_cliente.php',
-            method: 'POST',
-            data: nuevoCliente,
-            success: function(response) {
-                const clienteGuardado = JSON.parse(response);
-                // Agregar el nuevo cliente al select
-                clienteSelect.append($('<option>', {
-                    value: clienteGuardado.id,
-                    text: clienteGuardado.nombre
-                }));
-                // Seleccionar el nuevo cliente
-                clienteSelect.val(clienteGuardado.id);
-                nuevoClienteForm.hide();
-                clienteSelect.show();
-                // Limpiar los campos del formulario
-                $('#nuevo-cliente-nombre, #nuevo-cliente-documento, #nuevo-cliente-email').val('');
-                // Mostrar mensaje de éxito
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Cliente guardado',
-                    text: 'El cliente ha sido guardado y seleccionado exitosamente'
-                });
-            },
-            error: function(xhr, status, error) {
-                console.error("Error al guardar el cliente:", error);
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'No se pudo guardar el cliente. Por favor, intente nuevamente.'
-                });
-            }
-        });
-    }
-
-    // Evento para guardar un nuevo cliente
-    $('#guardar-nuevo-cliente').on('click', function() {
-        guardarNuevoCliente();
-    });
-
-    // Evento para cancelar nuevo cliente
-    $('#cancelar-nuevo-cliente').on('click', function() {
-        nuevoClienteForm.hide();
-        clienteSelect.show();
-    });
 });

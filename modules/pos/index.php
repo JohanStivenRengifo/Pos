@@ -165,25 +165,6 @@ $productos = obtenerProductos($pdo, $user_id);
                     </select>
                 </div>
 
-                <div class="form-group">
-                    <button class="btn btn-outline-secondary btn-sm" id="nuevo-cliente"><i class="fas fa-user-plus"></i> Nuevo cliente</button>
-                </div>
-
-                <div id="nuevo-cliente-form" style="display:none;">
-                    <h5>Nuevo Cliente</h5>
-                    <div class="form-group">
-                        <input type="text" id="nuevo-cliente-nombre" class="form-control form-control-sm" placeholder="Nombre">
-                    </div>
-                    <div class="form-group">
-                        <input type="text" id="nuevo-cliente-documento" class="form-control form-control-sm" placeholder="Documento">
-                    </div>
-                    <div class="form-group">
-                        <input type="email" id="nuevo-cliente-email" class="form-control form-control-sm" placeholder="Email">
-                    </div>
-                    <button id="guardar-nuevo-cliente" class="btn btn-primary btn-sm">Guardar Cliente</button>
-                    <button id="cancelar-nuevo-cliente" class="btn btn-secondary btn-sm">Cancelar</button>
-                </div>
-
                 <div id="venta-lista" class="mb-3">
                     <table class="table table-sm table-hover">
                         <thead>
@@ -224,7 +205,7 @@ $productos = obtenerProductos($pdo, $user_id);
                 </div>
 
                 <div id="campos-credito" style="display: none;">
-                    <div class="form-group">
+                    <div class="form-group"> 
                         <label for="plazo-credito">Plazo (meses)</label>
                         <input type="number" id="plazo-credito" class="form-control form-control-sm" min="1" value="1">
                     </div>
