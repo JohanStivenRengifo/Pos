@@ -1,138 +1,123 @@
 <?php
+session_start();
+require_once '../../config/db.php';
+require_once './functions.php';
 
-require '../../config/db.php';
-require '../../fpdf/fpdf.php';
-require 'helpers/NumeroALetras.php';
-
-define('MONEDA', '$');
-define('MONEDA_LETRA', 'pesos');
-define('MONEDA_DECIMAL', 'centavos');
-
-$idVenta = isset($_GET['id']) ? intval($_GET['id']) : 0;
-
-if ($idVenta <= 0) {
-    die('ID de venta inválido');
+if (!isset($_SESSION['user_id']) || !isset($_GET['id'])) {
+    header("Location: ../../index.php");
+    exit();
 }
 
-$sqlVenta = "SELECT v.id, v.numero_factura, v.total, v.descuento, v.metodo_pago, 
-             DATE_FORMAT(v.fecha, '%d/%m/%Y') AS fecha_venta, 
-             DATE_FORMAT(v.fecha, '%H:%i') AS hora_venta,
-             c.primer_nombre, c.segundo_nombre, c.apellidos, c.tipo_identificacion, c.identificacion
-             FROM ventas v
-             JOIN clientes c ON v.cliente_id = c.id
-             WHERE v.id = ?";
+$user_id = $_SESSION['user_id'];
+$venta_id = $_GET['id'];
 
-$stmt = $pdo->prepare($sqlVenta);
-$stmt->execute([$idVenta]);
+// Obtener información de la venta
+$stmt = $pdo->prepare("SELECT v.*, c.nombre AS cliente_nombre, c.identificacion AS cliente_identificacion, u.nombre AS vendedor_nombre
+                       FROM ventas v
+                       LEFT JOIN clientes c ON v.cliente_id = c.id
+                       LEFT JOIN users u ON v.user_id = u.id
+                       WHERE v.id = ? AND v.user_id = ?");
+$stmt->execute([$venta_id, $user_id]);
 $venta = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$venta) {
-    die('Venta no encontrada');
+    echo "Venta no encontrada";
+    exit();
 }
 
-$sqlDetalle = "SELECT vd.cantidad, vd.precio_unitario, i.nombre AS producto_nombre
-               FROM venta_detalles vd
-               JOIN inventario i ON vd.producto_id = i.id
-               WHERE vd.venta_id = ?";
+// Obtener información de la empresa
+$stmt = $pdo->prepare("SELECT e.nombre_empresa, e.direccion, e.telefono, e.correo_contacto, e.prefijo_factura
+                       FROM users u
+                       LEFT JOIN empresas e ON u.empresa_id = e.id
+                       WHERE u.id = ?");
+$stmt->execute([$user_id]);
+$empresa = $stmt->fetch(PDO::FETCH_ASSOC);
 
-$stmtDetalle = $pdo->prepare($sqlDetalle);
-$stmtDetalle->execute([$idVenta]);
-$detalles = $stmtDetalle->fetchAll(PDO::FETCH_ASSOC);
+// Obtener detalles de la venta
+$stmt = $pdo->prepare("SELECT vd.*, p.nombre AS producto_nombre
+                       FROM venta_detalles vd
+                       LEFT JOIN inventario p ON vd.producto_id = p.id
+                       WHERE vd.venta_id = ?");
+$stmt->execute([$venta_id]);
+$detalles = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$pdf = new FPDF('P', 'mm', array(80, 0));
-$pdf->AddPage();
-$pdf->SetMargins(5, 5, 5);
-$pdf->SetFont('Arial', 'B', 9);
+// Configuración para impresora térmica de 80mm
+$ancho_papel = 80; // mm
+$caracteres_por_linea = 48; // Ajusta según la densidad de impresión de tu impresora
 
-$pdf->Image('../../images/Logo.png', 25, 2, 30);
+// Funciones de formato
+function centrar_texto($texto, $ancho) {
+    $espacios = $ancho - mb_strlen($texto);
+    $espacios_izquierda = floor($espacios / 2);
+    return str_repeat(' ', $espacios_izquierda) . $texto;
+}
 
-$pdf->Ln(12);
+function alinear_derecha($texto, $ancho) {
+    $espacios = $ancho - mb_strlen($texto);
+    return str_repeat(' ', $espacios) . $texto;
+}
 
-$pdf->MultiCell(70, 5, 'Ferreteria Obra Blanca', 0, 'C');
+function formatear_numero($numero) {
+    return number_format($numero, 2, ',', '.');
+}
 
-$pdf->SetFont('Arial', '', 8);
-$pdf->Cell(70, 4, 'NIT: 11205733-1', 0, 1, 'C');
-$pdf->Cell(70, 4, 'Dirección: Cra 3A-18', 0, 1, 'C');
-$pdf->Cell(70, 4, 'Tel: (+57) 3112384067', 0, 1, 'C');
+// Generar contenido del ticket
+$ticket = "";
 
-$pdf->Ln(2);
+// Encabezado
+$ticket .= str_repeat('=', $caracteres_por_linea) . "\n";
+$ticket .= centrar_texto(mb_strtoupper($empresa['nombre_empresa']), $caracteres_por_linea) . "\n";
+$ticket .= centrar_texto($empresa['direccion'], $caracteres_por_linea) . "\n";
+$ticket .= centrar_texto("Tel: " . $empresa['telefono'], $caracteres_por_linea) . "\n";
+$ticket .= centrar_texto($empresa['correo_contacto'], $caracteres_por_linea) . "\n";
+$ticket .= str_repeat('=', $caracteres_por_linea) . "\n\n";
 
-$pdf->SetFont('Arial', 'B', 8);
-$pdf->Cell(25, 5, 'Factura No:', 0, 0, 'L');
-$pdf->SetFont('Arial', '', 8);
-$pdf->Cell(45, 5, $venta['numero_factura'], 0, 1, 'L');
+// Detalles de la venta
+$ticket .= "FACTURA DE VENTA N°: " . $empresa['prefijo_factura'] . "-" . $venta['numero_factura'] . "\n";
+$ticket .= "Fecha: " . date('d/m/Y H:i', strtotime($venta['fecha'])) . "\n";
+$ticket .= str_repeat('-', $caracteres_por_linea) . "\n";
+$ticket .= "Cliente: " . $venta['cliente_nombre'] . "\n";
+$ticket .= "NIT/CC: " . $venta['cliente_identificacion'] . "\n";
+$ticket .= "Vendedor: " . $venta['vendedor_nombre'] . "\n";
+$ticket .= str_repeat('-', $caracteres_por_linea) . "\n\n";
 
-$pdf->SetFont('Arial', 'B', 8);
-$pdf->Cell(25, 5, 'Fecha:', 0, 0, 'L');
-$pdf->SetFont('Arial', '', 8);
-$pdf->Cell(45, 5, $venta['fecha_venta'] . ' ' . $venta['hora_venta'], 0, 1, 'L');
+// Encabezados de la tabla de productos
+$ticket .= sprintf("%-20s %8s %8s %10s\n", "PRODUCTO", "CANT", "PRECIO", "TOTAL");
+$ticket .= str_repeat('-', $caracteres_por_linea) . "\n";
 
-$pdf->SetFont('Arial', 'B', 8);
-$pdf->Cell(25, 5, 'Cliente:', 0, 0, 'L');
-$pdf->SetFont('Arial', '', 8);
-$pdf->Cell(45, 5, $venta['primer_nombre'] . ' ' . $venta['segundo_nombre'] . ' ' . $venta['apellidos'], 0, 1, 'L');
-
-$pdf->SetFont('Arial', 'B', 8);
-$pdf->Cell(25, 5, $venta['tipo_identificacion'] . ':', 0, 0, 'L');
-$pdf->SetFont('Arial', '', 8);
-$pdf->Cell(45, 5, $venta['identificacion'], 0, 1, 'L');
-
-$pdf->Cell(70, 2, str_repeat('-', 47), 0, 1, 'L');
-
-$pdf->SetFont('Arial', 'B', 8);
-$pdf->Cell(8, 4, 'Cant', 0, 0, 'L');
-$pdf->Cell(32, 4, 'Descripción', 0, 0, 'L');
-$pdf->Cell(15, 4, 'Precio', 0, 0, 'R');
-$pdf->Cell(15, 4, 'Total', 0, 1, 'R');
-
-$pdf->Cell(70, 2, str_repeat('-', 47), 0, 1, 'L');
-
-$totalProductos = 0;
-$pdf->SetFont('Arial', '', 7);
-
+// Detalles de los productos
 foreach ($detalles as $detalle) {
-    $importe = $detalle['cantidad'] * $detalle['precio_unitario'];
-    $totalProductos += $detalle['cantidad'];
-
-    $pdf->Cell(8, 4, $detalle['cantidad'], 0, 0, 'L');
+    $nombre_producto = mb_substr($detalle['producto_nombre'], 0, 20);
+    $cantidad = formatear_numero($detalle['cantidad']);
+    $precio = formatear_numero($detalle['precio_unitario']);
+    $total = formatear_numero($detalle['cantidad'] * $detalle['precio_unitario']);
     
-    $yInicio = $pdf->GetY();
-    $pdf->MultiCell(32, 4, mb_substr($detalle['producto_nombre'], 0, 20), 0, 'L');
-    $yFin = $pdf->GetY();
-    
-    $pdf->SetXY(45, $yInicio);
-    $pdf->Cell(15, 4, number_format($detalle['precio_unitario'], 2, ',', '.'), 0, 0, 'R');
-    
-    $pdf->SetXY(60, $yInicio);
-    $pdf->Cell(15, 4, number_format($importe, 2, ',', '.'), 0, 1, 'R');
-    $pdf->SetY($yFin);
+    $ticket .= sprintf("%-20s %8s %8s %10s\n", $nombre_producto, $cantidad, $precio, $total);
 }
 
-$pdf->Cell(70, 2, str_repeat('-', 47), 0, 1, 'L');
+$ticket .= str_repeat('-', $caracteres_por_linea) . "\n";
 
-$pdf->SetFont('Arial', '', 8);
-$pdf->Cell(55, 4, 'Subtotal:', 0, 0, 'R');
-$pdf->Cell(15, 4, number_format($venta['total'] + $venta['descuento'], 2, ',', '.'), 0, 1, 'R');
+// Totales
+$subtotal = formatear_numero($venta['total'] + $venta['descuento']);
+$descuento = formatear_numero($venta['descuento']);
+$total = formatear_numero($venta['total']);
 
-$pdf->Cell(55, 4, 'Descuento:', 0, 0, 'R');
-$pdf->Cell(15, 4, number_format($venta['descuento'], 2, ',', '.'), 0, 1, 'R');
+$ticket .= alinear_derecha("SUBTOTAL: $" . $subtotal, $caracteres_por_linea) . "\n";
+$ticket .= alinear_derecha("DESCUENTO: $" . $descuento, $caracteres_por_linea) . "\n";
+$ticket .= str_repeat('-', $caracteres_por_linea) . "\n";
+$ticket .= alinear_derecha("TOTAL A PAGAR: $" . $total, $caracteres_por_linea) . "\n\n";
 
-$pdf->SetFont('Arial', 'B', 8);
-$pdf->Cell(55, 5, 'TOTAL:', 0, 0, 'R');
-$pdf->Cell(15, 5, number_format($venta['total'], 2, ',', '.'), 0, 1, 'R');
+// Método de pago
+$ticket .= "Método de pago: " . mb_strtoupper($venta['metodo_pago']) . "\n\n";
 
-$pdf->Ln(2);
+// Pie de página
+$ticket .= str_repeat('=', $caracteres_por_linea) . "\n";
+$ticket .= centrar_texto("¡GRACIAS POR SU COMPRA!", $caracteres_por_linea) . "\n";
+$ticket .= centrar_texto("Lo esperamos pronto", $caracteres_por_linea) . "\n";
+$ticket .= str_repeat('=', $caracteres_por_linea) . "\n";
 
-$pdf->SetFont('Arial', '', 8);
-$pdf->MultiCell(70, 4, 'Son ' . strtolower(NumeroALetras::convertir($venta['total'], MONEDA_LETRA, MONEDA_DECIMAL)), 0, 'L', 0);
-$pdf->Cell(70, 4, 'Método de pago: ' . ucfirst($venta['metodo_pago']), 0, 1, 'L');
-$pdf->Cell(70, 4, 'Artículos vendidos: ' . $totalProductos, 0, 1, 'L');
-
-$pdf->Ln(2);
-$pdf->SetFont('Arial', '', 7);
-$pdf->MultiCell(70, 3, 'Esta factura contribuye al desarrollo del país. Es un derecho del comprador exigirla y una obligación del vendedor emitirla.', 0, 'C');
-
-$pdf->Ln(2);
-$pdf->MultiCell(70, 5, 'AGRADECEMOS SU PREFERENCIA VUELVA PRONTO!!!', 0, 'C');
-
-$pdf->Output('I', 'Ticket_' . $venta['numero_factura'] . '.pdf');
+// Imprimir el ticket
+header("Content-Type: text/plain; charset=UTF-8");
+header("Content-Disposition: inline; filename=factura_" . $venta['numero_factura'] . ".txt");
+echo $ticket;
+?>

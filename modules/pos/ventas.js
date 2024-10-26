@@ -1,24 +1,28 @@
 $(document).ready(function () {
-    let carrito = [];
-    const listaVenta = $('#venta-lista tbody');
-    const totalVentaElement = $('#venta-total');
-    const buscarProductoInput = $('#buscar-producto');
-    const clienteSelect = $('#cliente-select');
-    const descuentoInput = $('#descuento');
-    const metodoPagoSelect = $('#metodo-pago');
-    const ventaBoton = $('#venta-boton');
-    const productsGrid = $('#products-grid');
-    const tipoDocumentoSelect = $('#tipo-documento');
-    const tituloDocumento = $('#titulo-documento');
-    const cantidadTotalElement = $('#cantidad-total');
-    const camposCredito = $('#campos-credito');
+    // Cachear elementos DOM frecuentemente utilizados
+    const $listaVenta = $('#venta-lista tbody');
+    const $totalVentaElement = $('#venta-total');
+    const $buscarProductoInput = $('#buscar-producto');
+    const $clienteSelect = $('#cliente-select');
+    const $descuentoInput = $('#descuento');
+    const $metodoPagoSelect = $('#metodo-pago');
+    const $ventaBoton = $('#venta-boton');
+    const $productsGrid = $('#products-grid');
+    const $tipoDocumentoSelect = $('#tipo-documento');
+    const $tituloDocumento = $('#titulo-documento');
+    const $cantidadTotalElement = $('#cantidad-total');
+    const $camposCredito = $('#campos-credito');
+    const $ordenarProductos = $('#ordenar-productos');
 
-    // Función para mostrar alertas
+    let carrito = [];
+    let productosCache = {};
+
+    // Función para mostrar alertas mejorada
     function mostrarAlerta(icon, title, text) {
         Swal.fire({
-            icon,
-            title,
-            text,
+            icon: icon,
+            title: title,
+            text: text,
             toast: true,
             position: 'top-end',
             showConfirmButton: false,
@@ -28,55 +32,58 @@ $(document).ready(function () {
     }
 
     // Función para formatear precios en COP
-    const formatearPrecioCOP = precio => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format(precio);
+    const formatearPrecioCOP = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP' }).format;
 
-    // Función para actualizar el carrito
+    // Función para actualizar el carrito optimizada
     function actualizarCarrito() {
-        listaVenta.empty();
+        $listaVenta.empty();
         let subtotal = 0;
         let cantidadTotal = 0;
 
         $('#venta-lista-empty').toggle(carrito.length === 0);
 
+        const fragment = document.createDocumentFragment();
         carrito.forEach(item => {
             const subtotalItem = item.precio * item.cantidad;
             subtotal += subtotalItem;
             cantidadTotal += item.cantidad;
 
-            listaVenta.append(`
-                <tr class="producto-${item.id}">
-                    <td>${item.nombre}</td>
-                    <td>
-                        <input type="number" class="form-control form-control-sm cantidad-producto" 
-                               data-id="${item.id}" value="${item.cantidad}" min="1" max="${item.stock}" style="width: 60px;">
-                    </td>
-                    <td>${formatearPrecioCOP(item.precio)}</td>
-                    <td>${formatearPrecioCOP(subtotalItem)}</td>
-                    <td>
-                        <button class="btn btn-danger btn-sm eliminar-producto" data-id="${item.id}">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </td>
-                </tr>
-            `);
+            const tr = document.createElement('tr');
+            tr.className = `producto-${item.id}`;
+            tr.innerHTML = `
+                <td>${item.nombre}</td>
+                <td>
+                    <input type="number" class="form-control form-control-sm cantidad-producto" 
+                           data-id="${item.id}" value="${item.cantidad}" min="1" max="${item.stock}" style="width: 60px;">
+                </td>
+                <td>${formatearPrecioCOP(item.precio)}</td>
+                <td>${formatearPrecioCOP(subtotalItem)}</td>
+                <td>
+                    <button class="btn btn-danger btn-sm eliminar-producto" data-id="${item.id}">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            `;
+            fragment.appendChild(tr);
         });
+        $listaVenta.append(fragment);
 
-        const descuentoPorcentaje = parseFloat(descuentoInput.val()) || 0;
+        const descuentoPorcentaje = parseFloat($descuentoInput.val()) || 0;
         const descuento = subtotal * (descuentoPorcentaje / 100);
         const total = subtotal - descuento;
 
         $('#subtotal').text(formatearPrecioCOP(subtotal));
         $('#descuento-monto').text(formatearPrecioCOP(descuento));
-        totalVentaElement.text(formatearPrecioCOP(total));
-        cantidadTotalElement.text(cantidadTotal);
+        $totalVentaElement.text(formatearPrecioCOP(total));
+        $cantidadTotalElement.text(cantidadTotal);
 
-        ventaBoton.prop('disabled', carrito.length === 0);
+        $ventaBoton.prop('disabled', carrito.length === 0);
     }
 
-    // Función para agregar producto al carrito
+    // Función para agregar producto al carrito mejorada
     function agregarProducto(id, nombre, precio, stock, cantidad = 1) {
         if (stock <= 0) {
-            mostrarAlerta('error', 'Error', `No hay stock disponible para ${nombre}`);
+            mostrarAlerta('error', 'Sin stock', `No hay stock disponible para ${nombre}`);
             return;
         }
 
@@ -84,7 +91,7 @@ $(document).ready(function () {
 
         if (productoExistente) {
             if (productoExistente.cantidad + cantidad > stock) {
-                mostrarAlerta('error', 'Error', `No hay suficiente stock para ${nombre}`);
+                mostrarAlerta('warning', 'Stock insuficiente', `No hay suficiente stock para ${nombre}`);
                 return;
             }
             productoExistente.cantidad += cantidad;
@@ -93,89 +100,127 @@ $(document).ready(function () {
         }
 
         actualizarCarrito();
+        mostrarAlerta('success', 'Producto agregado', `${nombre} se ha agregado al carrito`);
     }
 
-    // Función para debounce
-    function debounce(func, wait) {
+    // Función de debounce optimizada
+    const debounce = (func, wait) => {
         let timeout;
-        return function(...args) {
+        return (...args) => {
             clearTimeout(timeout);
             timeout = setTimeout(() => func.apply(this, args), wait);
         };
-    }
+    };
 
     // Función para filtrar productos
     function filtrarProductos(valorBuscado) {
-        valorBuscado = valorBuscado.toLowerCase();
+        valorBuscado = valorBuscado.toLowerCase().trim();
         $('.product-card').each(function () {
-            const nombreProducto = $(this).data('nombre').toLowerCase();
-            const codigoBarras = $(this).data('codigo').toString().toLowerCase();
-            $(this).toggle(nombreProducto.includes(valorBuscado) || codigoBarras.includes(valorBuscado));
+            const $this = $(this);
+            const nombreProducto = $this.data('nombre').toLowerCase();
+            const codigoBarras = $this.data('codigo').toString().toLowerCase();
+            const coincide = nombreProducto.includes(valorBuscado) || codigoBarras.includes(valorBuscado);
+            $this.toggle(coincide);
         });
     }
 
-    // Función para buscar producto por código de barras
-    function buscarPorCodigoBarras(codigo) {
+    // Función para buscar producto por código de barras exacto
+    function buscarPorCodigoBarrasExacto(codigo) {
         const productoEncontrado = $('.product-card').filter(function() {
             return $(this).data('codigo').toString().toLowerCase() === codigo.toLowerCase();
         }).first();
 
         if (productoEncontrado.length) {
-            const { id, nombre, precio, cantidad: stock } = productoEncontrado.data();
-            agregarProducto(id, nombre, parseFloat(precio), parseInt(stock));
-            buscarProductoInput.val('');
+            const id = productoEncontrado.data('id');
+            const nombre = productoEncontrado.data('nombre');
+            const precio = parseFloat(productoEncontrado.data('precio'));
+            const stock = parseInt(productoEncontrado.data('cantidad'));
+            agregarProducto(id, nombre, precio, stock);
+            $buscarProductoInput.val('');
             return true;
         }
         return false;
     }
 
-    // Eventos
-    tipoDocumentoSelect.on('change', function() {
-        const esFactura = $(this).val() === 'factura';
-        tituloDocumento.text(esFactura ? 'Factura de venta' : 'Cotización');
-        ventaBoton.text(esFactura ? 'Confirmar Venta' : 'Generar Cotización');
-        metodoPagoSelect.prop('disabled', !esFactura);
-    });
-
-    metodoPagoSelect.on('change', function() {
-        camposCredito.toggle($(this).val() === 'credito');
-    });
-
-    buscarProductoInput.on('input', debounce(function() {
+    // Evento para buscar y filtrar productos
+    $buscarProductoInput.on('input', function() {
         const valorBuscado = $(this).val().trim();
         filtrarProductos(valorBuscado);
 
+        // Si el valor tiene 8 o más caracteres, intentamos buscar por código de barras exacto
         if (valorBuscado.length >= 8) {
-            buscarPorCodigoBarras(valorBuscado);
+            buscarPorCodigoBarrasExacto(valorBuscado);
         }
-    }, 300));
+    });
 
-    buscarProductoInput.on('keypress', function (e) {
+    // Evento para manejar la tecla Enter en la búsqueda
+    $buscarProductoInput.on('keypress', function (e) {
         if (e.which === 13) {
             e.preventDefault();
             const valorBuscado = $(this).val().trim();
             
-            if (!buscarPorCodigoBarras(valorBuscado)) {
+            if (!buscarPorCodigoBarrasExacto(valorBuscado)) {
                 const productoEncontrado = $('.product-card:visible').first();
                 
                 if (productoEncontrado.length) {
-                    const { id, nombre, precio, cantidad: stock } = productoEncontrado.data();
-                    agregarProducto(id, nombre, parseFloat(precio), parseInt(stock));
+                    const id = productoEncontrado.data('id');
+                    const nombre = productoEncontrado.data('nombre');
+                    const precio = parseFloat(productoEncontrado.data('precio'));
+                    const stock = parseInt(productoEncontrado.data('cantidad'));
+                    agregarProducto(id, nombre, precio, stock);
+                    $(this).val('');
                 } else {
-                    mostrarAlerta('error', 'Error', 'Producto no encontrado');
+                    mostrarAlerta('error', 'Producto no encontrado', 'No se encontró ningún producto con ese nombre o código de barras.');
                 }
             }
-            $(this).val('');
             filtrarProductos('');
         }
     });
 
-    productsGrid.on('click', '.product-card', function () {
+    // Función para ordenar productos
+    function ordenarProductos(criterio) {
+        const $productos = $('.product-card').get();
+        $productos.sort((a, b) => {
+            const $a = $(a);
+            const $b = $(b);
+            switch (criterio) {
+                case 'nombre':
+                    return $a.data('nombre').localeCompare($b.data('nombre'));
+                case 'precio_asc':
+                    return $a.data('precio') - $b.data('precio');
+                case 'precio_desc':
+                    return $b.data('precio') - $a.data('precio');
+                case 'stock':
+                    return $b.data('cantidad') - $a.data('cantidad');
+                default:
+                    return 0;
+            }
+        });
+        $productsGrid.append($productos);
+    }
+
+    // Eventos
+    $tipoDocumentoSelect.on('change', function() {
+        const esFactura = $(this).val() === 'factura';
+        $tituloDocumento.text(esFactura ? 'Factura de venta' : 'Cotización');
+        $ventaBoton.text(esFactura ? 'Confirmar Venta' : 'Generar Cotización');
+        $metodoPagoSelect.prop('disabled', !esFactura);
+    });
+
+    $metodoPagoSelect.on('change', function() {
+        $camposCredito.toggle($(this).val() === 'credito');
+    });
+
+    $ordenarProductos.on('change', function() {
+        ordenarProductos($(this).val());
+    });
+
+    $productsGrid.on('click', '.product-card', function () {
         const { id, nombre, precio, cantidad: stock } = $(this).data();
         agregarProducto(id, nombre, parseFloat(precio), parseInt(stock));
     });
 
-    listaVenta
+    $listaVenta
         .on('click', '.eliminar-producto', function () {
             const id = $(this).data('id');
             carrito = carrito.filter(item => item.id !== id);
@@ -196,23 +241,23 @@ $(document).ready(function () {
             }
         });
 
-    descuentoInput.on('input', actualizarCarrito);
+    $descuentoInput.on('input', actualizarCarrito);
 
-    ventaBoton.on('click', function () {
+    $ventaBoton.on('click', function () {
         if (carrito.length === 0) {
-            mostrarAlerta('error', 'Error', 'No hay productos en el carrito.');
+            mostrarAlerta('error', 'Carrito vacío', 'No hay productos en el carrito.');
             return;
         }
 
-        const clienteId = clienteSelect.val();
+        const clienteId = $clienteSelect.val();
         if (!clienteId) {
-            mostrarAlerta('error', 'Error', 'Por favor, seleccione un cliente.');
+            mostrarAlerta('warning', 'Cliente no seleccionado', 'Por favor, seleccione un cliente.');
             return;
         }
 
-        const tipoDocumento = tipoDocumentoSelect.val();
-        const descuento = parseFloat(descuentoInput.val()) || 0;
-        const metodoPago = metodoPagoSelect.val();
+        const tipoDocumento = $tipoDocumentoSelect.val();
+        const descuento = parseFloat($descuentoInput.val()) || 0;
+        const metodoPago = $metodoPagoSelect.val();
         const subtotal = carrito.reduce((sum, item) => sum + (item.precio * item.cantidad), 0);
         const total = subtotal * (1 - descuento / 100);
 
@@ -232,7 +277,7 @@ $(document).ready(function () {
             };
         }
 
-        ventaBoton.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Procesando...');
+        $ventaBoton.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Procesando...');
 
         $.ajax({
             url: 'procesar_venta.php',
@@ -241,19 +286,24 @@ $(document).ready(function () {
             dataType: 'json',
             success: function (response) {
                 if (response.success) {
-                    mostrarAlerta('success', 'Éxito', `${tipoDocumento === 'factura' ? 'Venta' : 'Cotización'} procesada correctamente. Número de documento: ${response.numero_factura}`);
-                    
                     Swal.fire({
-                        title: 'Imprimir documento',
-                        text: `¿Desea imprimir la ${tipoDocumento === 'factura' ? 'factura' : 'cotización'}?`,
-                        icon: 'question',
+                        title: 'Venta Completada',
+                        html: `
+                            <p>${tipoDocumento === 'factura' ? 'Venta' : 'Cotización'} procesada correctamente.</p>
+                            <p>Número de documento: ${response.numero_factura}</p>
+                        `,
+                        icon: 'success',
                         showCancelButton: true,
-                        confirmButtonText: 'Sí, imprimir',
-                        cancelButtonText: 'No, gracias'
+                        confirmButtonText: 'Imprimir Ticket',
+                        cancelButtonText: 'Cerrar',
+                        allowOutsideClick: false
                     }).then((result) => {
                         if (result.isConfirmed) {
                             imprimirDocumento(response.venta_id);
                         }
+                        
+                        // Recargar la página después de cerrar la alerta
+                        location.reload();
                     });
                     
                     if (tipoDocumento === 'factura') {
@@ -267,10 +317,10 @@ $(document).ready(function () {
                     // Reiniciar el formulario
                     carrito = [];
                     actualizarCarrito();
-                    descuentoInput.val(0);
-                    clienteSelect.val('');
-                    metodoPagoSelect.val('efectivo').trigger('change');
-                    buscarProductoInput.val('').focus();
+                    $descuentoInput.val(0);
+                    $clienteSelect.val('');
+                    $metodoPagoSelect.val('efectivo').trigger('change');
+                    $buscarProductoInput.val('').focus();
                 } else {
                     mostrarAlerta('error', 'Error', `Error al procesar el documento: ${response.message}`);
                 }
@@ -280,13 +330,40 @@ $(document).ready(function () {
                 mostrarAlerta('error', 'Error', 'Error en la comunicación con el servidor.');
             },
             complete: function() {
-                ventaBoton.prop('disabled', false).html(tipoDocumento === 'factura' ? 'Confirmar Venta' : 'Generar Cotización');
+                $ventaBoton.prop('disabled', false).html(tipoDocumento === 'factura' ? 'Confirmar Venta' : 'Generar Cotización');
+            }
+        });
+    });
+
+    // Evento para cancelar la venta
+    $('#cancelar-venta').on('click', function() {
+        Swal.fire({
+            title: '¿Cancelar venta?',
+            text: "¿Estás seguro de que deseas cancelar esta venta? Se perderán todos los datos ingresados.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Sí, cancelar venta',
+            cancelButtonText: 'No, continuar con la venta'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                carrito = [];
+                actualizarCarrito();
+                $clienteSelect.val('');
+                $descuentoInput.val(0);
+                $metodoPagoSelect.val('efectivo');
+                Swal.fire(
+                    'Venta cancelada',
+                    'La venta ha sido cancelada y los datos han sido borrados.',
+                    'info'
+                );
             }
         });
     });
 
     // Inicialización
-    buscarProductoInput.focus();
+    $buscarProductoInput.focus();
     actualizarCarrito();
 
     // Imprimir ticket anterior

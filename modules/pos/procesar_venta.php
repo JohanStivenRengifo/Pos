@@ -31,24 +31,15 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id'];
 
-// Agregar logging
-$log_file = fopen("venta_log.txt", "a");
-fwrite($log_file, date('Y-m-d H:i:s') . " - Iniciando venta para usuario ID: " . $user_id . "\n");
-
 // Verificar la información del usuario
 $stmt_user = $pdo->prepare("SELECT * FROM users WHERE id = ?");
 $stmt_user->execute([$user_id]);
 $user_info = $stmt_user->fetch(PDO::FETCH_ASSOC);
 
 if (!$user_info) {
-    fwrite($log_file, date('Y-m-d H:i:s') . " - No se encontró información para el usuario ID: " . $user_id . "\n");
-    fclose($log_file);
     echo json_encode(['success' => false, 'message' => 'Usuario no encontrado']);
     exit();
 }
-
-fwrite($log_file, date('Y-m-d H:i:s') . " - Información del usuario: " . json_encode($user_info) . "\n");
-fclose($log_file);
 
 // Verificar si la solicitud es POST y contiene los datos necesarios
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' || empty($_POST['venta'])) {

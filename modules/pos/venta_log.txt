@@ -1,4 +1,0 @@
-2024-10-24 19:52:12 - Iniciando venta para usuario ID: 4
-2024-10-24 19:52:12 - Información del usuario: {"id":4,"nombre":null,"empresa_id":1,"email":"johan_c6969@hotmail.com","password":"$2y$10$L1GkH1MvzY8242ESViywUO2.Iu2neydQFECtCphXu.GSLO\/JEr2eS","fecha_creacion":"2024-09-26 09:13:39","fecha_actualizacion":"2024-09-26 09:13:39","remember_token":"$2y$10$KfbQ.9BnD.frXkAnUWQD1OTfq.bHgin9Zv7ZVNfpSbbBWvH6tUGKe","token_expires":"2024-11-15 21:35:01"}
-2024-10-25 18:14:33 - Iniciando venta para usuario ID: 4
-2024-10-25 18:14:33 - Información del usuario: {"id":4,"nombre":null,"empresa_id":1,"email":"johan_c6969@hotmail.com","password":"$2y$10$L1GkH1MvzY8242ESViywUO2.Iu2neydQFECtCphXu.GSLO\/JEr2eS","fecha_creacion":"2024-09-26 09:13:39","fecha_actualizacion":"2024-09-26 09:13:39","remember_token":"$2y$10$KfbQ.9BnD.frXkAnUWQD1OTfq.bHgin9Zv7ZVNfpSbbBWvH6tUGKe","token_expires":"2024-11-15 21:35:01"}
