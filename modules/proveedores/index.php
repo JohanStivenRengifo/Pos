@@ -2,18 +2,14 @@
 session_start();
 require_once '../../config/db.php';
 
-// Verificar si el usuario está logueado mediante sesión o cookies
-if (isset($_SESSION['user_id']) && isset($_SESSION['email'])) {
-    $user_id = $_SESSION['user_id'];
-    $email = $_SESSION['email'];
-} elseif (isset($_COOKIE['user_id']) && isset($_COOKIE['email'])) {
-    $user_id = $_COOKIE['user_id'];
-    $email = $_COOKIE['email'];
-} else {
-    // Redirigir al login si no está logueado
+// Verificar si el usuario está logueado
+if (!isset($_SESSION['user_id'])) {
     header("Location: ../../index.php");
     exit();
 }
+
+$user_id = $_SESSION['user_id'];
+$email = $_SESSION['email'];
 
 // Función para obtener todos los proveedores asociados al usuario actual
 function getUserProveedores($user_id)
@@ -67,95 +63,158 @@ $proveedores = getUserProveedores($user_id);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Proveedores</title>
+    <title>Proveedores - VendEasy</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
+    <link rel="stylesheet" href="../../css/welcome.css">
     <link rel="stylesheet" href="../../css/modulos.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.all.min.js"></script>
 </head>
 
 <body>
-
-<div class="sidebar">
-        <h2>Menú Principal</h2>
-        <ul>
-            <li><a href="../../welcome.php">Inicio</a></li>
-            <li><a href="../../modules/ventas/index.php">Ventas</a></li>
-            <li><a href="../../modules/reportes/index.php">Reportes</a></li>
-            <li><a href="../../modules/ingresos/index.php">Ingresos</a></li>
-            <li><a href="../../modules/egresos/index.php">Egresos</a></li>
-            <li><a href="../../modules/inventario/index.php">Productos</a></li>
-            <li><a href="../../modules/clientes/index.php">Clientes</a></li>
-            <li><a href="../../modules/proveedores/index.php">Proveedores</a></li>
-            <li><a href="../../modules/config/index.php">Configuración</a></li>
-            <form method="POST" action="">
-                <button type="submit" name="logout" class="logout-button">Cerrar Sesión</button>
-            </form>
-        </ul>
-    </div>
-
-    <div class="main-content">
-        <h2>Gestionar Proveedores</h2>
-
-        <!-- Mostrar mensaje de éxito o error -->
-        <?php if (!empty($message)): ?>
-            <div class="message">
-                <?= htmlspecialchars($message); ?>
+    <header class="header">
+        <div class="logo">
+            <a href="../../welcome.php">VendEasy</a>
+        </div>
+        <div class="header-icons">
+            <i class="fas fa-bell"></i>
+            <div class="account">
+                <h4><?= htmlspecialchars($email) ?></h4>
             </div>
-        <?php endif; ?>
-
-        <!-- Formulario para agregar nuevo proveedor -->
-        <div class="form-container">
-            <h3>Agregar Nuevo Proveedor</h3>
-            <form method="POST" action="">
-                <div class="form-group">
-                    <label for="nombre">Nombre del Proveedor:</label>
-                    <input type="text" id="nombre" name="nombre" required>
-                </div>
-                <div class="form-group">
-                    <label for="email">Correo Electrónico:</label>
-                    <input type="email" id="email" name="email" required>
-                </div>
-                <div class="form-group">
-                    <label for="telefono">Teléfono:</label>
-                    <input type="text" id="telefono" name="telefono" required>
-                </div>
-                <div class="form-group">
-                    <label for="direccion">Dirección:</label>
-                    <input type="text" id="direccion" name="direccion" required>
-                </div>
-                <button type="submit" name="add_proveedor" class="btn btn-primary">Agregar Proveedor</button>
-            </form>
         </div>
+    </header>
+    <div class="container">
+        <nav>
+            <div class="side_navbar">
+                <span>Menú Principal</span>
+                <a href="/welcome.php" >Dashboard</a>
+                <a href="/modules/pos/index.php">Punto de Venta</a>
+                <a href="/modules/ingresos/index.php">Ingresos</a>
+                <a href="/modules/egresos/index.php">Egresos</a>
+                <a href="/modules/ventas/index.php">Ventas</a>
+                <a href="/modules/inventario/index.php">Inventario</a>
+                <a href="/modules/clientes/index.php">Clientes</a>
+                <a href="/modules/proveedores/index.php" class="active">Proveedores</a>
+                <a href="/modules/reportes/index.php">Reportes</a>
+                <a href="/modules/config/index.php">Configuración</a>
 
-        <!-- Mostrar tabla con la lista de proveedores -->
-        <div class="table-container">
-            <h3>Listado de Proveedores</h3>
-            <?php if (count($proveedores) > 0): ?>
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Nombre</th>
-                            <th>Correo Electrónico</th>
-                            <th>Teléfono</th>
-                            <th>Dirección</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($proveedores as $proveedor): ?>
-                            <tr>
-                                <td><?= htmlspecialchars($proveedor['nombre']); ?></td>
-                                <td><?= htmlspecialchars($proveedor['email']); ?></td>
-                                <td><?= htmlspecialchars($proveedor['telefono']); ?></td>
-                                <td><?= htmlspecialchars($proveedor['direccion']); ?></td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            <?php else: ?>
-                <p>No hay proveedores registrados.</p>
+                <div class="links">
+                    <span>Enlaces Rápidos</span>
+                    <a href="#">Ayuda</a>
+                    <a href="#">Soporte</a>
+                </div>
+            </div>
+        </nav>
+
+        <div class="main-body">
+            <h2>Gestionar Proveedores</h2>
+            <div class="promo_card">
+                <h1>Proveedores</h1>
+                <span>Aquí puedes agregar y gestionar tus proveedores.</span>
+            </div>
+
+            <?php if (!empty($message)): ?>
+                <div class="alert <?= strpos($message, 'exitosamente') !== false ? 'alert-success' : 'alert-danger' ?>">
+                    <?= htmlspecialchars($message); ?>
+                </div>
             <?php endif; ?>
-        </div>
 
+            <div class="history_lists">
+                <div class="list1">
+                    <div class="row">
+                        <h4>Agregar Nuevo Proveedor</h4>
+                    </div>
+                    <form method="POST" action="">
+                        <div class="form-group">
+                            <label for="nombre">Nombre del Proveedor:</label>
+                            <input type="text" id="nombre" name="nombre" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="email">Correo Electrónico:</label>
+                            <input type="email" id="email" name="email" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="telefono">Teléfono:</label>
+                            <input type="text" id="telefono" name="telefono" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="direccion">Dirección:</label>
+                            <input type="text" id="direccion" name="direccion" required>
+                        </div>
+                        <button type="submit" name="add_proveedor" class="btn btn-primary">Agregar Proveedor</button>
+                    </form>
+                </div>
+
+                <div class="list2">
+                    <div class="row">
+                        <h4>Listado de Proveedores</h4>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Correo Electrónico</th>
+                                <th>Teléfono</th>
+                                <th>Dirección</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($proveedores as $proveedor): ?>
+                                <tr>
+                                    <td><?= htmlspecialchars($proveedor['nombre']); ?></td>
+                                    <td><?= htmlspecialchars($proveedor['email']); ?></td>
+                                    <td><?= htmlspecialchars($proveedor['telefono']); ?></td>
+                                    <td><?= htmlspecialchars($proveedor['direccion']); ?></td>
+                                    <td>
+                                        <button class="btn-edit" onclick="editProveedor(<?= htmlspecialchars(json_encode($proveedor)); ?>)">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn-delete" onclick="deleteProveedor(<?= $proveedor['id']; ?>)">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 
+    <script>
+        function editProveedor(proveedor) {
+            // Implementar la lógica para editar un proveedor
+            console.log("Editar proveedor:", proveedor);
+            // Aquí puedes abrir un modal o redirigir a una página de edición
+        }
+
+        function deleteProveedor(id) {
+            // Implementar la lógica para eliminar un proveedor
+            console.log("Eliminar proveedor con ID:", id);
+            // Aquí puedes usar SweetAlert2 para confirmar la eliminación
+            Swal.fire({
+                title: '¿Estás seguro?',
+                text: "Esta acción no se puede deshacer",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Aquí iría la lógica para eliminar el proveedor de la base de datos
+                    Swal.fire(
+                        'Eliminado',
+                        'El proveedor ha sido eliminado.',
+                        'success'
+                    )
+                }
+            })
+        }
+    </script>
 </body>
 
 </html>

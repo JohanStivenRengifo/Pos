@@ -2,23 +2,24 @@
 session_start();
 require_once '../../config/db.php';
 
-if (isset($_SESSION['user_id']) && isset($_SESSION['email'])) {
-    $user_id = $_SESSION['user_id'];
-    $email = $_SESSION['email'];
-} elseif (isset($_COOKIE['user_id']) && isset($_COOKIE['email'])) {
-    $user_id = $_COOKIE['user_id'];
-    $email = $_COOKIE['email'];
-} else {
+// Verificar si el usuario está logueado
+if (!isset($_SESSION['user_id'])) {
     header("Location: ../../index.php");
     exit();
 }
 
-function getUserIngresos($user_id)
+$user_id = $_SESSION['user_id'];
+$email = $_SESSION['email'];
+
+function getUserIngresos($user_id, $limit = 10, $offset = 0)
 {
     global $pdo;
-    $query = "SELECT * FROM ingresos WHERE user_id = ?";
+    $query = "SELECT * FROM ingresos WHERE user_id = :user_id ORDER BY created_at DESC LIMIT :limit OFFSET :offset";
     $stmt = $pdo->prepare($query);
-    $stmt->execute([$user_id]);
+    $stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
+    $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
+    $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+    $stmt->execute();
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
@@ -30,104 +31,190 @@ function addIngreso($user_id, $descripcion, $monto)
     return $stmt->execute([$user_id, $descripcion, $monto]);
 }
 
-$message = '';
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_ingreso'])) {
-    $descripcion = trim($_POST['descripcion']);
-    $monto = (float)trim($_POST['monto']);
-
-    if (empty($descripcion) || $monto <= 0) {
-        $message = "Por favor, complete todos los campos correctamente.";
-    } else {
-        if (addIngreso($user_id, $descripcion, $monto)) {
-            $message = "Ingreso agregado exitosamente.";
-        } else {
-            $message = "Error al agregar el ingreso.";
-        }
-    }
+function getTotalIngresos($user_id)
+{
+    global $pdo;
+    $query = "SELECT COUNT(*) FROM ingresos WHERE user_id = ?";
+    $stmt = $pdo->prepare($query);
+    $stmt->execute([$user_id]);
+    return $stmt->fetchColumn();
 }
 
-$ingresos = getUserIngresos($user_id);
+$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$limit = 10;
+$offset = ($page - 1) * $limit;
+
+$ingresos = getUserIngresos($user_id, $limit, $offset);
+$total_ingresos = getTotalIngresos($user_id);
+$total_pages = ceil($total_ingresos / $limit);
+
+// Procesar solicitud AJAX
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
+    $response = ['success' => false, 'message' => ''];
+
+    if ($_POST['action'] === 'add_ingreso') {
+        $descripcion = trim($_POST['descripcion']);
+        $monto = (float)trim($_POST['monto']);
+
+        if (empty($descripcion) || $monto <= 0) {
+            $response['message'] = "Por favor, complete todos los campos correctamente.";
+        } else {
+            if (addIngreso($user_id, $descripcion, $monto)) {
+                $response['success'] = true;
+                $response['message'] = "Ingreso agregado exitosamente.";
+            } else {
+                $response['message'] = "Error al agregar el ingreso.";
+            }
+        }
+    }
+
+    echo json_encode($response);
+    exit;
+}
 ?>
 
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ingresos</title>
+    <title>Ingresos - VendEasy</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
+    <link rel="stylesheet" href="../../css/welcome.css">
     <link rel="stylesheet" href="../../css/modulos.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.all.min.js"></script>
 </head>
-
 <body>
-
-<div class="sidebar">
-        <h2>Menú Principal</h2>
-        <ul>
-            <li><a href="../../welcome.php">Inicio</a></li>
-            <li><a href="../../modules/ventas/index.php">Ventas</a></li>
-            <li><a href="../../modules/reportes/index.php">Reportes</a></li>
-            <li><a href="../../modules/ingresos/index.php">Ingresos</a></li>
-            <li><a href="../../modules/egresos/index.php">Egresos</a></li>
-            <li><a href="../../modules/inventario/index.php">Productos</a></li>
-            <li><a href="../../modules/clientes/index.php">Clientes</a></li>
-            <li><a href="../../modules/proveedores/index.php">Proveedores</a></li>
-            <li><a href="../../modules/config/index.php">Configuración</a></li>
-            <form method="POST" action="">
-                <button type="submit" name="logout" class="logout-button">Cerrar Sesión</button>
-            </form>
-        </ul>
-    </div>
-
-    <div class="main-content">
-        <h2>Gestionar Ingresos</h2>
-        <?php if (!empty($message)): ?>
-            <div class="message">
-                <?= htmlspecialchars($message); ?>
+    <header class="header">
+        <div class="logo">
+            <a href="../../welcome.php">VendEasy</a>
+        </div>
+        <div class="header-icons">
+            <i class="fas fa-bell"></i>
+            <div class="account">
+                <h4><?= htmlspecialchars($email) ?></h4>
             </div>
-        <?php endif; ?>
-        <div class="form-container">
-            <h3>Agregar Nuevo Ingreso</h3>
-            <form method="POST" action="">
-                <div class="form-group">
-                    <label for="descripcion">Descripción:</label>
-                    <input type="text" id="descripcion" name="descripcion" required>
-                </div>
-                <div class="form-group">
-                    <label for="monto">Monto:</label>
-                    <input type="number" step="0.01" id="monto" name="monto" required>
-                </div>
-                <button type="submit" name="add_ingreso" class="btn btn-primary">Agregar Ingreso</button>
-            </form>
         </div>
-        <div class="table-container">
-            <h3>Listado de Ingresos</h3>
-            <?php if (count($ingresos) > 0): ?>
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Descripción</th>
-                            <th>Monto</th>
-                            <th>Fecha</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($ingresos as $ingreso): ?>
-                            <tr>
-                                <td><?= htmlspecialchars($ingreso['descripcion']); ?></td>
-                                <td><?= htmlspecialchars($ingreso['monto']); ?></td>
-                                <td><?= htmlspecialchars($ingreso['created_at']); ?></td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            <?php else: ?>
-                <p>No hay ingresos registrados.</p>
-            <?php endif; ?>
-        </div>
+    </header>
+    <div class="container">
+        <nav>
+        <div class="side_navbar">
+                <span>Menú Principal</span>
+                <a href="/welcome.php">Dashboard</a>
+                <a href="/modules/pos/index.php">Punto de Venta</a>
+                <a href="/modules/ingresos/index.php" class="active">Ingresos</a>
+                <a href="/modules/egresos/index.php">Egresos</a>
+                <a href="/modules/ventas/index.php">Ventas</a>
+                <a href="/modules/inventario/index.php">Inventario</a>
+                <a href="/modules/clientes/index.php">Clientes</a>
+                <a href="/modules/proveedores/index.php">Proveedores</a>
+                <a href="/modules/reportes/index.php">Reportes</a>
+                <a href="/modules/config/index.php">Configuración</a>
 
+                <div class="links">
+                    <span>Enlaces Rápidos</span>
+                    <a href="#">Ayuda</a>
+                    <a href="#">Soporte</a>
+                </div>
+            </div>
+        </nav>
+
+        <div class="main-body">
+            <h2>Gestionar Ingresos</h2>
+            <div class="promo_card">
+                <h1>Registro de Ingresos</h1>
+                <span>Aquí puedes agregar y visualizar tus ingresos.</span>
+            </div>
+
+            <div class="history_lists">
+                <div class="list1">
+                    <div class="row">
+                        <h4>Agregar Nuevo Ingreso</h4>
+                    </div>
+                    <form id="ingresoForm">
+                        <div class="form-group">
+                            <label for="descripcion">Descripción:</label>
+                            <input type="text" id="descripcion" name="descripcion" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="monto">Monto:</label>
+                            <input type="number" step="0.01" id="monto" name="monto" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Agregar Ingreso</button>
+                    </form>
+                </div>
+
+                <div class="list2">
+                    <div class="row">
+                        <h4>Listado de Ingresos</h4>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Descripción</th>
+                                <th>Monto</th>
+                                <th>Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($ingresos as $ingreso): ?>
+                                <tr>
+                                    <td><?= htmlspecialchars($ingreso['descripcion']); ?></td>
+                                    <td>$<?= number_format($ingreso['monto'], 2); ?></td>
+                                    <td><?= htmlspecialchars($ingreso['created_at']); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+
+                    <!-- Paginación -->
+                    <div class="pagination">
+                        <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                            <a href="?page=<?= $i; ?>" class="<?= ($page === $i) ? 'active' : ''; ?>"><?= $i; ?></a>
+                        <?php endfor; ?>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
+    <script>
+    $(document).ready(function() {
+        $('#ingresoForm').on('submit', function(e) {
+            e.preventDefault();
+            $.ajax({
+                url: 'index.php',
+                method: 'POST',
+                data: $(this).serialize() + '&action=add_ingreso',
+                dataType: 'json',
+                success: function(response) {
+                    if (response.success) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Éxito',
+                            text: response.message,
+                        }).then(() => {
+                            location.reload();
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: response.message,
+                        });
+                    }
+                },
+                error: function() {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Hubo un problema al procesar la solicitud.',
+                    });
+                }
+            });
+        });
+    });
+    </script>
 </body>
-
 </html>

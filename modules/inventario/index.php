@@ -8,8 +8,11 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+$user_id = $_SESSION['user_id'];
+$email = $_SESSION['email'];
+
 // Configuración de paginación
-$productos_por_pagina = 100; 
+$productos_por_pagina = 10;
 $pagina_actual = isset($_GET['pagina']) ? (int)$_GET['pagina'] : 1;
 $offset = ($pagina_actual - 1) * $productos_por_pagina;
 
@@ -17,7 +20,7 @@ $offset = ($pagina_actual - 1) * $productos_por_pagina;
 $busqueda = isset($_GET['busqueda']) ? $_GET['busqueda'] : '';
 
 // Parámetros de ordenación
-$columna_orden = isset($_GET['columna']) ? $_GET['columna'] : 'nombre'; 
+$columna_orden = isset($_GET['columna']) ? $_GET['columna'] : 'nombre';
 $direccion_orden = isset($_GET['direccion']) && $_GET['direccion'] === 'desc' ? 'desc' : 'asc';
 
 // Función para obtener los productos del inventario del usuario, con ordenación
@@ -60,8 +63,6 @@ function obtenerValorTotalInventario($user_id, $busqueda)
     return $result['valor_total'] ?? 0;
 }
 
-$valor_total_inventario = obtenerValorTotalInventario($_SESSION['user_id'], $busqueda);
-
 function obtenerCantidadProductosBajos($user_id, $busqueda)
 {
     global $pdo;
@@ -75,29 +76,16 @@ function obtenerCantidadProductosBajos($user_id, $busqueda)
     return $result['cantidad_bajos'] ?? 0;
 }
 
-$cantidad_productos_bajos = obtenerCantidadProductosBajos($_SESSION['user_id'], $busqueda);
-
-// Agregar esta función para eliminar todos los productos
-function eliminarTodosLosProductos($user_id) {
-    global $pdo;
-    $query = "DELETE FROM inventario WHERE user_id = ?";
-    $stmt = $pdo->prepare($query);
-    return $stmt->execute([$user_id]);
-}
-
-// Manejar la solicitud de eliminación de todos los productos
-if (isset($_POST['eliminar_todos']) && isset($_POST['confirmar_eliminacion'])) {
-    if (eliminarTodosLosProductos($_SESSION['user_id'])) {
-        $mensaje = "Todos los productos han sido eliminados.";
-    } else {
-        $mensaje = "Hubo un error al intentar eliminar todos los productos.";
-    }
-}
-
 // Obtener productos del usuario
-$productos = obtenerProductos($_SESSION['user_id'], $productos_por_pagina, $offset, $busqueda, $columna_orden, $direccion_orden);
-$valor_total_inventario = obtenerValorTotalInventario($_SESSION['user_id'], $busqueda);
-$cantidad_productos_bajos = obtenerCantidadProductosBajos($_SESSION['user_id'], $busqueda);
+$productos = obtenerProductos($user_id, $productos_por_pagina, $offset, $busqueda, $columna_orden, $direccion_orden);
+$valor_total_inventario = obtenerValorTotalInventario($user_id, $busqueda);
+$cantidad_productos_bajos = obtenerCantidadProductosBajos($user_id, $busqueda);
+
+// Obtener el total de productos para la paginación
+$total_productos_query = $pdo->prepare("SELECT COUNT(*) FROM inventario WHERE user_id = ? AND (nombre LIKE ? OR codigo_barras LIKE ?)");
+$total_productos_query->execute([$user_id, "%$busqueda%", "%$busqueda%"]);
+$total_productos = $total_productos_query->fetchColumn();
+$total_paginas = ceil($total_productos / $productos_por_pagina);
 
 ?>
 
@@ -107,296 +95,158 @@ $cantidad_productos_bajos = obtenerCantidadProductosBajos($_SESSION['user_id'], 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventario</title>
+    <title>Inventario - VendEasy</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
+    <link rel="stylesheet" href="../../css/welcome.css">
     <link rel="stylesheet" href="../../css/modulos.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" integrity="sha384-k6RqeWeci5ZR/Lv4MR0sA0FfDOM5ch3kFccf/dD4Hp/v5/a48Kt7E3/qErQAwz2" crossorigin="anonymous">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.min.css">
-    <style>
-        body {
-            font-family: 'Arial', sans-serif;
-            background-color: #f4f4f4;
-            margin: 0;
-            padding: 0;
-        }
-
-        .main-content {
-            margin-left: 250px;
-            padding: 20px;
-        }
-
-        h2, h3, h4 {
-            color: #333;
-        }
-
-        .button-group {
-            margin-bottom: 20px;
-        }
-
-        .btn {
-            padding: 10px 15px;
-            margin-right: 10px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-
-        .btn-primary {
-            background-color: #007bff;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background-color: #0056b3;
-        }
-
-        .btn-danger {
-            background-color: #dc3545;
-            color: white;
-        }
-
-        .btn-danger:hover {
-            background-color: #bd2130;
-        }
-
-        .table-container {
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-
-        .table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-        }
-
-        .table th,
-        .table td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-
-        .table th {
-            background-color: #f8f9fa;
-            font-weight: bold;
-            color: #333;
-        }
-
-        .table tr:last-child td {
-            border-bottom: none;
-        }
-
-        .table tr:hover {
-            background-color: #f5f5f5;
-        }
-
-        .pagination {
-            display: flex;
-            justify-content: center;
-            margin-top: 20px;
-        }
-
-        .pagination li {
-            margin: 0 5px;
-        }
-
-        .pagination a {
-            text-decoration: none;
-            padding: 8px 12px;
-            border: 1px solid #007bff;
-            border-radius: 5px;
-            color: #007bff;
-            transition: all 0.3s;
-        }
-
-        .pagination a:hover,
-        .pagination .active a {
-            background-color: #007bff;
-            color: white;
-        }
-
-        /* Estilos adicionales aquí */
-    </style>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.all.min.js"></script>
-    <script>
-    function confirmarEliminacion() {
-        return Swal.fire({
-            title: '¿Estás seguro?',
-            text: "¿Deseas eliminar TODOS los productos? Esta acción no se puede deshacer.",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Sí, eliminar todo',
-            cancelButtonText: 'Cancelar'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                document.getElementById('confirmar_eliminacion').value = 'true';
-                return true;
-            }
-            return false;
-        });
-    }
-    </script>
 </head>
 
 <body>
-    <div class="sidebar">
-        <h2>Menú Principal</h2>
-        <ul>
-            <li><a href="../../welcome.php">Inicio</a></li>
-            <li><a href="../../modules/ventas/index.php">Ventas</a></li>
-            <li><a href="../../modules/reportes/index.php">Reportes</a></li>
-            <li><a href="../../modules/inventario/index.php" class="active">Productos</a></li>
-            <li><a href="../../modules/clientes/index.php">Clientes</a></li>
-            <li><a href="../../modules/proveedores/index.php">Proveedores</a></li>
-            <li><a href="../../modules/config/index.php">Configuración</a></li>
-            <li>
-                <form method="POST" action="">
-                    <button type="submit" name="logout" class="logout-button">Cerrar Sesión</button>
-                </form>
-            </li>
-        </ul>
-    </div>
-
-    <div class="main-content">
-        <h2>Ítems de Venta</h2>
-        <p>Crea, edita y administra cada detalle de tus ítems de venta</p>
-
-        <div class="button-group">
-            <a href="crear.php" class="btn btn-primary">Nuevo Ítem de Venta</a>
-            <a href="surtir.php" class="btn btn-primary">Surtir Inventario</a>
-            <a href="importar_archivos.php" class="btn btn-primary">Importar Archivos</a>
-            <a href="ventas_por_periodos.php" class="btn btn-primary">Ventas por Periodos</a>
-            <a href="promociones.php" class="btn btn-primary">Promociones</a>
-            <a href="catalogo.php" class="btn btn-primary">Catálogo</a>
+    <header class="header">
+        <div class="logo">
+            <a href="../../welcome.php">VendEasy</a>
         </div>
+        <div class="header-icons">
+            <i class="fas fa-bell"></i>
+            <div class="account">
+                <h4><?= htmlspecialchars($email) ?></h4>
+            </div>
+        </div>
+    </header>
+    <div class="container">
+        <nav>
+            <div class="side_navbar">
+                <span>Menú Principal</span>
+                <a href="/welcome.php">Dashboard</a>
+                <a href="/modules/pos/index.php">Punto de Venta</a>
+                <a href="/modules/ingresos/index.php">Ingresos</a>
+                <a href="/modules/egresos/index.php">Egresos</a>
+                <a href="/modules/ventas/index.php">Ventas</a>
+                <a href="/modules/inventario/index.php" class="active">Inventario</a>
+                <a href="/modules/clientes/index.php">Clientes</a>
+                <a href="/modules/proveedores/index.php">Proveedores</a>
+                <a href="/modules/reportes/index.php">Reportes</a>
+                <a href="/modules/config/index.php">Configuración</a>
 
-        <h3>Valor Total de Inventario: $ <?= number_format($valor_total_inventario ?: 0, 2, ',', '.'); ?></h3>
-        <h4>Número de productos en cero o inferior a 2: <?= $cantidad_productos_bajos; ?></h4> <!-- Cantidad de productos bajos -->
+                <div class="links">
+                    <span>Enlaces Rápidos</span>
+                    <a href="#">Ayuda</a>
+                    <a href="#">Soporte</a>
+                </div>
+            </div>
+        </nav>
 
-        <!-- Barra de búsqueda -->
-        <form method="GET" action="">
-            <input type="text" name="busqueda" placeholder="Buscar por nombre o código de barras" value="<?= htmlspecialchars($busqueda); ?>">
-            <button type="submit" class="btn btn-primary">Buscar</button>
-        </form>
+        <div class="main-body">
+            <h2>Ítems de Venta</h2>
+            <div class="promo_card">
+                <h1>Gestión de Inventario</h1>
+                <span>Crea, edita y administra cada detalle de tus ítems de venta</span>
+            </div>
 
-        <h3>Lista de Productos</h3>
+            <div class="button-group">
+                <a href="crear.php" class="btn btn-primary">Nuevo Ítem de Venta</a>
+                <a href="surtir.php" class="btn btn-primary">Surtir Inventario</a>
+                <a href="importar_archivos.php" class="btn btn-primary">Importar Archivos</a>
+                <a href="catalogo.php" class="btn btn-primary">Catálogo</a>
+            </div>
 
-        <div class="table-container">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th><a href="?columna=nombre&direccion=<?= $columna_orden === 'nombre' && $direccion_orden === 'asc' ? 'desc' : 'asc'; ?>&busqueda=<?= urlencode($busqueda); ?>">Nombre<?= $columna_orden === 'nombre' ? ($direccion_orden === 'asc' ? ' ↑' : ' ↓') : ''; ?></a></th>
-                        <th><a href="?columna=codigo_barras&direccion=<?= $columna_orden === 'codigo_barras' && $direccion_orden === 'asc' ? 'desc' : 'asc'; ?>&busqueda=<?= urlencode($busqueda); ?>">Código de Barras<?= $columna_orden === 'codigo_barras' ? ($direccion_orden === 'asc' ? ' ↑' : ' ↓') : ''; ?></a></th>
-                        <th><a href="?columna=stock&direccion=<?= $columna_orden === 'stock' && $direccion_orden === 'asc' ? 'desc' : 'asc'; ?>&busqueda=<?= urlencode($busqueda); ?>">Cantidad<?= $columna_orden === 'stock' ? ($direccion_orden === 'asc' ? ' ↑' : ' ↓') : ''; ?></a></th>
-                        <th><a href="?columna=precio_costo&direccion=<?= $columna_orden === 'precio_costo' && $direccion_orden === 'asc' ? 'desc' : 'asc'; ?>&busqueda=<?= urlencode($busqueda); ?>">Precio Costo<?= $columna_orden === 'precio_costo' ? ($direccion_orden === 'asc' ? ' ↑' : ' ↓') : ''; ?></a></th>
-                        <th><a href="?columna=precio_venta&direccion=<?= $columna_orden === 'precio_venta' && $direccion_orden === 'asc' ? 'desc' : 'asc'; ?>&busqueda=<?= urlencode($busqueda); ?>">Precio Venta<?= $columna_orden === 'precio_venta' ? ($direccion_orden === 'asc' ? ' ↑' : ' ↓') : ''; ?></a></th>
-                        <th><a href="?columna=valor_total&direccion=<?= $columna_orden === 'valor_total' && $direccion_orden === 'asc' ? 'desc' : 'asc'; ?>&busqueda=<?= urlencode($busqueda); ?>">Valor Total<?= $columna_orden === 'valor_total' ? ($direccion_orden === 'asc' ? ' ↑' : ' ↓') : ''; ?></a></th>
-                        <th><a href="?columna=departamento&direccion=<?= $columna_orden === 'departamento' && $direccion_orden === 'asc' ? 'desc' : 'asc'; ?>&busqueda=<?= urlencode($busqueda); ?>">Departamento<?= $columna_orden === 'departamento' ? ($direccion_orden === 'asc' ? ' ↑' : ' ↓') : ''; ?></a></th>
-                        <th><a href="?columna=categoria&direccion=<?= $columna_orden === 'categoria' && $direccion_orden === 'asc' ? 'desc' : 'asc'; ?>&busqueda=<?= urlencode($busqueda); ?>">Categoría<?= $columna_orden === 'categoria' ? ($direccion_orden === 'asc' ? ' ↑' : ' ↓') : ''; ?></a></th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (count($productos) > 0): ?>
-                        <?php foreach ($productos as $producto): ?>
+            <div class="history_lists">
+                <div class="list1">
+                    <div class="row">
+                        <h4>Resumen de Inventario</h4>
+                    </div>
+                    <div class="inventory-summary">
+                        <p>Valor Total de Inventario: $ <?= number_format($valor_total_inventario, 2, ',', '.'); ?></p>
+                        <p>Número de productos en cero o inferior a 2: <?= $cantidad_productos_bajos; ?></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="history_lists">
+                <div class="list1">
+                    <div class="row">
+                        <h4>Lista de Productos</h4>
+                    </div>
+                    <form method="GET" action="" class="search-form">
+                        <input type="text" name="busqueda" placeholder="Buscar por nombre o código de barras" value="<?= htmlspecialchars($busqueda); ?>">
+                        <button type="submit" class="btn btn-primary">Buscar</button>
+                    </form>
+                    <table>
+                        <thead>
                             <tr>
-                                <td><?= htmlspecialchars($producto['nombre']); ?></td>
-                                <td><?= htmlspecialchars($producto['codigo_barras']); ?></td>
-                                <td><?= htmlspecialchars($producto['stock']); ?></td>
-                                <td><?= '$ ' . number_format($producto['precio_costo'], 2, ',', '.'); ?></td>
-                                <td><?= '$ ' . number_format($producto['precio_venta'], 2, ',', '.'); ?></td>
-                                <td><?= '$ ' . number_format($producto['stock'] * $producto['precio_venta'], 2, ',', '.'); ?></td> <!-- Valor Total -->
-                                <td><?= htmlspecialchars($producto['departamento'] ?: 'No asociado'); ?></td>
-                                <td><?= htmlspecialchars($producto['categoria'] ?: 'No asociado'); ?></td>
-                                <td>
-                                    <a href="modificar.php?codigo_barras=<?= urlencode($producto['codigo_barras']); ?>" class="btn btn-edit"><i class="fas fa-edit"></i> Modificar</a>
-                                    <a href="eliminar.php?codigo_barras=<?= urlencode($producto['codigo_barras']); ?>" class="btn btn-delete" onclick="return confirm('¿Estás seguro de que deseas eliminar este producto?');"><i class="fas fa-trash"></i> Eliminar</a>
-                                </td>
+                                <th><a href="?columna=nombre&direccion=<?= $columna_orden === 'nombre' && $direccion_orden === 'asc' ? 'desc' : 'asc'; ?>&busqueda=<?= urlencode($busqueda); ?>">Nombre<?= $columna_orden === 'nombre' ? ($direccion_orden === 'asc' ? ' ↑' : ' ↓') : ''; ?></a></th>
+                                <th><a href="?columna=codigo_barras&direccion=<?= $columna_orden === 'codigo_barras' && $direccion_orden === 'asc' ? 'desc' : 'asc'; ?>&busqueda=<?= urlencode($busqueda); ?>">Código de Barras<?= $columna_orden === 'codigo_barras' ? ($direccion_orden === 'asc' ? ' ↑' : ' ↓') : ''; ?></a></th>
+                                <th><a href="?columna=stock&direccion=<?= $columna_orden === 'stock' && $direccion_orden === 'asc' ? 'desc' : 'asc'; ?>&busqueda=<?= urlencode($busqueda); ?>">Cantidad<?= $columna_orden === 'stock' ? ($direccion_orden === 'asc' ? ' ↑' : ' ↓') : ''; ?></a></th>
+                                <th><a href="?columna=precio_costo&direccion=<?= $columna_orden === 'precio_costo' && $direccion_orden === 'asc' ? 'desc' : 'asc'; ?>&busqueda=<?= urlencode($busqueda); ?>">Precio Costo<?= $columna_orden === 'precio_costo' ? ($direccion_orden === 'asc' ? ' ↑' : ' ↓') : ''; ?></a></th>
+                                <th><a href="?columna=precio_venta&direccion=<?= $columna_orden === 'precio_venta' && $direccion_orden === 'asc' ? 'desc' : 'asc'; ?>&busqueda=<?= urlencode($busqueda); ?>">Precio Venta<?= $columna_orden === 'precio_venta' ? ($direccion_orden === 'asc' ? ' ↑' : ' ↓') : ''; ?></a></th>
+                                <th><a href="?columna=valor_total&direccion=<?= $columna_orden === 'valor_total' && $direccion_orden === 'asc' ? 'desc' : 'asc'; ?>&busqueda=<?= urlencode($busqueda); ?>">Valor Total<?= $columna_orden === 'valor_total' ? ($direccion_orden === 'asc' ? ' ↑' : ' ↓') : ''; ?></a></th>
+                                <th><a href="?columna=departamento&direccion=<?= $columna_orden === 'departamento' && $direccion_orden === 'asc' ? 'desc' : 'asc'; ?>&busqueda=<?= urlencode($busqueda); ?>">Departamento<?= $columna_orden === 'departamento' ? ($direccion_orden === 'asc' ? ' ↑' : ' ↓') : ''; ?></a></th>
+                                <th><a href="?columna=categoria&direccion=<?= $columna_orden === 'categoria' && $direccion_orden === 'asc' ? 'desc' : 'asc'; ?>&busqueda=<?= urlencode($busqueda); ?>">Categoría<?= $columna_orden === 'categoria' ? ($direccion_orden === 'asc' ? ' ↑' : ' ↓') : ''; ?></a></th>
+                                <th>Acciones</th>
                             </tr>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <tr>
-                            <td colspan="9" class="text-center">No hay productos disponibles.</td>
-                        </tr>
-                    <?php endif; ?>
-                </tbody>
-            </table>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($productos as $producto): ?>
+                                <tr>
+                                    <td><?= htmlspecialchars($producto['nombre']); ?></td>
+                                    <td><?= htmlspecialchars($producto['codigo_barras']); ?></td>
+                                    <td><?= htmlspecialchars($producto['stock']); ?></td>
+                                    <td><?= '$ ' . number_format($producto['precio_costo'], 2, ',', '.'); ?></td>
+                                    <td><?= '$ ' . number_format($producto['precio_venta'], 2, ',', '.'); ?></td>
+                                    <td><?= '$ ' . number_format($producto['valor_total'], 2, ',', '.'); ?></td>
+                                    <td><?= htmlspecialchars($producto['departamento'] ?: 'No asociado'); ?></td>
+                                    <td><?= htmlspecialchars($producto['categoria'] ?: 'No asociado'); ?></td>
+                                    <td>
+                                        <a href="modificar.php?codigo_barras=<?= urlencode($producto['codigo_barras']); ?>" class="btn-edit"><i class="fas fa-edit"></i></a>
+                                        <a href="eliminar.php?codigo_barras=<?= urlencode($producto['codigo_barras']); ?>" class="btn-delete" onclick="return confirm('¿Estás seguro de que deseas eliminar este producto?');"><i class="fas fa-trash"></i></a>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+
+                    <!-- Paginación -->
+                    <div class="pagination">
+                        <?php for ($i = 1; $i <= $total_paginas; $i++): ?>
+                            <a href="?pagina=<?= $i; ?>&busqueda=<?= urlencode($busqueda); ?>&columna=<?= $columna_orden; ?>&direccion=<?= $direccion_orden; ?>" class="<?= ($pagina_actual === $i) ? 'active' : ''; ?>"><?= $i; ?></a>
+                        <?php endfor; ?>
+                    </div>
+                </div>
+            </div>
         </div>
-
-        <!-- Paginación -->
-        <div class="paginacion">
-            <?php
-            // Obtener el total de productos del usuario, incluyendo la búsqueda
-            $total_productos_query = $pdo->prepare("SELECT COUNT(*) FROM inventario WHERE user_id = ? AND (nombre LIKE ? OR codigo_barras LIKE ?)");
-            $total_productos_query->execute([$_SESSION['user_id'], "%$busqueda%", "%$busqueda%"]);
-            $total_productos = $total_productos_query->fetchColumn();
-            $total_paginas = ceil($total_productos / $productos_por_pagina);
-
-            // Mostrar botones de paginación
-            echo '<ul class="pagination">';
-            for ($i = 1; $i <= $total_paginas; $i++): ?>
-                <li class="<?= ($pagina_actual === $i) ? 'active' : ''; ?>">
-                    <a href="?pagina=<?= $i; ?>&busqueda=<?= urlencode($busqueda); ?>"><?= $i; ?></a>
-                </li>
-            <?php endfor;
-            echo '</ul>';
-            ?>
-        </div>
-
-        <?php
-        if (isset($_POST['logout'])) {
-            session_destroy();
-            header("Location: ../../index.php");
-            exit();
-        }
-        ?>
-
-        <!-- Agregar este botón después de la tabla de productos -->
-        <form method="POST" onsubmit="return confirmarEliminacion()">
-            <input type="hidden" name="confirmar_eliminacion" id="confirmar_eliminacion" value="false">
-            <button type="submit" name="eliminar_todos" class="btn btn-danger">Eliminar Todos los Productos</button>
-        </form>
-
-        <!-- Mostrar mensaje de éxito o error -->
-        <?php if (isset($mensaje)): ?>
-            <div class="mensaje"><?php echo $mensaje; ?></div>
-        <?php endif; ?>
     </div>
 
     <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        <?php
-        if (isset($_GET['mensaje'])) {
-            $tipo = 'info';
-            switch ($_GET['mensaje']) {
-                case 'importacion_exitosa':
-                    $mensaje = "La importación se ha realizado con éxito.";
-                    $tipo = 'success';
-                    break;
-                case 'eliminacion_exitosa':
-                    $mensaje = "Todos los productos han sido eliminados.";
-                    $tipo = 'success';
-                    break;
-                case 'error_eliminacion':
-                    $mensaje = "Hubo un error al intentar eliminar todos los productos.";
-                    $tipo = 'error';
-                    break;
-                default:
-                    $mensaje = $_GET['mensaje'];
-            }
-            echo "Swal.fire({
+        document.addEventListener('DOMContentLoaded', function() {
+            <?php
+            if (isset($_GET['mensaje'])) {
+                $tipo = 'info';
+                switch ($_GET['mensaje']) {
+                    case 'importacion_exitosa':
+                        $mensaje = "La importación se ha realizado con éxito.";
+                        $tipo = 'success';
+                        break;
+                    case 'eliminacion_exitosa':
+                        $mensaje = "Todos los productos han sido eliminados.";
+                        $tipo = 'success';
+                        break;
+                    case 'error_eliminacion':
+                        $mensaje = "Hubo un error al intentar eliminar todos los productos.";
+                        $tipo = 'error';
+                        break;
+                    default:
+                        $mensaje = $_GET['mensaje'];
+                }
+                echo "Swal.fire({
                 icon: '$tipo',
                 title: 'Notificación',
                 text: '$mensaje'
             });";
-        }
-        ?>
-    });
+            }
+            ?>
+        });
     </script>
 </body>
 

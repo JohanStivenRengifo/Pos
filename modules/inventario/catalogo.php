@@ -7,12 +7,15 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+$user_id = $_SESSION['user_id'];
+$email = $_SESSION['email'];
+
 $productos = [];
 
 // Consultar productos
 $query = "SELECT * FROM inventario WHERE user_id = ?";
 $stmt = $pdo->prepare($query);
-$stmt->execute([$_SESSION['user_id']]);
+$stmt->execute([$user_id]);
 $productos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
@@ -20,101 +23,90 @@ $productos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Catálogo de Productos</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catálogo de Productos - VendEasy</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
+    <link rel="stylesheet" href="../../css/welcome.css">
     <link rel="stylesheet" href="../../css/modulos.css">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f4;
-            margin: 0;
-            padding: 20px;
-        }
-
-        .main-content {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        }
-
-        h2 {
-            text-align: center;
-            color: #333;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-
-        th {
-            background-color: #007bff;
-            color: white;
-        }
-
-        tr:hover {
-            background-color: #f1f1f1;
-        }
-
-        .btn {
-            display: inline-block;
-            padding: 10px 15px;
-            margin-top: 20px;
-            color: white;
-            background-color: #007bff;
-            border: none;
-            border-radius: 5px;
-            text-decoration: none;
-        }
-
-        .btn:hover {
-            background-color: #0056b3;
-        }
-    </style>
 </head>
 <body>
+    <header class="header">
+        <div class="logo">
+            <a href="../../welcome.php">VendEasy</a>
+        </div>
+        <div class="header-icons">
+            <i class="fas fa-bell"></i>
+            <div class="account">
+                <h4><?= htmlspecialchars($email) ?></h4>
+            </div>
+        </div>
+    </header>
+    <div class="container">
+        <nav>
+        <div class="side_navbar">
+                <span>Menú Principal</span>
+                <a href="#" class="active">Dashboard</a>
+                <a href="/modules/pos/index.php">Punto de Venta</a>
+                <a href="/modules/ingresos/index.php">Ingresos</a>
+                <a href="/modules/egresos/index.php">Egresos</a>
+                <a href="/modules/ventas/index.php">Ventas</a>
+                <a href="/modules/inventario/index.php">Inventario</a>
+                <a href="/modules/clientes/index.php">Clientes</a>
+                <a href="/modules/proveedores/index.php">Proveedores</a>
+                <a href="/modules/reportes/index.php">Reportes</a>
+                <a href="/modules/config/index.php">Configuración</a>
 
-<div class="main-content">
-    <h2>Catálogo de Productos</h2>
+                <div class="links">
+                    <span>Enlaces Rápidos</span>
+                    <a href="#">Ayuda</a>
+                    <a href="#">Soporte</a>
+                </div>
+            </div>
+        </nav>
 
-    <?php if (count($productos) > 0): ?>
-        <table>
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Nombre</th>
-                    <th>Código de Barras</th>
-                    <th>Precio Costo</th>
-                    <th>Precio Venta</th>
-                    <th>Stock</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($productos as $producto): ?>
-                    <tr>
-                        <td><?= htmlspecialchars($producto['id']); ?></td>
-                        <td><?= htmlspecialchars($producto['nombre']); ?></td>
-                        <td><?= htmlspecialchars($producto['codigo_barras']); ?></td>
-                        <td><?= htmlspecialchars(number_format($producto['precio_costo'], 2, ',', '.')); ?></td>
-                        <td><?= htmlspecialchars(number_format($producto['precio_venta'], 2, ',', '.')); ?></td>
-                        <td><?= htmlspecialchars($producto['stock']); ?></td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-    <?php else: ?>
-        <p>No hay productos disponibles en el catálogo.</p>
-    <?php endif; ?>
+        <div class="main-body">
+            <h2>Catálogo de Productos</h2>
+            <div class="promo_card">
+                <h1>Lista Completa de Productos</h1>
+                <span>Visualice todos los productos en su inventario.</span>
+            </div>
 
-    <a href="index.php" class="btn">Regresar</a>
-</div>
-
+            <div class="history_lists">
+                <div class="list1">
+                    <div class="row">
+                        <h4>Productos en Inventario</h4>
+                    </div>
+                    <?php if (count($productos) > 0): ?>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Nombre</th>
+                                    <th>Código de Barras</th>
+                                    <th>Precio Costo</th>
+                                    <th>Precio Venta</th>
+                                    <th>Stock</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($productos as $producto): ?>
+                                    <tr>
+                                        <td><?= htmlspecialchars($producto['id']); ?></td>
+                                        <td><?= htmlspecialchars($producto['nombre']); ?></td>
+                                        <td><?= htmlspecialchars($producto['codigo_barras']); ?></td>
+                                        <td><?= htmlspecialchars(number_format($producto['precio_costo'], 2, ',', '.')); ?></td>
+                                        <td><?= htmlspecialchars(number_format($producto['precio_venta'], 2, ',', '.')); ?></td>
+                                        <td><?= htmlspecialchars($producto['stock']); ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    <?php else: ?>
+                        <p>No hay productos disponibles en el catálogo.</p>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

@@ -3,209 +3,233 @@ session_start();
 require_once '../../config/db.php';
 
 // Verificar si el usuario está logueado
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['email'])) {
+if (!isset($_SESSION['user_id'])) {
     header("Location: ../../index.php");
     exit();
 }
 
+$user_id = $_SESSION['user_id'];
+$email = $_SESSION['email'];
+
 // Función para obtener un producto por su código de barras
-function obtenerProductoPorCodigo($codigo_barras)
+function obtenerProductoPorCodigo($codigo_barras, $user_id)
 {
     global $pdo;
-    $query = "SELECT * FROM inventario WHERE codigo_barras = ?";
+    $query = "SELECT * FROM inventario WHERE codigo_barras = ? AND user_id = ?";
     $stmt = $pdo->prepare($query);
-    $stmt->execute([$codigo_barras]);
+    $stmt->execute([$codigo_barras, $user_id]);
     return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
 // Función para actualizar un producto
-function actualizarProducto($id, $codigo_barras, $nombre, $descripcion, $stock, $precio_costo, $impuesto, $precio_venta, $otro_dato)
+function actualizarProducto($id, $codigo_barras, $nombre, $descripcion, $stock, $precio_costo, $impuesto, $precio_venta, $otro_dato, $user_id)
 {
     global $pdo;
-
-    // Si no se proporciona el precio de venta, calcularlo automáticamente
-    if (empty($precio_venta)) {
-        $precio_venta = $precio_costo + ($precio_costo * ($impuesto / 100));
-        $precio_venta = round($precio_venta, 2);  // Redondear a 2 decimales
-    }
-
-    $query = "UPDATE inventario SET codigo_barras = ?, nombre = ?, descripcion = ?, stock = ?, precio_costo = ?, impuesto = ?, precio_venta = ?, otro_dato = ? WHERE id = ?";
+    $query = "UPDATE inventario SET codigo_barras = ?, nombre = ?, descripcion = ?, stock = ?, precio_costo = ?, impuesto = ?, precio_venta = ?, otro_dato = ? WHERE id = ? AND user_id = ?";
     $stmt = $pdo->prepare($query);
-    return $stmt->execute([$codigo_barras, $nombre, $descripcion, $stock, $precio_costo, $impuesto, $precio_venta, $otro_dato, $id]);
+    return $stmt->execute([$codigo_barras, $nombre, $descripcion, $stock, $precio_costo, $impuesto, $precio_venta, $otro_dato, $id, $user_id]);
 }
 
-// Inicialización de variables
 $message = '';
 $product = null;
 
 // Verificar si se ha pasado un código de barras por la URL
 if (isset($_GET['codigo_barras'])) {
     $codigo_barras = $_GET['codigo_barras'];
-
-    // Buscar el producto por código de barras
-    $product = obtenerProductoPorCodigo($codigo_barras);
+    $product = obtenerProductoPorCodigo($codigo_barras, $user_id);
 
     if (!$product) {
         $message = "Producto no encontrado con el código de barras proporcionado.";
     }
+}
 
-    // Si se ha enviado el formulario para actualizar
-    if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update'])) {
-        $id = $product['id'];
-        $nombre = trim($_POST['nombre']);
-        $descripcion = trim($_POST['descripcion']);
-        $stock = (int)trim($_POST['stock']);
-        $precio_costo = (float)trim($_POST['precio_costo']);
-        $impuesto = (float)trim($_POST['impuesto']);
-        $precio_venta = isset($_POST['precio_venta']) ? (float)trim($_POST['precio_venta']) : null;
-        $otro_dato = trim($_POST['otro_dato']);
+// Procesar la actualización del producto vía AJAX
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update'])) {
+    $response = ['success' => false, 'message' => ''];
 
-        // Validar que los campos estén completos y correctos
-        if (empty($nombre) || $stock < 0 || $precio_costo < 0 || $impuesto < 0) {
-            $message = "Por favor, complete todos los campos correctamente.";
+    $id = $_POST['id'];
+    $codigo_barras = trim($_POST['codigo_barras']);
+    $nombre = trim($_POST['nombre']);
+    $descripcion = trim($_POST['descripcion']);
+    $stock = (int)trim($_POST['stock']);
+    $precio_costo = (float)trim($_POST['precio_costo']);
+    $impuesto = (float)trim($_POST['impuesto']);
+    $precio_venta = (float)trim($_POST['precio_venta']);
+    $otro_dato = trim($_POST['otro_dato']);
+
+    if (empty($nombre) || $stock < 0 || $precio_costo < 0 || $impuesto < 0) {
+        $response['message'] = "Por favor, complete todos los campos correctamente.";
+    } else {
+        if (actualizarProducto($id, $codigo_barras, $nombre, $descripcion, $stock, $precio_costo, $impuesto, $precio_venta, $otro_dato, $user_id)) {
+            $response['success'] = true;
+            $response['message'] = "Producto actualizado exitosamente.";
         } else {
-            if (actualizarProducto($id, $codigo_barras, $nombre, $descripcion, $stock, $precio_costo, $impuesto, $precio_venta, $otro_dato)) {
-                // Redirigir al index con un mensaje de éxito
-                header("Location: index.php?mensaje=producto_actualizado");
-                exit();
-            } else {
-                $message = "Error al actualizar el producto.";
-            }
+            $response['message'] = "Error al actualizar el producto.";
         }
     }
-} else {
-    $message = "No se ha proporcionado un código de barras.";
+
+    echo json_encode($response);
+    exit;
 }
 ?>
 
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Modificar Producto</title>
+    <title>Modificar Producto - VendEasy</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
+    <link rel="stylesheet" href="../../css/welcome.css">
     <link rel="stylesheet" href="../../css/modulos.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <style>
-        body {
-            font-family: 'Arial', sans-serif;
-            background-color: #f4f4f4;
-            margin: 0;
-            padding: 0;
-        }
-        .main-content {
-            margin-left: 250px;
-            padding: 20px;
-        }
-        .form-group {
-            margin-bottom: 20px;
-        }
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        input[type="text"], input[type="number"], textarea {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        .btn {
-            padding: 10px 15px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        .btn-success {
-            background-color: #28a745;
-            color: white;
-        }
-        .btn-success:hover {
-            background-color: #218838;
-        }
-        .message {
-            padding: 10px;
-            margin-bottom: 20px;
-            border-radius: 4px;
-            background-color: #d4edda;
-            border-color: #c3e6cb;
-            color: #155724;
-        }
-    </style>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.all.min.js"></script>
 </head>
+
 <body>
+    <header class="header">
+        <div class="logo">
+            <a href="../../welcome.php">VendEasy</a>
+        </div>
+        <div class="header-icons">
+            <i class="fas fa-bell"></i>
+            <div class="account">
+                <h4><?= htmlspecialchars($email) ?></h4>
+            </div>
+        </div>
+    </header>
+    <div class="container">
+        <nav>
+            <div class="side_navbar">
+                <span>Menú Principal</span>
+                <a href="#" class="active">Dashboard</a>
+                <a href="/modules/pos/index.php">Punto de Venta</a>
+                <a href="/modules/ingresos/index.php">Ingresos</a>
+                <a href="/modules/egresos/index.php">Egresos</a>
+                <a href="/modules/ventas/index.php">Ventas</a>
+                <a href="/modules/inventario/index.php">Inventario</a>
+                <a href="/modules/clientes/index.php">Clientes</a>
+                <a href="/modules/proveedores/index.php">Proveedores</a>
+                <a href="/modules/reportes/index.php">Reportes</a>
+                <a href="/modules/config/index.php">Configuración</a>
 
-    <div class="sidebar">
-        <h2>Menú Principal</h2>
-        <ul>
-            <li><a href="../../welcome.php"><i class="fas fa-home"></i> Inicio</a></li>
-            <li><a href="../../modules/ventas/index.php"><i class="fas fa-shopping-cart"></i> Ventas</a></li>
-            <li><a href="../../modules/reportes/index.php"><i class="fas fa-chart-bar"></i> Reportes</a></li>
-            <li><a href="../../modules/ingresos/index.php"><i class="fas fa-plus-circle"></i> Ingresos</a></li>
-            <li><a href="../../modules/egresos/index.php"><i class="fas fa-minus-circle"></i> Egresos</a></li>
-            <li><a href="../../modules/inventario/index.php"><i class="fas fa-box"></i> Productos</a></li>
-            <li><a href="../../modules/clientes/index.php"><i class="fas fa-users"></i> Clientes</a></li>
-            <li><a href="../../modules/proveedores/index.php"><i class="fas fa-truck"></i> Proveedores</a></li>
-            <li><a href="../../modules/config/index.php"><i class="fas fa-cog"></i> Configuración</a></li>
-            <form method="POST" action="">
-                <button type="submit" name="logout" class="logout-button"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</button>
-            </form>
-        </ul>
+                <div class="links">
+                    <span>Enlaces Rápidos</span>
+                    <a href="#">Ayuda</a>
+                    <a href="#">Soporte</a>
+                </div>
+            </div>
+        </nav>
+
+        <div class="main-body">
+            <h2>Modificar Producto</h2>
+            <div class="promo_card">
+                <h1>Actualizar Información del Producto</h1>
+                <span>Modifique los detalles del producto seleccionado.</span>
+            </div>
+
+            <?php if (!empty($message)): ?>
+                <div class="alert alert-info">
+                    <?= htmlspecialchars($message); ?>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($product): ?>
+                <div class="history_lists">
+                    <div class="list1">
+                        <div class="row">
+                            <h4>Formulario de Modificación</h4>
+                        </div>
+                        <form id="updateProductForm">
+                            <input type="hidden" name="id" value="<?= htmlspecialchars($product['id']); ?>">
+                            <div class="form-group">
+                                <label for="codigo_barras">Código de Barras:</label>
+                                <input type="text" id="codigo_barras" name="codigo_barras" value="<?= htmlspecialchars($product['codigo_barras']); ?>" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="nombre">Nombre del Producto:</label>
+                                <input type="text" id="nombre" name="nombre" value="<?= htmlspecialchars($product['nombre']); ?>" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="descripcion">Descripción:</label>
+                                <textarea id="descripcion" name="descripcion" required><?= htmlspecialchars($product['descripcion']); ?></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="stock">Stock:</label>
+                                <input type="number" id="stock" name="stock" value="<?= htmlspecialchars($product['stock']); ?>" required min="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="precio_costo">Precio Costo:</label>
+                                <input type="number" step="0.01" id="precio_costo" name="precio_costo" value="<?= htmlspecialchars($product['precio_costo']); ?>" required min="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="impuesto">Impuesto (%):</label>
+                                <input type="number" step="0.01" id="impuesto" name="impuesto" value="<?= htmlspecialchars($product['impuesto']); ?>" required min="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="precio_venta">Precio Venta:</label>
+                                <input type="number" step="0.01" id="precio_venta" name="precio_venta" value="<?= htmlspecialchars($product['precio_venta']); ?>" required min="0">
+                            </div>
+                            <div class="form-group">
+                                <label for="otro_dato">Otro Dato:</label>
+                                <input type="text" id="otro_dato" name="otro_dato" value="<?= htmlspecialchars($product['otro_dato']); ?>">
+                            </div>
+                            <button type="submit" name="update" class="btn btn-primary">Actualizar Producto</button>
+                        </form>
+                    </div>
+                </div>
+            <?php endif; ?>
+        </div>
     </div>
 
-    <div class="main-content">
-        <h2><i class="fas fa-edit"></i> Modificar Producto</h2>
+    <script>
+        $(document).ready(function() {
+            $('#updateProductForm').on('submit', function(e) {
+                e.preventDefault();
+                $.ajax({
+                    url: 'modificar.php',
+                    type: 'POST',
+                    data: $(this).serialize() + '&update=1',
+                    dataType: 'json',
+                    success: function(response) {
+                        if (response.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Éxito',
+                                text: response.message,
+                            }).then((result) => {
+                                if (result.isConfirmed) {
+                                    window.location.href = 'index.php';
+                                }
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: response.message,
+                            });
+                        }
+                    },
+                    error: function() {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Hubo un problema al procesar la solicitud.',
+                        });
+                    }
+                });
+            });
 
-        <?php if (!empty($message)): ?>
-            <div class="message"><?= htmlspecialchars($message); ?></div>
-        <?php endif; ?>
-
-        <?php if ($product): ?>
-            <form method="POST" action="">
-                <input type="hidden" name="codigo_barras" value="<?= htmlspecialchars($product['codigo_barras']); ?>">
-                
-                <div class="form-group">
-                    <label for="nombre">Nombre del Producto:</label>
-                    <input type="text" id="nombre" name="nombre" value="<?= htmlspecialchars($product['nombre']); ?>" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="descripcion">Descripción:</label>
-                    <textarea id="descripcion" name="descripcion" required><?= htmlspecialchars($product['descripcion']); ?></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label for="stock">Stock:</label>
-                    <input type="number" id="stock" name="stock" min="0" value="<?= htmlspecialchars($product['stock']); ?>" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="precio_costo">Precio Costo:</label>
-                    <input type="number" step="0.01" id="precio_costo" name="precio_costo" value="<?= htmlspecialchars($product['precio_costo']); ?>" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="impuesto">Impuesto (%):</label>
-                    <input type="number" step="0.01" id="impuesto" name="impuesto" value="<?= htmlspecialchars($product['impuesto']); ?>" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="precio_venta">Precio Venta:</label>
-                    <input type="number" step="0.01" id="precio_venta" name="precio_venta" value="<?= htmlspecialchars($product['precio_venta']); ?>">
-                </div>
-
-                <div class="form-group">
-                    <label for="otro_dato">Otro Dato:</label>
-                    <input type="text" id="otro_dato" name="otro_dato" value="<?= htmlspecialchars($product['otro_dato']); ?>">
-                </div>
-
-                <button type="submit" name="update" class="btn btn-success"><i class="fas fa-save"></i> Actualizar Producto</button>
-            </form>
-        <?php endif; ?>
-    </div>
-
+            // Calcular precio de venta automáticamente
+            $('#precio_costo, #impuesto').on('input', function() {
+                var precio_costo = parseFloat($('#precio_costo').val()) || 0;
+                var impuesto = parseFloat($('#impuesto').val()) || 0;
+                var precio_venta = precio_costo + (precio_costo * (impuesto / 100));
+                $('#precio_venta').val(precio_venta.toFixed(2));
+            });
+        });
+    </script>
 </body>
+
 </html>

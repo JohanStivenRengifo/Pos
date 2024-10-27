@@ -1,125 +1,280 @@
-body {
-    font-family: 'Arial', sans-serif;
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap");
+
+* {
     margin: 0;
     padding: 0;
-    background-color: #f4f4f4;
-    display: flex;
-    min-height: 100vh;
-    color: #333;
+    border: none;
+    outline: none;
+    text-decoration: none;
+    box-sizing: border-box;
+    font-family: "Poppins", sans-serif;
 }
 
-.navbar {
-    background-color: #3A405A;
-    color: white;
-    padding: 1rem;
+body {
+    background: #f0f0f0;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+    padding: 20px;
+    background: #fff;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+}
+
+.logo a {
+    color: #333;
+    font-size: 20px;
+    font-weight: 600;
+    margin-right: 2rem;
+}
+
+.search_box {
+    display: flex;
+    align-items: center;
+}
+
+.search_box input {
+    padding: 9px;
+    width: 250px;
+    background: #f0f0f0;
+    border-radius: 5px 0 0 5px;
+}
+
+.search_box i {
+    padding: 0.7rem;
+    cursor: pointer;
+    color: #fff;
+    background: #333;
+    border-radius: 0 5px 5px 0;
+}
+
+.header-icons {
+    display: flex;
+    align-items: center;
+}
+
+.header-icons i {
+    margin-right: 2rem;
+    cursor: pointer;
+    font-size: 1.2rem;
+}
+
+.header-icons .account {
+    display: flex;
+    align-items: center;
+}
+
+.header-icons .account img {
+    width: 35px;
+    height: 35px;
+    cursor: pointer;
+    border-radius: 50%;
+    margin-right: 0.5rem;
+}
+
+.container {
+    margin-top: 10px;
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    position: fixed;
+}
+
+nav {
+    background: #fff;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.side_navbar {
+    padding: 1px;
+    display: flex;
+    flex-direction: column;
+}
+
+.side_navbar span {
+    color: gray;
+    margin: 1rem 3rem;
+    font-size: 12px;
+}
+
+.side_navbar a {
     width: 100%;
-    top: 0;
-    z-index: 1000;
-}
-
-.navbar h1 {
-    margin: 0;
-    font-size: 1.5rem;
-}
-
-.logout-button {
-    background-color: #FF6B6B;
-    border: none;
-    color: white;
-    padding: 10px 20px;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background-color 0.3s;
-}
-
-.logout-button:hover {
-    background-color: #FF4B4B;
-}
-
-.sidebar {
-    width: 250px;
-    background-color: #3A405A;
-    color: white;
-    padding: 2rem 1rem;
-    height: 100vh;
-    position: fixed;
-    top: 60px; /* Ajustado para no cubrir la navbar */
-    left: 0;
-    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
-}
-
-.sidebar h3 {
-    color: white;
-    text-align: center;
-    font-size: 1.2rem;
-    margin-bottom: 2rem;
-}
-
-.sidebar .card {
-    background-color: #e2e2e2;
-    padding: 1rem;
-    margin: 1rem 0;
-    text-align: center;
-    border-radius: 10px;
-    transition: transform 0.3s, background-color 0.3s;
-}
-
-.sidebar .card a {
-    text-decoration: none;
+    padding: 0.8rem 3rem;
+    font-weight: 500;
+    font-size: 15px;
     color: #333;
-    font-weight: bold;
-    font-size: 1rem;
+    transition: background 0.3s ease;
 }
 
-.sidebar .card:hover {
-    transform: translateY(-10px);
-    background-color: #d1d1d1;
+.links {
+    margin-top: 5rem;
+    display: flex;
+    flex-direction: column;
 }
 
-.content {
-    flex: 1;
-    padding: 2rem;
-    background-color: #fff;
-    border-radius: 10px;
-    margin: 100px 2rem 2rem 270px; /* Ajustado para dar espacio a la sidebar y navbar */
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    min-height: calc(100vh - 60px); /* Para llenar todo el espacio disponible */
-    position: relative;
+.links a {
+    font-size: 13px;
 }
 
-.content h2 {
-    color: #3A405A;
-    font-size: 2rem;
-    margin-bottom: 1.5rem;
+.side_navbar a:hover {
+    background: #f0f0f0;
 }
 
-.charts {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 2rem;
+.side_navbar .active {
+    background: #f0f0f0;
+    border-left: 4px solid #333;
+}
+
+.main-body {
+    width: 70%;
+    padding: 1rem;
+}
+
+.promo_card {
+    width: 100%;
+    color: #fff;
+    margin-top: 10px;
+    border-radius: 8px;
+    padding: 1rem 2rem;
+    background: #333;
+}
+
+.promo_card h1, .promo_card span, .promo_card button {
+    margin: 10px 0;
+}
+
+.promo_card button {
+    display: block;
+    padding: 8px 16px;
+    border-radius: 5px;
+    background: #fff;
+    color: #333;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.3s ease;
+}
+
+.promo_card button:hover {
+    background: #f0f0f0;
+}
+
+.history_lists {
+    display: flex;
+    justify-content: space-between;
     margin-top: 2rem;
 }
 
-.chart-container {
-    background-color: #f4f4f4;
-    padding: 1.5rem;
-    border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    text-align: center;
+.row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 1rem 0;
 }
 
-.footer {
-    text-align: center;
+table {
+    background: #fff;
     padding: 1rem;
-    background-color: #3A405A;
-    color: white;
-    position: fixed;
-    width: calc(100% - 250px); /* Ajustado para no cubrir la sidebar */
-    bottom: 0;
-    left: 250px; /* Para alinearse con la sidebar */
-    z-index: 1000;
+    text-align: left;
+    border-radius: 10px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    width: 100%;
+}
+
+table td, th {
+    padding: 0.5rem;
+}
+
+table th {
+    font-size: 15px;
+    color: #333;
+}
+
+table td {
+    font-size: 13px;
+    color: #666;
+}
+
+.sidebar {
+    width: 25%;
+    padding: 2rem 1rem;
+    background: #fff;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar h4 {
+    margin-bottom: 1.5rem;
+    color: #333;
+}
+
+.sidebar .balance {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.balance .icon {
+    color: #fff;
+    font-size: 20px;
+    border-radius: 6px;
+    margin-right: 1rem;
+    padding: 1rem;
+    background: #333;
+}
+
+.balance .info h5 {
+    font-size: 16px;
+    color: #333;
+}
+
+.balance .info span {
+    font-size: 14px;
+    color: #666;
+    font-weight: 600;
+}
+
+#ventasChart {
+    margin-top: 1rem;
+    margin-bottom: 2rem;
+}
+
+.logout-btn {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    background: #ff4d4d;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    transition: background 0.3s ease;
+}
+
+.logout-btn:hover {
+    background: #ff3333;
+}
+
+@media screen and (max-width: 1050px) {
+    .container {
+        flex-direction: column;
+    }
+    
+    nav, .main-body, .sidebar {
+        width: 100%;
+    }
+    
+    .history_lists {
+        flex-direction: column;
+    }
+    
+    .sidebar {
+        margin-top: 1rem;
+    }
 }

@@ -2,22 +2,19 @@
 session_start();
 require_once '../../config/db.php';
 
-// Verificar si el usuario está logueado mediante sesión o cookies
-if (isset($_SESSION['user_id']) && isset($_SESSION['email'])) {
-    $user_id = $_SESSION['user_id'];
-    $email = $_SESSION['email'];
-} elseif (isset($_COOKIE['user_id']) && isset($_COOKIE['email'])) {
-    $user_id = $_COOKIE['user_id'];
-    $email = $_COOKIE['email'];
-} else {
+// Verificar si el usuario está logueado
+if (!isset($_SESSION['user_id'])) {
     header("Location: ../../index.php");
     exit();
 }
 
+$user_id = $_SESSION['user_id'];
+$email = $_SESSION['email'];
+
 function obtenerCategorias()
 {
     global $pdo;
-    $query = "SELECT id, nombre FROM categorias"; // Sin WHERE user_id
+    $query = "SELECT id, nombre FROM categorias";
     $stmt = $pdo->prepare($query);
     $stmt->execute();
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -26,30 +23,26 @@ function obtenerCategorias()
 function obtenerDepartamentos()
 {
     global $pdo;
-    $query = "SELECT id, nombre FROM departamentos"; // Sin WHERE user_id
+    $query = "SELECT id, nombre FROM departamentos";
     $stmt = $pdo->prepare($query);
     $stmt->execute();
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-// Función para verificar si el código de barras ya existe
 function codigoBarrasExistente($codigo_barras)
 {
     global $pdo;
     $query = "SELECT COUNT(*) FROM inventario WHERE codigo_barras = ?";
     $stmt = $pdo->prepare($query);
     $stmt->execute([$codigo_barras]);
-    return $stmt->fetchColumn() > 0; // Devuelve true si existe
+    return $stmt->fetchColumn() > 0;
 }
 
-// Función para agregar un nuevo producto al inventario
 function agregarProducto($user_id, $codigo_barras, $nombre, $descripcion, $stock, $precio_costo, $impuesto, $otro_dato, $categoria_id, $departamento_id)
 {
     global $pdo;
-
-    // Calcular el precio de venta basado en el impuesto y redondear
     $precio_venta = $precio_costo + ($precio_costo * ($impuesto / 100));
-    $precio_venta = round($precio_venta);  // Redondear al entero más cercano
+    $precio_venta = round($precio_venta);
 
     $query = "INSERT INTO inventario (user_id, codigo_barras, nombre, descripcion, stock, precio_costo, impuesto, precio_venta, otro_dato, categoria_id, departamento_id, fecha_ingreso) 
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
@@ -57,7 +50,6 @@ function agregarProducto($user_id, $codigo_barras, $nombre, $descripcion, $stock
     return $stmt->execute([$user_id, $codigo_barras, $nombre, $descripcion, $stock, $precio_costo, $impuesto, $precio_venta, $otro_dato, $categoria_id, $departamento_id]);
 }
 
-// Inicialización de variables
 $message = '';
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $codigo_barras = trim($_POST['codigo_barras']);
@@ -70,14 +62,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $categoria_id = (int)$_POST['categoria'];
     $departamento_id = (int)$_POST['departamento'];
 
-    // Validación de campos requeridos
     if (empty($codigo_barras) || empty($nombre) || $stock <= 0 || $precio_costo <= 0 || $impuesto < 0 || $categoria_id == 0 || $departamento_id == 0) {
         $message = "Por favor, complete todos los campos obligatorios correctamente.";
     } elseif (codigoBarrasExistente($codigo_barras)) {
-        // Validar si el código de barras ya existe
         $message = "El código de barras ya está en uso. Por favor, ingrese uno diferente.";
     } else {
-        // Intentar agregar el producto al inventario
         if (agregarProducto($user_id, $codigo_barras, $nombre, $descripcion, $stock, $precio_costo, $impuesto, $otro_dato, $categoria_id, $departamento_id)) {
             $message = "Producto agregado exitosamente.";
         } else {
@@ -86,14 +75,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 }
 
-// Obtener las categorías y departamentos para mostrarlas en el formulario
 $categorias = obtenerCategorias();
 $departamentos = obtenerDepartamentos();
 
-// Formato de moneda
 function formatoMoneda($monto)
 {
-    return '$' . number_format($monto, 2, ',', '.'); // Cambia el formato según sea necesario
+    return '$' . number_format($monto, 2, ',', '.');
 }
 ?>
 
@@ -103,40 +90,66 @@ function formatoMoneda($monto)
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crear Producto</title>
+    <title>Crear Producto - VendEasy</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
+    <link rel="stylesheet" href="../../css/welcome.css">
     <link rel="stylesheet" href="../../css/modulos.css">
 </head>
 
 <body>
+    <header class="header">
+        <div class="logo">
+            <a href="../../welcome.php">VendEasy</a>
+        </div>
+        <div class="header-icons">
+            <i class="fas fa-bell"></i>
+            <div class="account">
+                <h4><?= htmlspecialchars($email) ?></h4>
+            </div>
+        </div>
+    </header>
+    <div class="container">
+        <nav>
+            <div class="side_navbar">
+                <span>Menú Principal</span>
+                <a href="/welcome.php">Dashboard</a>
+                <a href="/modules/pos/index.php">Punto de Venta</a>
+                <a href="/modules/ingresos/index.php">Ingresos</a>
+                <a href="/modules/egresos/index.php">Egresos</a>
+                <a href="/modules/ventas/index.php">Ventas</a>
+                <a href="/modules/inventario/index.php" class="active">Inventario</a>
+                <a href="/modules/clientes/index.php">Clientes</a>
+                <a href="/modules/proveedores/index.php">Proveedores</a>
+                <a href="/modules/reportes/index.php">Reportes</a>
+                <a href="/modules/config/index.php">Configuración</a>
 
-    <div class="sidebar">
-        <h2>Menú Principal</h2>
-        <ul>
-            <li><a href="../../welcome.php">Inicio</a></li>
-            <li><a href="../../modules/ventas/index.php">Ventas</a></li>
-            <li><a href="../../modules/reportes/index.php">Reportes</a></li>
-            <li><a href="../../modules/ingresos/index.php">Ingresos</a></li>
-            <li><a href="../../modules/egresos/index.php">Egresos</a></li>
-            <li><a href="../../modules/inventario/index.php">Productos</a></li>
-            <li><a href="../../modules/clientes/index.php">Clientes</a></li>
-            <li><a href="../../modules/proveedores/index.php">Proveedores</a></li>
-            <li><a href="../../modules/config/index.php">Configuración</a></li>
-            <form method="POST" action="">
-                <button type="submit" name="logout" class="logout-button">Cerrar Sesión</button>
-            </form>
-        </ul>
-    </div>
+                <div class="links">
+                    <span>Enlaces Rápidos</span>
+                    <a href="#">Ayuda</a>
+                    <a href="#">Soporte</a>
+                </div>
+            </div>
+        </nav>
 
-    <div class="main-content">
-        <h2>Crear Nuevo Producto</h2>
+        <div class="main-body">
+            <h2>Crear Nuevo Producto</h2>
+            <div class="promo_card">
+                <h1>Agregar Producto al Inventario</h1>
+                <span>Ingrese los detalles del nuevo producto.</span>
+            </div>
 
-        <!-- Mensaje de éxito o error -->
-        <?php if (!empty($message)): ?>
-            <div class="message"><?= htmlspecialchars($message); ?></div>
-        <?php endif; ?>
+            <?php if (!empty($message)): ?>
+                <div class="alert <?= strpos($message, 'exitosamente') !== false ? 'alert-success' : 'alert-danger' ?>">
+                    <?= htmlspecialchars($message); ?>
+                </div>
+            <?php endif; ?>
 
-        <!-- Formulario para agregar un nuevo producto -->
-        <form method="POST" action="">
+            <div class="history_lists">
+                <div class="list1">
+                    <div class="row">
+                        <h4>Formulario de Nuevo Producto</h4>
+                    </div>
+                    <form method="POST" action="">
             <div class="form-group">
                 <label for="codigo_barras">Código de Barras:</label>
                 <input type="text" id="codigo_barras" name="codigo_barras" required>
@@ -201,24 +214,14 @@ function formatoMoneda($monto)
 
             <button type="submit" class="btn btn-success">Agregar Producto</button>
         </form>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
-        document.getElementById('precio_costo').addEventListener('input', calcularPrecioVenta);
-        document.getElementById('impuesto').addEventListener('input', calcularPrecioVenta);
-
-        function calcularPrecioVenta() {
-            const precioCosto = parseFloat(document.getElementById('precio_costo').value) || 0;
-            const impuesto = parseFloat(document.getElementById('impuesto').value) || 0;
-
-            // Calcular precio de venta
-            const precioVenta = precioCosto + (precioCosto * (impuesto / 100));
-
-            // Redondear a dos decimales y mostrar en el campo
-            document.getElementById('precio_venta').value = precioVenta.toFixed(2);
-        }
+        // Aquí iría el script para calcular el precio de venta
     </script>
-
 </body>
 
 </html>

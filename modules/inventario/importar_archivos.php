@@ -13,6 +13,9 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+$user_id = $_SESSION['user_id'];
+$email = $_SESSION['email'];
+
 $mensaje = '';
 
 // Función para crear y descargar la plantilla
@@ -100,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['archivo_excel'])) {
                 
                 if (count($datos) >= 10) {
                     $stmt->execute([
-                        $_SESSION['user_id'],
+                        $user_id,
                         $datos[0], // codigo_barras
                         $datos[1], // nombre
                         $datos[2], // descripcion
@@ -115,9 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['archivo_excel'])) {
                 }
             }
             
-            // Redirigir al módulo de Inventario después de una importación exitosa
-            header("Location: index.php?mensaje=importacion_exitosa");
-            exit();
+            $mensaje = "Importación realizada con éxito.";
         } catch (Exception $e) {
             $mensaje = "Error al procesar el archivo: " . $e->getMessage();
         }
@@ -132,43 +133,74 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['archivo_excel'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Importar Archivos</title>
+    <title>Importar Archivos - VendEasy</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
+    <link rel="stylesheet" href="../../css/welcome.css">
     <link rel="stylesheet" href="../../css/modulos.css">
-    <link rel="stylesheet" href="../../css/notificaciones.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.all.min.js"></script>
 </head>
 <body>
-    <div class="main-content">
-        <h2>Importar Archivos</h2>
-        <div id="notificaciones">
-            <?php
-            if ($mensaje) {
-                $tipo = strpos($mensaje, 'Error') !== false ? 'error' : 'info';
-                echo "<div class='notificacion notificacion-$tipo'>";
-                echo "<span class='notificacion-cerrar' onclick='this.parentElement.style.display=\"none\";'>&times;</span>";
-                echo $mensaje;
-                echo "</div>";
-            }
-            ?>
+    <header class="header">
+        <div class="logo">
+            <a href="../../welcome.php">VendEasy</a>
         </div>
-        <p>Descarga la plantilla para asegurarte de que tu archivo Excel tenga el formato correcto:</p>
-        <a href="?descargar_plantilla=1" class="btn btn-secondary">Descargar Plantilla</a>
-        <form action="" method="post" enctype="multipart/form-data">
-            <input type="file" name="archivo_excel" accept=".xlsx, .xls" required>
-            <button type="submit" class="btn btn-primary">Importar Excel</button>
-        </form>
-        <a href="index.php" class="btn btn-secondary">Volver al Inventario</a>
+        <div class="header-icons">
+            <i class="fas fa-bell"></i>
+            <div class="account">
+                <h4><?= htmlspecialchars($email) ?></h4>
+            </div>
+        </div>
+    </header>
+    <div class="container">
+        <nav>
+            <div class="side_navbar">
+                <span>Menú Principal</span>
+                <a href="../../welcome.php">Dashboard</a>
+                <a href="../pos/index.php">Punto de Venta</a>
+                <a href="../ventas/index.php">Ventas</a>
+                <a href="../inventario/index.php" class="active">Inventario</a>
+                <a href="../clientes/index.php">Clientes</a>
+                <a href="../reportes/index.php">Reportes</a>
+                <a href="../config/index.php">Configuración</a>
+            </div>
+        </nav>
+
+        <div class="main-body">
+            <h2>Importar Archivos</h2>
+            <div class="promo_card">
+                <h1>Importación de Inventario</h1>
+                <span>Importe su inventario desde un archivo Excel.</span>
+            </div>
+
+            <div class="history_lists">
+                <div class="list1">
+                    <div class="row">
+                        <h4>Importar Archivo Excel</h4>
+                    </div>
+                    <p>Descargue la plantilla para asegurarse de que su archivo Excel tenga el formato correcto:</p>
+                    <a href="?descargar_plantilla=1" class="btn btn-secondary">Descargar Plantilla</a>
+                    <form action="" method="post" enctype="multipart/form-data">
+                        <div class="form-group">
+                            <label for="archivo_excel">Seleccione el archivo Excel:</label>
+                            <input type="file" name="archivo_excel" id="archivo_excel" accept=".xlsx, .xls" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Importar Excel</button>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
+
     <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        var notificaciones = document.querySelectorAll('.notificacion');
-        notificaciones.forEach(function(notificacion) {
-            setTimeout(function() {
-                notificacion.style.opacity = '0';
-                setTimeout(function() {
-                    notificacion.style.display = 'none';
-                }, 500);
-            }, 5000);
+    $(document).ready(function() {
+        <?php if (!empty($mensaje)): ?>
+        Swal.fire({
+            icon: '<?= strpos($mensaje, 'éxito') !== false ? 'success' : 'error' ?>',
+            title: 'Notificación',
+            text: '<?= $mensaje ?>'
         });
+        <?php endif; ?>
     });
     </script>
 </body>

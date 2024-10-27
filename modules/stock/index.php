@@ -2,17 +2,14 @@
 session_start();
 require_once '../../config/db.php';
 
-// Verificar si el usuario está logueado mediante sesión o cookies
-if (isset($_SESSION['user_id']) && isset($_SESSION['email'])) {
-    $user_id = $_SESSION['user_id'];
-    $email = $_SESSION['email'];
-} elseif (isset($_COOKIE['user_id']) && isset($_COOKIE['email'])) {
-    $user_id = $_COOKIE['user_id'];
-    $email = $_COOKIE['email'];
-} else {
+// Verificar si el usuario está logueado
+if (!isset($_SESSION['user_id'])) {
     header("Location: ../../index.php");
     exit();
 }
+
+$user_id = $_SESSION['user_id'];
+$email = $_SESSION['email'];
 
 // Función para obtener todos los productos del inventario del usuario actual
 function getUserInventario($user_id)
@@ -63,79 +60,108 @@ $productos = getUserInventario($user_id);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Actualizar Inventario</title>
+    <title>Actualizar Inventario - VendEasy</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
+    <link rel="stylesheet" href="../../css/welcome.css">
     <link rel="stylesheet" href="../../css/modulos.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.all.min.js"></script>
 </head>
 <body>
+    <header class="header">
+        <div class="logo">
+            <a href="../../welcome.php">VendEasy</a>
+        </div>
+        <div class="header-icons">
+            <i class="fas fa-bell"></i>
+            <div class="account">
+                <h4><?= htmlspecialchars($email) ?></h4>
+            </div>
+        </div>
+    </header>
+    <div class="container">
+        <nav>
+        <div class="side_navbar">
+                <span>Menú Principal</span>
+                <a href="/welcome.php">Dashboard</a>
+                <a href="/modules/pos/index.php">Punto de Venta</a>
+                <a href="/modules/ingresos/index.php">Ingresos</a>
+                <a href="/modules/egresos/index.php">Egresos</a>
+                <a href="/modules/ventas/index.php">Ventas</a>
+                <a href="/modules/inventario/index.php" class="active">Inventario</a>
+                <a href="/modules/clientes/index.php">Clientes</a>
+                <a href="/modules/proveedores/index.php">Proveedores</a>
+                <a href="/modules/reportes/index.php">Reportes</a>
+                <a href="/modules/config/index.php">Configuración</a>
 
-<div class="sidebar">
-    <h2>Menú Principal</h2>
-    <ul>
-        <li><a href="../../welcome.php">Inicio</a></li>
-        <li><a href="../../modules/ventas/index.php">Ventas</a></li>
-        <li><a href="../../modules/reportes/index.php">Reportes</a></li>
-        <li><a href="../../modules/ingresos/index.php">Ingresos</a></li>
-        <li><a href="../../modules/egresos/index.php">Egresos</a></li>
-        <li><a href="../../modules/inventario/index.php">Productos</a></li>
-        <li><a href="../../modules/clientes/index.php">Clientes</a></li>
-        <li><a href="../../modules/proveedores/index.php">Proveedores</a></li>
-        <li><a href="../../modules/config/index.php">Configuración</a></li>
-        <form method="POST" action="">
-            <button type="submit" name="logout" class="logout-button">Cerrar Sesión</button>
-        </form>
-    </ul>
-</div>
+                <div class="links">
+                    <span>Enlaces Rápidos</span>
+                    <a href="#">Ayuda</a>
+                    <a href="#">Soporte</a>
+                </div>
+            </div>
+        </nav>
 
-<div class="main-content">
-    <h2>Actualizar Stock de Productos</h2>
+        <div class="main-body">
+            <h2>Actualizar Stock de Productos</h2>
+            <div class="promo_card">
+                <h1>Gestión de Inventario</h1>
+                <span>Aquí puedes actualizar el stock de tus productos.</span>
+            </div>
 
-    <?php if (!empty($message)): ?>
-        <div class="message"><?= htmlspecialchars($message); ?></div>
-    <?php endif; ?>
+            <?php if (!empty($message)): ?>
+                <div class="alert <?= strpos($message, 'exitosamente') !== false ? 'alert-success' : 'alert-danger' ?>">
+                    <?= htmlspecialchars($message); ?>
+                </div>
+            <?php endif; ?>
 
-    <div class="table-container">
-        <h3>Listado de Productos</h3>
-        <?php if (count($productos) > 0): ?>
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Nombre</th>
-                        <th>Descripción</th>
-                        <th>Cantidad</th>
-                        <th>Precio</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($productos as $producto): ?>
-                        <tr>
-                            <td><?= htmlspecialchars($producto['id']); ?></td>
-                            <td><?= htmlspecialchars($producto['nombre']); ?></td>
-                            <td><?= htmlspecialchars($producto['descripcion']); ?></td>
-                            <td><?= htmlspecialchars($producto['cantidad']); ?></td>
-                            <td><?= htmlspecialchars($producto['precio']); ?></td>
-                            <td>
-                                <button class="btn btn-edit" onclick="editStock(<?= htmlspecialchars($producto['id']); ?>, <?= htmlspecialchars($producto['cantidad']); ?>, <?= htmlspecialchars($producto['precio']); ?>)">Agregar Stock</button>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        <?php else: ?>
-            <p>No hay productos registrados en el inventario.</p>
-        <?php endif; ?>
+            <div class="history_lists">
+                <div class="list1">
+                    <div class="row">
+                        <h4>Listado de Productos</h4>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nombre</th>
+                                <th>Descripción</th>
+                                <th>Cantidad</th>
+                                <th>Precio</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($productos as $producto): ?>
+                                <tr>
+                                    <td><?= htmlspecialchars($producto['id']); ?></td>
+                                    <td><?= htmlspecialchars($producto['nombre']); ?></td>
+                                    <td><?= htmlspecialchars($producto['descripcion']); ?></td>
+                                    <td><?= htmlspecialchars($producto['cantidad']); ?></td>
+                                    <td><?= htmlspecialchars($producto['precio']); ?></td>
+                                    <td>
+                                        <button class="btn-edit" onclick="editStock(<?= htmlspecialchars(json_encode($producto)); ?>)">
+                                            <i class="fas fa-edit"></i> Agregar Stock
+                                        </button>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Modal para agregar stock -->
-    <div id="stockModal" class="modal" style="display:none;">
+    <div id="stockModal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeStockModal()">&times;</span>
+            <span class="close">&times;</span>
             <h3>Agregar Stock</h3>
-            <form method="POST" action="">
+            <form id="stockForm" method="POST" action="">
                 <input type="hidden" id="stock_id" name="id">
                 <div class="form-group">
-                    <label for="stock_cantidad">Cantidad Actual:</label>
+                    <label for="stock_cantidad_actual">Cantidad Actual:</label>
                     <input type="number" id="stock_cantidad_actual" readonly>
                 </div>
                 <div class="form-group">
@@ -143,7 +169,7 @@ $productos = getUserInventario($user_id);
                     <input type="number" id="stock_cantidad" name="cantidad" min="1" required>
                 </div>
                 <div class="form-group">
-                    <label for="stock_precio">Precio Actual:</label>
+                    <label for="stock_precio_actual">Precio Actual:</label>
                     <input type="number" id="stock_precio_actual" readonly>
                 </div>
                 <div class="form-group">
@@ -155,22 +181,37 @@ $productos = getUserInventario($user_id);
         </div>
     </div>
 
-</div>
-
-<script>
-    function editStock(id, cantidad, precio) {
-        document.getElementById('stock_id').value = id;
-        document.getElementById('stock_cantidad_actual').value = cantidad;
-        document.getElementById('stock_precio_actual').value = precio;
-        document.getElementById('stock_cantidad').value = 1; // valor predeterminado para cantidad a agregar
-        document.getElementById('stock_precio').value = precio; // valor predeterminado para nuevo precio
+    <script>
+    function editStock(producto) {
+        document.getElementById('stock_id').value = producto.id;
+        document.getElementById('stock_cantidad_actual').value = producto.cantidad;
+        document.getElementById('stock_precio_actual').value = producto.precio;
+        document.getElementById('stock_cantidad').value = 1;
+        document.getElementById('stock_precio').value = producto.precio;
         document.getElementById('stockModal').style.display = 'block';
     }
 
-    function closeStockModal() {
+    // Cerrar el modal
+    document.querySelector('.close').onclick = function() {
         document.getElementById('stockModal').style.display = 'none';
     }
-</script>
+
+    // Cerrar el modal si se hace clic fuera de él
+    window.onclick = function(event) {
+        if (event.target == document.getElementById('stockModal')) {
+            document.getElementById('stockModal').style.display = 'none';
+        }
+    }
+
+    // Manejar el envío del formulario
+    document.getElementById('stockForm').onsubmit = function(e) {
+        e.preventDefault();
+        // Aquí puedes agregar validación adicional si lo deseas
+        this.submit();
+    }
+    </script>
+</body>
+</html>
 
 </body>
 </html>
