@@ -11,6 +11,19 @@ if (!isset($_SESSION['user_id'])) {
 $user_id = $_SESSION['user_id'];
 $email = $_SESSION['email'];
 
+// Clase para manejar respuestas JSON
+class ApiResponse {
+    public static function send($status, $message, $data = null) {
+        header('Content-Type: application/json');
+        echo json_encode([
+            'status' => $status,
+            'message' => $message,
+            'data' => $data
+        ]);
+        exit;
+    }
+}
+
 function getUserIngresos($user_id, $limit = 10, $offset = 0)
 {
     global $pdo;
@@ -23,12 +36,20 @@ function getUserIngresos($user_id, $limit = 10, $offset = 0)
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-function addIngreso($user_id, $descripcion, $monto)
-{
+function addIngreso($user_id, $descripcion, $monto) {
     global $pdo;
-    $query = "INSERT INTO ingresos (user_id, descripcion, monto) VALUES (?, ?, ?)";
-    $stmt = $pdo->prepare($query);
-    return $stmt->execute([$user_id, $descripcion, $monto]);
+    try {
+        $query = "INSERT INTO ingresos (user_id, descripcion, monto) VALUES (?, ?, ?)";
+        $stmt = $pdo->prepare($query);
+        $result = $stmt->execute([$user_id, $descripcion, $monto]);
+        
+        if ($result) {
+            return ['status' => true, 'message' => 'Ingreso registrado exitosamente'];
+        }
+        return ['status' => false, 'message' => 'Error al registrar el ingreso'];
+    } catch (PDOException $e) {
+        return ['status' => false, 'message' => 'Error en la base de datos: ' . $e->getMessage()];
+    }
 }
 
 function getTotalIngresos($user_id)
@@ -48,29 +69,28 @@ $ingresos = getUserIngresos($user_id, $limit, $offset);
 $total_ingresos = getTotalIngresos($user_id);
 $total_pages = ceil($total_ingresos / $limit);
 
-// Procesar solicitud AJAX
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
-    $response = ['success' => false, 'message' => ''];
+// Procesar solicitudes AJAX
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+    $action = $_POST['action'] ?? '';
+    
+    switch ($action) {
+        case 'add_ingreso':
+            $descripcion = trim($_POST['descripcion']);
+            $monto = (float)trim($_POST['monto']);
 
-    if ($_POST['action'] === 'add_ingreso') {
-        $descripcion = trim($_POST['descripcion']);
-        $monto = (float)trim($_POST['monto']);
-
-        if (empty($descripcion) || $monto <= 0) {
-            $response['message'] = "Por favor, complete todos los campos correctamente.";
-        } else {
-            if (addIngreso($user_id, $descripcion, $monto)) {
-                $response['success'] = true;
-                $response['message'] = "Ingreso agregado exitosamente.";
-            } else {
-                $response['message'] = "Error al agregar el ingreso.";
+            if (empty($descripcion) || $monto <= 0) {
+                ApiResponse::send(false, 'Por favor, complete todos los campos correctamente.');
             }
-        }
-    }
 
-    echo json_encode($response);
-    exit;
+            $result = addIngreso($user_id, $descripcion, $monto);
+            ApiResponse::send($result['status'], $result['message']);
+            break;
+            
+        default:
+            ApiResponse::send(false, 'Acción no válida');
+    }
 }
+
 ?>
 
 <!DOCTYPE html>
@@ -78,12 +98,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ingresos - VendEasy</title>
+    <title>Ingresos | VendEasy</title>
+    <link rel="icon" type="image/png" href="/favicon/favicon.ico"/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
     <link rel="stylesheet" href="../../css/welcome.css">
     <link rel="stylesheet" href="../../css/modulos.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.all.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-material-ui/material-ui.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
     <header class="header">
@@ -102,7 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
         <div class="side_navbar">
                 <span>Menú Principal</span>
                 <a href="/welcome.php">Dashboard</a>
-                <a href="/modules/pos/index.php">Punto de Venta</a>
+                <a href="/modules/pos/index.php">POS</a>
                 <a href="/modules/ingresos/index.php" class="active">Ingresos</a>
                 <a href="/modules/egresos/index.php">Egresos</a>
                 <a href="/modules/ventas/index.php">Ventas</a>
@@ -180,41 +203,104 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
     </div>
 
     <script>
-    $(document).ready(function() {
-        $('#ingresoForm').on('submit', function(e) {
-            e.preventDefault();
-            $.ajax({
-                url: 'index.php',
+    // Configuración global de notificaciones
+    const Toast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true,
+        didOpen: (toast) => {
+            toast.addEventListener('mouseenter', Swal.stopTimer)
+            toast.addEventListener('mouseleave', Swal.resumeTimer)
+        }
+    });
+
+    // Función para mostrar notificaciones
+    function showNotification(type, message) {
+        Toast.fire({
+            icon: type,
+            title: message
+        });
+    }
+
+    // Función para mostrar errores
+    function showError(title, message) {
+        Swal.fire({
+            icon: 'error',
+            title: title,
+            text: message,
+            confirmButtonText: 'Entendido'
+        });
+    }
+
+    // Función para validar el formulario
+    function validateForm(formData) {
+        const monto = parseFloat(formData.get('monto'));
+        if (monto <= 0) {
+            showError('Error de validación', 'El monto debe ser mayor que cero');
+            return false;
+        }
+        return true;
+    }
+
+    // Manejador del formulario de ingreso
+    document.getElementById('ingresoForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        formData.append('action', 'add_ingreso');
+
+        if (!validateForm(formData)) {
+            return;
+        }
+
+        try {
+            const response = await fetch('', {
                 method: 'POST',
-                data: $(this).serialize() + '&action=add_ingreso',
-                dataType: 'json',
-                success: function(response) {
-                    if (response.success) {
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Éxito',
-                            text: response.message,
-                        }).then(() => {
-                            location.reload();
-                        });
-                    } else {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Error',
-                            text: response.message,
-                        });
-                    }
-                },
-                error: function() {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: 'Hubo un problema al procesar la solicitud.',
-                    });
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
                 }
             });
-        });
+
+            const data = await response.json();
+            
+            if (data.status) {
+                showNotification('success', data.message);
+                // Limpiar formulario
+                this.reset();
+                // Recargar tabla después de un breve delay
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showError('Error', data.message);
+            }
+        } catch (error) {
+            showError('Error', 'Ocurrió un error al procesar la solicitud');
+        }
     });
+
+    // Estilo personalizado para SweetAlert2
+    const style = document.createElement('style');
+    style.textContent = `
+        .swal2-popup {
+            font-family: 'Poppins', sans-serif;
+            border-radius: 12px;
+        }
+        .swal2-title {
+            color: #344767;
+        }
+        .swal2-html-container {
+            color: #495057;
+        }
+        .swal2-confirm {
+            background: linear-gradient(145deg, #007bff, #0056b3) !important;
+        }
+        .swal2-cancel {
+            background: linear-gradient(145deg, #6c757d, #495057) !important;
+        }
+    `;
+    document.head.appendChild(style);
     </script>
 </body>
 </html>

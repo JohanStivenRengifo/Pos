@@ -21,8 +21,9 @@ $productos = obtenerProductos($pdo, $user_id);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VendEasy POS | Venta Rápida</title>
-    <link rel="stylesheet" href="../../css/pos.css">
+    <title>POS | VendEasy</title>
+    <link rel="icon" type="image/png" href="/favicon/favicon.ico"/>
+    <link rel="stylesheet" href="/css/pos.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -141,6 +142,7 @@ $productos = obtenerProductos($pdo, $user_id);
         }
     </style>
 </head>
+
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark">
         <a class="navbar-brand" href="#">
@@ -222,7 +224,7 @@ $productos = obtenerProductos($pdo, $user_id);
                     <select id="cliente-select" class="custom-select">
                         <option value="">Seleccione un cliente</option>
                         <?php foreach ($clientes as $cliente): ?>
-                            <option value="<?= $cliente['id']; ?>"><?= htmlspecialchars($cliente['nombre']); ?></option>
+                            <option value="<?= $cliente['id']; ?>" <?= $cliente['nombre'] === 'Consumidor Final' ? 'selected' : ''; ?>><?= htmlspecialchars($cliente['nombre']); ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>

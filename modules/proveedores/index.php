@@ -11,6 +11,116 @@ if (!isset($_SESSION['user_id'])) {
 $user_id = $_SESSION['user_id'];
 $email = $_SESSION['email'];
 
+// Clase para manejar respuestas JSON
+class ApiResponse {
+    public static function send($status, $message, $data = null) {
+        header('Content-Type: application/json');
+        echo json_encode([
+            'status' => $status,
+            'message' => $message,
+            'data' => $data
+        ]);
+        exit;
+    }
+}
+
+// Modificar la función para devolver respuesta estructurada
+function addProveedor($user_id, $nombre, $email, $telefono, $direccion) {
+    global $pdo;
+    try {
+        $query = "INSERT INTO proveedores (user_id, nombre, email, telefono, direccion) VALUES (?, ?, ?, ?, ?)";
+        $stmt = $pdo->prepare($query);
+        $result = $stmt->execute([$user_id, $nombre, $email, $telefono, $direccion]);
+        
+        if ($result) {
+            return ['status' => true, 'message' => 'Proveedor agregado exitosamente'];
+        }
+        return ['status' => false, 'message' => 'Error al agregar el proveedor'];
+    } catch (PDOException $e) {
+        return ['status' => false, 'message' => 'Error en la base de datos: ' . $e->getMessage()];
+    }
+}
+
+function deleteProveedor($id, $user_id) {
+    global $pdo;
+    try {
+        $query = "DELETE FROM proveedores WHERE id = ? AND user_id = ?";
+        $stmt = $pdo->prepare($query);
+        $result = $stmt->execute([$id, $user_id]);
+        
+        if ($result) {
+            return ['status' => true, 'message' => 'Proveedor eliminado exitosamente'];
+        }
+        return ['status' => false, 'message' => 'Error al eliminar el proveedor'];
+    } catch (PDOException $e) {
+        return ['status' => false, 'message' => 'Error en la base de datos: ' . $e->getMessage()];
+    }
+}
+
+function updateProveedor($id, $user_id, $nombre, $email, $telefono, $direccion) {
+    global $pdo;
+    try {
+        $query = "UPDATE proveedores SET nombre = ?, email = ?, telefono = ?, direccion = ? WHERE id = ? AND user_id = ?";
+        $stmt = $pdo->prepare($query);
+        $result = $stmt->execute([$nombre, $email, $telefono, $direccion, $id, $user_id]);
+        
+        if ($result) {
+            return ['status' => true, 'message' => 'Proveedor actualizado exitosamente'];
+        }
+        return ['status' => false, 'message' => 'Error al actualizar el proveedor'];
+    } catch (PDOException $e) {
+        return ['status' => false, 'message' => 'Error en la base de datos: ' . $e->getMessage()];
+    }
+}
+
+// Procesar solicitudes AJAX
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+    $action = $_POST['action'] ?? '';
+    
+    switch ($action) {
+        case 'add':
+            $nombre = trim($_POST['nombre']);
+            $email = filter_var(trim($_POST['email']), FILTER_SANITIZE_EMAIL);
+            $telefono = trim($_POST['telefono']);
+            $direccion = trim($_POST['direccion']);
+
+            if (empty($nombre) || empty($email) || empty($telefono) || empty($direccion)) {
+                ApiResponse::send(false, 'Por favor, complete todos los campos.');
+            }
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                ApiResponse::send(false, 'Por favor, ingrese un correo electrónico válido.');
+            }
+
+            $result = addProveedor($user_id, $nombre, $email, $telefono, $direccion);
+            ApiResponse::send($result['status'], $result['message']);
+            break;
+
+        case 'update':
+            $id = (int)$_POST['id'];
+            $nombre = trim($_POST['nombre']);
+            $email = filter_var(trim($_POST['email']), FILTER_SANITIZE_EMAIL);
+            $telefono = trim($_POST['telefono']);
+            $direccion = trim($_POST['direccion']);
+
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                ApiResponse::send(false, 'Por favor, ingrese un correo electrónico válido.');
+            }
+
+            $result = updateProveedor($id, $user_id, $nombre, $email, $telefono, $direccion);
+            ApiResponse::send($result['status'], $result['message']);
+            break;
+
+        case 'delete':
+            $id = (int)$_POST['id'];
+            $result = deleteProveedor($id, $user_id);
+            ApiResponse::send($result['status'], $result['message']);
+            break;
+
+        default:
+            ApiResponse::send(false, 'Acción no válida');
+    }
+}
+
 // Función para obtener todos los proveedores asociados al usuario actual
 function getUserProveedores($user_id)
 {
@@ -19,15 +129,6 @@ function getUserProveedores($user_id)
     $stmt = $pdo->prepare($query);
     $stmt->execute([$user_id]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
-
-// Función para agregar un nuevo proveedor
-function addProveedor($user_id, $nombre, $email, $telefono, $direccion)
-{
-    global $pdo;
-    $query = "INSERT INTO proveedores (user_id, nombre, email, telefono, direccion) VALUES (?, ?, ?, ?, ?)";
-    $stmt = $pdo->prepare($query);
-    return $stmt->execute([$user_id, $nombre, $email, $telefono, $direccion]);
 }
 
 // Guardar nuevo proveedor si se envía el formulario
@@ -63,12 +164,15 @@ $proveedores = getUserProveedores($user_id);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Proveedores - VendEasy</title>
+    <title>Proveedores | VendEasy</title>
+    <link rel="icon" type="image/png" href="/favicon/favicon.ico"/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
     <link rel="stylesheet" href="../../css/welcome.css">
     <link rel="stylesheet" href="../../css/modulos.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.all.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-material-ui/material-ui.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 
 <body>
@@ -88,7 +192,7 @@ $proveedores = getUserProveedores($user_id);
             <div class="side_navbar">
                 <span>Menú Principal</span>
                 <a href="/welcome.php" >Dashboard</a>
-                <a href="/modules/pos/index.php">Punto de Venta</a>
+                <a href="/modules/pos/index.php">POS</a>
                 <a href="/modules/ingresos/index.php">Ingresos</a>
                 <a href="/modules/egresos/index.php">Egresos</a>
                 <a href="/modules/ventas/index.php">Ventas</a>
@@ -184,36 +288,225 @@ $proveedores = getUserProveedores($user_id);
     </div>
 
     <script>
-        function editProveedor(proveedor) {
-            // Implementar la lógica para editar un proveedor
-            console.log("Editar proveedor:", proveedor);
-            // Aquí puedes abrir un modal o redirigir a una página de edición
+    // Configuración global de notificaciones
+    const Toast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true,
+        didOpen: (toast) => {
+            toast.addEventListener('mouseenter', Swal.stopTimer)
+            toast.addEventListener('mouseleave', Swal.resumeTimer)
+        }
+    });
+
+    // Función para mostrar notificaciones
+    function showNotification(type, message) {
+        Toast.fire({
+            icon: type,
+            title: message
+        });
+    }
+
+    // Función para mostrar errores
+    function showError(title, message) {
+        Swal.fire({
+            icon: 'error',
+            title: title,
+            text: message,
+            confirmButtonText: 'Entendido'
+        });
+    }
+
+    // Función para validar email
+    function validateEmail(email) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+
+    // Manejador del formulario de proveedor
+    document.querySelector('form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        formData.append('action', 'add');
+
+        if (!validateEmail(formData.get('email'))) {
+            showError('Error de validación', 'Por favor, ingrese un correo electrónico válido');
+            return;
         }
 
-        function deleteProveedor(id) {
-            // Implementar la lógica para eliminar un proveedor
-            console.log("Eliminar proveedor con ID:", id);
-            // Aquí puedes usar SweetAlert2 para confirmar la eliminación
-            Swal.fire({
-                title: '¿Estás seguro?',
-                text: "Esta acción no se puede deshacer",
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#3085d6',
-                cancelButtonColor: '#d33',
-                confirmButtonText: 'Sí, eliminar',
-                cancelButtonText: 'Cancelar'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    // Aquí iría la lógica para eliminar el proveedor de la base de datos
-                    Swal.fire(
-                        'Eliminado',
-                        'El proveedor ha sido eliminado.',
-                        'success'
-                    )
+        try {
+            const response = await fetch('', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
                 }
-            })
+            });
+
+            const data = await response.json();
+            
+            if (data.status) {
+                showNotification('success', data.message);
+                this.reset();
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showError('Error', data.message);
+            }
+        } catch (error) {
+            showError('Error', 'Ocurrió un error al procesar la solicitud');
         }
+    });
+
+    // Función para editar proveedor
+    async function editProveedor(proveedor) {
+        const { value: formValues } = await Swal.fire({
+            title: 'Editar Proveedor',
+            html: `
+                <form id="editForm">
+                    <div class="form-group">
+                        <label for="nombre">Nombre</label>
+                        <input id="nombre" class="swal2-input" value="${proveedor.nombre}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input id="email" class="swal2-input" value="${proveedor.email}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="telefono">Teléfono</label>
+                        <input id="telefono" class="swal2-input" value="${proveedor.telefono}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="direccion">Dirección</label>
+                        <input id="direccion" class="swal2-input" value="${proveedor.direccion}" required>
+                    </div>
+                </form>
+            `,
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: 'Guardar',
+            cancelButtonText: 'Cancelar',
+            preConfirm: () => {
+                const email = document.getElementById('email').value;
+                if (!validateEmail(email)) {
+                    Swal.showValidationMessage('Por favor, ingrese un correo electrónico válido');
+                    return false;
+                }
+                return {
+                    nombre: document.getElementById('nombre').value,
+                    email: email,
+                    telefono: document.getElementById('telefono').value,
+                    direccion: document.getElementById('direccion').value
+                }
+            }
+        });
+
+        if (formValues) {
+            try {
+                const formData = new FormData();
+                formData.append('action', 'update');
+                formData.append('id', proveedor.id);
+                Object.entries(formValues).forEach(([key, value]) => {
+                    formData.append(key, value);
+                });
+
+                const response = await fetch('', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                const data = await response.json();
+                
+                if (data.status) {
+                    showNotification('success', data.message);
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showError('Error', data.message);
+                }
+            } catch (error) {
+                showError('Error', 'Ocurrió un error al actualizar el proveedor');
+            }
+        }
+    }
+
+    // Función para eliminar proveedor
+    async function deleteProveedor(id) {
+        const result = await Swal.fire({
+            title: '¿Eliminar proveedor?',
+            text: "Esta acción no se puede deshacer",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar'
+        });
+
+        if (result.isConfirmed) {
+            try {
+                const formData = new FormData();
+                formData.append('action', 'delete');
+                formData.append('id', id);
+
+                const response = await fetch('', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                const data = await response.json();
+                
+                if (data.status) {
+                    showNotification('success', data.message);
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showError('Error', data.message);
+                }
+            } catch (error) {
+                showError('Error', 'Ocurrió un error al eliminar el proveedor');
+            }
+        }
+    }
+
+    // Estilo personalizado para SweetAlert2
+    const style = document.createElement('style');
+    style.textContent = `
+        .swal2-popup {
+            font-family: 'Poppins', sans-serif;
+            border-radius: 12px;
+        }
+        .swal2-title {
+            color: #344767;
+        }
+        .swal2-html-container {
+            color: #495057;
+        }
+        .swal2-confirm {
+            background: linear-gradient(145deg, #007bff, #0056b3) !important;
+        }
+        .swal2-cancel {
+            background: linear-gradient(145deg, #6c757d, #495057) !important;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+            text-align: left;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #344767;
+        }
+        .swal2-input {
+            margin: 0.5rem 0 !important;
+        }
+    `;
+    document.head.appendChild(style);
     </script>
 </body>
 

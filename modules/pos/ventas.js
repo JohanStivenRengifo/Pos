@@ -243,7 +243,7 @@ $(document).ready(function () {
 
     $descuentoInput.on('input', actualizarCarrito);
 
-    $ventaBoton.on('click', function () {
+    $ventaBoton.on('click', async function () {
         if (carrito.length === 0) {
             mostrarAlerta('error', 'Carrito vacío', 'No hay productos en el carrito.');
             return;
@@ -279,60 +279,65 @@ $(document).ready(function () {
 
         $ventaBoton.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Procesando...');
 
-        $.ajax({
-            url: 'procesar_venta.php',
-            method: 'POST',
-            data: { venta: JSON.stringify(datos) },
-            dataType: 'json',
-            success: function (response) {
-                if (response.success) {
-                    Swal.fire({
-                        title: 'Venta Completada',
-                        html: `
-                            <p>${tipoDocumento === 'factura' ? 'Venta' : 'Cotización'} procesada correctamente.</p>
-                            <p>Número de documento: ${response.numero_factura}</p>
-                        `,
-                        icon: 'success',
-                        showCancelButton: true,
-                        confirmButtonText: 'Imprimir Ticket',
-                        cancelButtonText: 'Cerrar',
-                        allowOutsideClick: false
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            imprimirDocumento(response.venta_id);
-                        }
-                        
-                        // Recargar la página después de cerrar la alerta
-                        location.reload();
-                    });
-                    
-                    if (tipoDocumento === 'factura') {
-                        response.productos_actualizados.forEach(producto => {
-                            const productoCard = $(`.product-card[data-id="${producto.id}"]`);
-                            productoCard.data('cantidad', producto.nuevo_stock)
-                                .find('small:contains("Stock:")').text(`Stock: ${producto.nuevo_stock}`);
-                        });
+        try {
+            const response = await fetch('procesar_venta.php', {
+                method: 'POST',
+                body: JSON.stringify(datos),
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const data = await response.json();
+            
+            if (data.status) {
+                Swal.fire({
+                    title: 'Venta Completada',
+                    html: `
+                        <p>${tipoDocumento === 'factura' ? 'Venta' : 'Cotización'} procesada correctamente.</p>
+                        <p>Número de documento: ${data.numero_factura}</p>
+                    `,
+                    icon: 'success',
+                    showCancelButton: true,
+                    confirmButtonText: 'Imprimir Ticket',
+                    cancelButtonText: 'Cerrar',
+                    allowOutsideClick: false
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        imprimirDocumento(data.venta_id);
                     }
                     
-                    // Reiniciar el formulario
-                    carrito = [];
-                    actualizarCarrito();
-                    $descuentoInput.val(0);
-                    $clienteSelect.val('');
-                    $metodoPagoSelect.val('efectivo').trigger('change');
-                    $buscarProductoInput.val('').focus();
-                } else {
-                    mostrarAlerta('error', 'Error', `Error al procesar el documento: ${response.message}`);
+                    // Recargar la página después de cerrar la alerta
+                    location.reload();
+                });
+                
+                if (tipoDocumento === 'factura') {
+                    data.productos_actualizados.forEach(producto => {
+                        const productoCard = $(`.product-card[data-id="${producto.id}"]`);
+                        productoCard.data('cantidad', producto.nuevo_stock)
+                            .find('small:contains("Stock:")').text(`Stock: ${producto.nuevo_stock}`);
+                    });
                 }
-            },
-            error: function (xhr, status, error) {
-                console.error('Error en la solicitud AJAX:', status, error);
-                mostrarAlerta('error', 'Error', 'Error en la comunicación con el servidor.');
-            },
-            complete: function() {
-                $ventaBoton.prop('disabled', false).html(tipoDocumento === 'factura' ? 'Confirmar Venta' : 'Generar Cotización');
+                
+                // Reiniciar el formulario
+                carrito = [];
+                actualizarCarrito();
+                $descuentoInput.val(0);
+                $clienteSelect.val('');
+                $metodoPagoSelect.val('efectivo').trigger('change');
+                $buscarProductoInput.val('').focus();
+            } else {
+                handleVentaError(data.message);
             }
-        });
+        } catch (error) {
+            showError(
+                'Error de Comunicación',
+                'No se pudo establecer conexión con el servidor.',
+                'Verifique su conexión a internet e intente nuevamente.'
+            );
+        } finally {
+            $ventaBoton.prop('disabled', false).html(tipoDocumento === 'factura' ? 'Confirmar Venta' : 'Generar Cotización');
+        }
     });
 
     // Evento para cancelar la venta
@@ -424,6 +429,356 @@ $(document).ready(function () {
             printWindow.onload = function() {
                 printWindow.print();
             };
+        }
+    }
+
+    // Configuración para el lector de códigos de barras
+    let codigoBarras = '';
+    let timeoutBarcode;
+    const BARCODE_DELAY = 50; // Tiempo máximo entre caracteres del código de barras
+
+    // Evento para capturar entrada del lector de códigos de barras
+    document.addEventListener('keypress', function(e) {
+        // Solo procesar si no estamos en un campo de entrada
+        if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+            e.preventDefault(); // Prevenir la entrada en otros elementos
+
+            // Reiniciar el timeout
+            clearTimeout(timeoutBarcode);
+
+            // Agregar el carácter al código
+            codigoBarras += e.key;
+
+            // Configurar nuevo timeout
+            timeoutBarcode = setTimeout(() => {
+                if (codigoBarras.length >= 3) { // Mínimo de caracteres para un código válido
+                    procesarCodigoBarras(codigoBarras);
+                }
+                codigoBarras = ''; // Limpiar el código
+            }, BARCODE_DELAY);
+        }
+    });
+
+    // Función mejorada para mostrar notificaciones
+    function showNotification(type, message, details = '') {
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true,
+            didOpen: (toast) => {
+                toast.addEventListener('mouseenter', Swal.stopTimer)
+                toast.addEventListener('mouseleave', Swal.resumeTimer)
+            }
+        });
+
+        Toast.fire({
+            icon: type,
+            title: message,
+            text: details,
+            className: `notification-${type}`
+        });
+    }
+
+    // Función mejorada para mostrar errores
+    function showError(title, message, suggestion = '') {
+        Swal.fire({
+            icon: 'error',
+            title: title,
+            html: `
+                <div class="error-message">
+                    <p class="error-description">${message}</p>
+                    ${suggestion ? `
+                        <div class="error-suggestion">
+                            <i class="fas fa-lightbulb"></i>
+                            <p>${suggestion}</p>
+                        </div>
+                    ` : ''}
+                </div>
+            `,
+            confirmButtonText: 'Entendido',
+            customClass: {
+                container: 'error-dialog',
+                popup: 'error-popup',
+                title: 'error-title',
+                htmlContainer: 'error-container',
+                confirmButton: 'error-confirm'
+            }
+        });
+    }
+
+    // Mensajes de error específicos para cada caso
+    const ErrorMessages = {
+        STOCK: {
+            title: 'Stock Insuficiente',
+            message: (producto) => `No hay suficiente stock disponible para "${producto}"`,
+            suggestion: 'Verifique el inventario o ajuste la cantidad solicitada.'
+        },
+        BARCODE: {
+            title: 'Código No Encontrado',
+            message: (codigo) => `No se encontró ningún producto con el código: ${codigo}`,
+            suggestion: 'Verifique que el c��digo sea correcto o busque el producto manualmente.'
+        },
+        CLIENTE: {
+            title: 'Cliente No Seleccionado',
+            message: 'Es necesario seleccionar un cliente para continuar.',
+            suggestion: 'Seleccione un cliente de la lista o use "Consumidor Final".'
+        },
+        CARRITO_VACIO: {
+            title: 'Carrito Vacío',
+            message: 'No hay productos en el carrito.',
+            suggestion: 'Agregue productos escaneando su código o seleccionándolos de la lista.'
+        },
+        VENTA: {
+            title: 'Error en la Venta',
+            message: 'No se pudo procesar la venta.',
+            suggestion: 'Verifique la conexión e intente nuevamente. Si el problema persiste, contacte al soporte.'
+        },
+        EMPRESA: {
+            title: 'Configuración Pendiente',
+            message: 'No se puede procesar la venta porque la configuración de la empresa no está completa.',
+            suggestion: 'Por favor, configure los datos de su empresa en el módulo de Configuración antes de realizar ventas.'
+        },
+        EMPRESA_NO_ENCONTRADA: {
+            title: 'Error de Configuración',
+            message: 'La empresa asociada a su cuenta no se encuentra disponible.',
+            suggestion: 'Contacte al administrador del sistema o verifique la configuración de su empresa.'
+        }
+    };
+
+    // Función mejorada para procesar el código de barras
+    async function procesarCodigoBarras(codigo) {
+        const productoEncontrado = $('.product-card').filter(function() {
+            return $(this).data('codigo').toString() === codigo;
+        }).first();
+
+        if (!productoEncontrado.length) {
+            playBeepSound(false);
+            showError(
+                ErrorMessages.BARCODE.title,
+                ErrorMessages.BARCODE.message(codigo),
+                ErrorMessages.BARCODE.suggestion
+            );
+            return;
+        }
+
+        const id = productoEncontrado.data('id');
+        const nombre = productoEncontrado.data('nombre');
+        const precio = parseFloat(productoEncontrado.data('precio'));
+        const stock = parseInt(productoEncontrado.data('cantidad'));
+
+        if (stock <= 0) {
+            playBeepSound(false);
+            showError(
+                ErrorMessages.STOCK.title,
+                ErrorMessages.STOCK.message(nombre),
+                ErrorMessages.STOCK.suggestion
+            );
+            return;
+        }
+
+        // Verificar si ya está en el carrito
+        const itemExistente = carrito.find(item => item.id === id);
+        if (itemExistente && itemExistente.cantidad >= stock) {
+            playBeepSound(false);
+            showError(
+                ErrorMessages.STOCK.title,
+                `Ya tiene ${itemExistente.cantidad} unidades de "${nombre}" en el carrito.`,
+                'La cantidad en el carrito ya alcanzó el máximo disponible.'
+            );
+            return;
+        }
+
+        playBeepSound(true);
+        agregarProducto(id, nombre, precio, stock);
+        showNotification(
+            'success',
+            'Producto Agregado',
+            `${nombre} - Stock disponible: ${stock - (itemExistente?.cantidad || 0)}`
+        );
+    }
+
+    // Función para reproducir sonidos
+    function playBeepSound(success) {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(success ? 1000 : 400, audioContext.currentTime);
+        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.1);
+    }
+
+    // Mejorar la búsqueda manual para que no interfiera con el lector
+    let searchTimeout;
+    $buscarProductoInput.on('input', function() {
+        clearTimeout(searchTimeout);
+        const valorBuscado = $(this).val().trim();
+        
+        searchTimeout = setTimeout(() => {
+            filtrarProductos(valorBuscado);
+        }, 300); // Delay para no interferir con el lector
+    });
+
+    // Mejorar validación del carrito
+    function validarCarrito() {
+        if (carrito.length === 0) {
+            showError(
+                ErrorMessages.CARRITO_VACIO.title,
+                ErrorMessages.CARRITO_VACIO.message,
+                ErrorMessages.CARRITO_VACIO.suggestion
+            );
+            return false;
+        }
+
+        const clienteId = $clienteSelect.val();
+        if (!clienteId) {
+            showError(
+                ErrorMessages.CLIENTE.title,
+                ErrorMessages.CLIENTE.message,
+                ErrorMessages.CLIENTE.suggestion
+            );
+            $clienteSelect.focus();
+            return false;
+        }
+
+        // Validar stock disponible
+        const stockInsuficiente = carrito.find(item => {
+            const productoCard = $(`.product-card[data-id="${item.id}"]`);
+            const stockDisponible = parseInt(productoCard.data('cantidad'));
+            return item.cantidad > stockDisponible;
+        });
+
+        if (stockInsuficiente) {
+            const producto = $(`.product-card[data-id="${stockInsuficiente.id}"]`).data('nombre');
+            showError(
+                ErrorMessages.STOCK.title,
+                ErrorMessages.STOCK.message(producto),
+                ErrorMessages.STOCK.suggestion
+            );
+            return false;
+        }
+
+        return true;
+    }
+
+    // Mejorar el manejo de errores en la búsqueda
+    $buscarProductoInput.on('keypress', function(e) {
+        if (e.which === 13) {
+            e.preventDefault();
+            const valorBuscado = $(this).val().trim();
+            
+            if (valorBuscado.length < 3) {
+                showError(
+                    'Búsqueda muy corta',
+                    'Ingrese al menos 3 caracteres para buscar.',
+                    'Para códigos de barras, escanee directamente el producto.'
+                );
+                return;
+            }
+
+            if (!buscarPorCodigoBarrasExacto(valorBuscado)) {
+                const productosVisibles = $('.product-card:visible');
+                
+                if (productosVisibles.length === 0) {
+                    showError(
+                        'Sin resultados',
+                        `No se encontraron productos que coincidan con: "${valorBuscado}"`,
+                        'Intente con otros términos o verifique el código de barras.'
+                    );
+                } else if (productosVisibles.length > 1) {
+                    showNotification(
+                        'info',
+                        `Se encontraron ${productosVisibles.length} productos`,
+                        'Haga clic en el producto deseado para agregarlo al carrito.'
+                    );
+                } else {
+                    const producto = productosVisibles.first();
+                    agregarProducto(
+                        producto.data('id'),
+                        producto.data('nombre'),
+                        parseFloat(producto.data('precio')),
+                        parseInt(producto.data('cantidad'))
+                    );
+                }
+            }
+            $(this).val('');
+            filtrarProductos('');
+        }
+    });
+
+    // Estilos CSS adicionales para los mensajes de error
+    const errorStyles = `
+        .error-dialog {
+            font-family: 'Inter', sans-serif;
+        }
+        .error-popup {
+            padding: 1.5rem;
+        }
+        .error-title {
+            color: #dc2626;
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+        }
+        .error-description {
+            color: #4b5563;
+            margin-bottom: 1rem;
+        }
+        .error-suggestion {
+            background: #fff7ed;
+            border-left: 4px solid #f97316;
+            padding: 1rem;
+            margin-top: 1rem;
+            display: flex;
+            align-items: start;
+            gap: 0.75rem;
+        }
+        .error-suggestion i {
+            color: #f97316;
+            font-size: 1.25rem;
+        }
+        .error-suggestion p {
+            color: #9a3412;
+            margin: 0;
+            font-size: 0.875rem;
+        }
+        .error-confirm {
+            background: #dc2626 !important;
+            color: white !important;
+        }
+    `;
+
+    // Agregar estilos al documento
+    const style = document.createElement('style');
+    style.textContent = errorStyles;
+    document.head.appendChild(style);
+
+    function handleVentaError(error) {
+        if (error.includes('empresa_id') || error.includes('no se encontró la empresa')) {
+            showError(
+                ErrorMessages.EMPRESA.title,
+                ErrorMessages.EMPRESA.message,
+                ErrorMessages.EMPRESA.suggestion
+            );
+        } else if (error.includes('Error al procesar la venta')) {
+            showError(
+                ErrorMessages.VENTA.title,
+                'No se pudo completar la venta en este momento.',
+                'Verifique su conexión e intente nuevamente. Si el problema persiste, contacte al soporte técnico.'
+            );
+        } else {
+            showError(
+                'Error en el Proceso',
+                error,
+                'Si el problema persiste, contacte al soporte técnico.'
+            );
         }
     }
 });

@@ -24,7 +24,8 @@ $productos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Catálogo de Productos - VendEasy</title>
+    <title>Catálogo | VendEasy</title>
+    <link rel="icon" type="image/png" href="/favicon/favicon.ico"/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
     <link rel="stylesheet" href="../../css/welcome.css">
     <link rel="stylesheet" href="../../css/modulos.css">
@@ -46,7 +47,7 @@ $productos = $stmt->fetchAll(PDO::FETCH_ASSOC);
         <div class="side_navbar">
                 <span>Menú Principal</span>
                 <a href="#" class="active">Dashboard</a>
-                <a href="/modules/pos/index.php">Punto de Venta</a>
+                <a href="/modules/pos/index.php">POS</a>
                 <a href="/modules/ingresos/index.php">Ingresos</a>
                 <a href="/modules/egresos/index.php">Egresos</a>
                 <a href="/modules/ventas/index.php">Ventas</a>

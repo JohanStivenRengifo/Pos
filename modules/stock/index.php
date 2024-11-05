@@ -11,47 +11,73 @@ if (!isset($_SESSION['user_id'])) {
 $user_id = $_SESSION['user_id'];
 $email = $_SESSION['email'];
 
-// Función para obtener todos los productos del inventario del usuario actual
-function getUserInventario($user_id)
-{
-    global $pdo;
-    $query = "SELECT * FROM inventario WHERE user_id = ?";
-    $stmt = $pdo->prepare($query);
-    $stmt->execute([$user_id]);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
-
-// Función para agregar nuevo stock a un producto
-function addStock($id, $cantidad, $precio)
-{
-    global $pdo;
-    $query = "UPDATE inventario SET cantidad = cantidad + ?, precio = ? WHERE id = ?";
-    $stmt = $pdo->prepare($query);
-    return $stmt->execute([$cantidad, $precio, $id]);
-}
-
-// Guardar nuevo stock si se envía el formulario
-$message = '';
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    if (isset($_POST['add_stock'])) {
-        // Agregar stock
-        $id = (int)$_POST['id'];
-        $cantidad = (int)trim($_POST['cantidad']);
-        $precio = (float)trim($_POST['precio']);
-
-        if ($cantidad <= 0 || $precio <= 0) {
-            $message = "Por favor, ingrese una cantidad y precio válidos.";
-        } else {
-            if (addStock($id, $cantidad, $precio)) {
-                $message = "Stock actualizado exitosamente.";
-            } else {
-                $message = "Error al actualizar el stock.";
-            }
-        }
+// Clase para manejar respuestas JSON
+class ApiResponse {
+    public static function send($status, $message, $data = null) {
+        header('Content-Type: application/json');
+        echo json_encode([
+            'status' => $status,
+            'message' => $message,
+            'data' => $data
+        ]);
+        exit;
     }
 }
 
-// Obtener todos los productos del inventario del usuario
+// Agregar la función getUserInventario
+function getUserInventario($user_id) {
+    global $pdo;
+    try {
+        $query = "SELECT * FROM inventario WHERE user_id = ?";
+        $stmt = $pdo->prepare($query);
+        $stmt->execute([$user_id]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        return [];
+    }
+}
+
+// Modificar la función para devolver respuesta estructurada
+function addStock($id, $cantidad, $precio) {
+    global $pdo;
+    try {
+        $query = "UPDATE inventario SET cantidad = cantidad + ?, precio = ? WHERE id = ?";
+        $stmt = $pdo->prepare($query);
+        $result = $stmt->execute([$cantidad, $precio, $id]);
+        
+        if ($result) {
+            return ['status' => true, 'message' => 'Stock actualizado exitosamente'];
+        }
+        return ['status' => false, 'message' => 'Error al actualizar el stock'];
+    } catch (PDOException $e) {
+        return ['status' => false, 'message' => 'Error en la base de datos: ' . $e->getMessage()];
+    }
+}
+
+// Procesar solicitudes AJAX
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+    $action = $_POST['action'] ?? '';
+    
+    switch ($action) {
+        case 'add_stock':
+            $id = (int)$_POST['id'];
+            $cantidad = (int)trim($_POST['cantidad']);
+            $precio = (float)trim($_POST['precio']);
+
+            if ($cantidad <= 0 || $precio <= 0) {
+                ApiResponse::send(false, 'Por favor, ingrese una cantidad y precio válidos.');
+            }
+
+            $result = addStock($id, $cantidad, $precio);
+            ApiResponse::send($result['status'], $result['message']);
+            break;
+            
+        default:
+            ApiResponse::send(false, 'Acción no válida');
+    }
+}
+
+// Obtener datos necesarios
 $productos = getUserInventario($user_id);
 ?>
 
@@ -60,12 +86,15 @@ $productos = getUserInventario($user_id);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Actualizar Inventario - VendEasy</title>
+    <title>Actualizar Inventario | VendEasy</title>
+    <link rel="icon" type="image/png" href="/favicon/favicon.ico"/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
     <link rel="stylesheet" href="../../css/welcome.css">
     <link rel="stylesheet" href="../../css/modulos.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.all.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-material-ui/material-ui.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
     <header class="header">
@@ -84,7 +113,7 @@ $productos = getUserInventario($user_id);
         <div class="side_navbar">
                 <span>Menú Principal</span>
                 <a href="/welcome.php">Dashboard</a>
-                <a href="/modules/pos/index.php">Punto de Venta</a>
+                <a href="/modules/pos/index.php">POS</a>
                 <a href="/modules/ingresos/index.php">Ingresos</a>
                 <a href="/modules/egresos/index.php">Egresos</a>
                 <a href="/modules/ventas/index.php">Ventas</a>
@@ -182,36 +211,164 @@ $productos = getUserInventario($user_id);
     </div>
 
     <script>
-    function editStock(producto) {
-        document.getElementById('stock_id').value = producto.id;
-        document.getElementById('stock_cantidad_actual').value = producto.cantidad;
-        document.getElementById('stock_precio_actual').value = producto.precio;
-        document.getElementById('stock_cantidad').value = 1;
-        document.getElementById('stock_precio').value = producto.precio;
-        document.getElementById('stockModal').style.display = 'block';
+    // Configuración global de notificaciones
+    const Toast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true,
+        didOpen: (toast) => {
+            toast.addEventListener('mouseenter', Swal.stopTimer)
+            toast.addEventListener('mouseleave', Swal.resumeTimer)
+        }
+    });
+
+    // Función para mostrar notificaciones
+    function showNotification(type, message) {
+        Toast.fire({
+            icon: type,
+            title: message
+        });
     }
 
-    // Cerrar el modal
-    document.querySelector('.close').onclick = function() {
-        document.getElementById('stockModal').style.display = 'none';
+    // Función para mostrar errores
+    function showError(title, message) {
+        Swal.fire({
+            icon: 'error',
+            title: title,
+            text: message,
+            confirmButtonText: 'Entendido'
+        });
     }
 
-    // Cerrar el modal si se hace clic fuera de él
-    window.onclick = function(event) {
-        if (event.target == document.getElementById('stockModal')) {
-            document.getElementById('stockModal').style.display = 'none';
+    // Función para validar el formulario
+    function validateStockForm(formData) {
+        const cantidad = parseInt(formData.get('cantidad'));
+        const precio = parseFloat(formData.get('precio'));
+        
+        if (cantidad <= 0) {
+            showError('Error de validación', 'La cantidad debe ser mayor que cero');
+            return false;
+        }
+        if (precio <= 0) {
+            showError('Error de validación', 'El precio debe ser mayor que cero');
+            return false;
+        }
+        return true;
+    }
+
+    // Función para editar stock
+    async function editStock(producto) {
+        const { value: formValues } = await Swal.fire({
+            title: 'Agregar Stock',
+            html: `
+                <form id="stockForm">
+                    <div class="form-group">
+                        <label for="cantidad_actual">Cantidad Actual</label>
+                        <input id="cantidad_actual" class="swal2-input" value="${producto.cantidad}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="cantidad">Cantidad a Agregar</label>
+                        <input id="cantidad" class="swal2-input" type="number" min="1" value="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="precio_actual">Precio Actual</label>
+                        <input id="precio_actual" class="swal2-input" value="${producto.precio}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="precio">Nuevo Precio</label>
+                        <input id="precio" class="swal2-input" type="number" step="0.01" value="${producto.precio}" required>
+                    </div>
+                </form>
+            `,
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: 'Actualizar',
+            cancelButtonText: 'Cancelar',
+            preConfirm: () => {
+                const cantidad = document.getElementById('cantidad').value;
+                const precio = document.getElementById('precio').value;
+                
+                if (cantidad <= 0 || precio <= 0) {
+                    Swal.showValidationMessage('Los valores deben ser mayores que cero');
+                    return false;
+                }
+                
+                return {
+                    cantidad: cantidad,
+                    precio: precio
+                }
+            }
+        });
+
+        if (formValues) {
+            try {
+                const formData = new FormData();
+                formData.append('action', 'add_stock');
+                formData.append('id', producto.id);
+                Object.entries(formValues).forEach(([key, value]) => {
+                    formData.append(key, value);
+                });
+
+                const response = await fetch('', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                const data = await response.json();
+                
+                if (data.status) {
+                    showNotification('success', data.message);
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showError('Error', data.message);
+                }
+            } catch (error) {
+                showError('Error', 'Ocurrió un error al actualizar el stock');
+            }
         }
     }
 
-    // Manejar el envío del formulario
-    document.getElementById('stockForm').onsubmit = function(e) {
-        e.preventDefault();
-        // Aquí puedes agregar validación adicional si lo deseas
-        this.submit();
-    }
+    // Estilo personalizado para SweetAlert2
+    const style = document.createElement('style');
+    style.textContent = `
+        .swal2-popup {
+            font-family: 'Poppins', sans-serif;
+            border-radius: 12px;
+        }
+        .swal2-title {
+            color: #344767;
+        }
+        .swal2-html-container {
+            color: #495057;
+        }
+        .swal2-confirm {
+            background: linear-gradient(145deg, #007bff, #0056b3) !important;
+        }
+        .swal2-cancel {
+            background: linear-gradient(145deg, #6c757d, #495057) !important;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+            text-align: left;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #344767;
+        }
+        .swal2-input {
+            margin: 0.5rem 0 !important;
+        }
+        .swal2-input[readonly] {
+            background-color: #e9ecef;
+        }
+    `;
+    document.head.appendChild(style);
     </script>
-</body>
-</html>
-
 </body>
 </html>

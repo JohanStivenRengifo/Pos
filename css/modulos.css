@@ -11,15 +11,15 @@ h2, h3 {
 }
 
 .sidebar {
-    width: 250px;
+    width: 280px;
     height: 100vh;
-    background-color: #343a40;
+    background: linear-gradient(180deg, #2c3e50, #34495e);
     position: fixed;
     top: 0;
     left: 0;
-    padding-top: 20px;
+    padding-top: 25px;
     color: #fff;
-    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+    box-shadow: 3px 0 15px rgba(0,0,0,0.15);
 }
 
 .sidebar h2 {
@@ -76,10 +76,15 @@ h2, h3 {
 
 .form-container {
     background-color: #fff;
-    padding: 30px;
-    margin-bottom: 30px;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    padding: 35px;
+    margin-bottom: 35px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    transition: transform 0.3s ease;
+}
+
+.form-container:hover {
+    transform: translateY(-2px);
 }
 
 .form-container h3 {
@@ -89,34 +94,29 @@ h2, h3 {
 }
 
 .form-group {
-    margin-bottom: 15px;
+    margin-bottom: 24px;
 }
 
 .form-group label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: bold;
-    color: #495057;
+    margin-bottom: 8px;
+    font-size: 0.95em;
+    color: #344767;
 }
 
 .form-group input,
 .form-group textarea,
 .form-group select {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
-    font-size: 16px;
-    color: #495057;
-    background-color: #f8f9fa;
-    transition: border-color 0.3s;
+    padding: 14px 16px;
+    border: 2px solid #e9ecef;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
 }
 
 .form-group input:focus,
 .form-group textarea:focus,
 .form-group select:focus {
     border-color: #007bff;
-    outline: none;
+    background-color: #fff;
+    box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
 }
 
 textarea {
@@ -125,20 +125,19 @@ textarea {
 
 .btn-primary {
     display: inline-block;
-    padding: 10px 20px;
-    background-color: #007bff;
+    padding: 12px 25px;
+    background: linear-gradient(145deg, #007bff, #0056b3);
     color: #fff;
-    text-align: center;
-    border-radius: 4px;
-    text-decoration: none;
-    font-size: 16px;
-    transition: background-color 0.3s;
-    cursor: pointer;
-    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0,123,255,0.2);
 }
 
 .btn-primary:hover {
-    background-color: #0056b3;
+    background: linear-gradient(145deg, #0056b3, #004094);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,123,255,0.3);
 }
 
 .table-container {
@@ -151,10 +150,19 @@ textarea {
     color: #495057;
 }
 
+.table-container {
+    background: #fff;
+    padding: 24px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+}
+
 .table {
     width: 100%;
     border-collapse: collapse;
     margin-bottom: 20px;
+    border-radius: 8px;
+    overflow: hidden;
 }
 
 .table th,
@@ -167,8 +175,11 @@ textarea {
 }
 
 .table th {
-    background-color: #f8f9fa;
-    font-weight: bold;
+    background: #f8f9fa;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85em;
+    letter-spacing: 0.5px;
 }
 
 .table tbody tr:nth-child(even) {
@@ -177,6 +188,10 @@ textarea {
 
 .table tbody tr:hover {
     background-color: #e9ecef;
+}
+
+.table td {
+    vertical-align: middle;
 }
 
 .message {
@@ -189,30 +204,117 @@ textarea {
     font-size: 16px;
 }
 
-@media screen and (max-width: 768px) {
-    .sidebar {
-        width: 100%;
-        height: auto;
-        position: relative;
-        padding-top: 10px;
-    }
+.message,
+.alert {
+    padding: 16px 24px;
+    border-radius: 8px;
+    margin: 20px 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 500;
+    animation: slideIn 0.3s ease;
+}
 
+.message.success,
+.alert-success {
+    background-color: #dcf5e7;
+    color: #0a5a36;
+    border: 1px solid #b8e6cc;
+}
+
+.message.error,
+.alert-danger {
+    background-color: #fee7e9;
+    color: #af233a;
+    border: 1px solid #fccdd2;
+}
+
+.message.warning,
+.alert-warning {
+    background-color: #fff6e5;
+    color: #804d00;
+    border: 1px solid #ffe0b2;
+}
+
+@media screen and (max-width: 992px) {
     .main-content {
         margin-left: 0;
-        padding: 10px;
+        padding: 16px;
     }
-
-    .table-container {
-        overflow-x: auto;
+    
+    .form-container {
+        padding: 24px;
     }
+}
 
-    .table {
+@media screen and (max-width: 768px) {
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+        font-size: 16px; /* Previene zoom en iOS */
+    }
+    
+    .btn {
         width: 100%;
-        display: block;
-        overflow-x: auto;
+        margin-bottom: 8px;
     }
+    
+    .table-container {
+        padding: 16px;
+        margin: 0 -16px;
+        border-radius: 0;
+    }
+}
 
-    .table th, .table td {
-        white-space: nowrap;
+/* Animaciones y transiciones */
+.btn,
+.form-control,
+.alert {
+    transition: all 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Mejoras en accesibilidad */
+.btn:focus,
+.form-control:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0,123,255,0.25);
+}
+
+/* Estado de carga */
+.loading {
+    opacity: 0.7;
+    pointer-events: none;
+    position: relative;
+}
+
+.loading::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 24px;
+    height: 24px;
+    margin: -12px;
+    border: 2px solid #fff;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
     }
 }

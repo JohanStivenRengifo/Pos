@@ -11,6 +11,19 @@ if (!isset($_SESSION['user_id'])) {
 $user_id = $_SESSION['user_id'];
 $email = $_SESSION['email'];
 
+// Clase para manejar respuestas JSON
+class ApiResponse {
+    public static function send($status, $message, $data = null) {
+        header('Content-Type: application/json');
+        echo json_encode([
+            'status' => $status,
+            'message' => $message,
+            'data' => $data
+        ]);
+        exit;
+    }
+}
+
 // Funciones para manejar clientes
 function getClientes($user_id) {
     global $pdo;
@@ -20,57 +33,109 @@ function getClientes($user_id) {
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-function addCliente($user_id, $nombre, $email, $telefono, $tipo_identificacion, $identificacion, $primer_nombre, $segundo_nombre, $apellidos, $municipio_departamento, $codigo_postal) {
+function addCliente($user_id, $data) {
     global $pdo;
-    $query = "INSERT INTO clientes (user_id, nombre, email, telefono, tipo_identificacion, identificacion, primer_nombre, segundo_nombre, apellidos, municipio_departamento, codigo_postal) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-    $stmt = $pdo->prepare($query);
-    return $stmt->execute([$user_id, $nombre, $email, $telefono, $tipo_identificacion, $identificacion, $primer_nombre, $segundo_nombre, $apellidos, $municipio_departamento, $codigo_postal]);
+    try {
+        $query = "INSERT INTO clientes (user_id, nombre, email, telefono, tipo_identificacion, identificacion, 
+                                      primer_nombre, segundo_nombre, apellidos, municipio_departamento, codigo_postal) 
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        $stmt = $pdo->prepare($query);
+        $result = $stmt->execute([
+            $user_id, 
+            $data['nombre'],
+            $data['email'],
+            $data['telefono'],
+            $data['tipo_identificacion'],
+            $data['identificacion'],
+            $data['primer_nombre'],
+            $data['segundo_nombre'],
+            $data['apellidos'],
+            $data['municipio_departamento'],
+            $data['codigo_postal']
+        ]);
+        
+        if ($result) {
+            return ['status' => true, 'message' => 'Cliente agregado exitosamente'];
+        }
+        return ['status' => false, 'message' => 'Error al agregar el cliente'];
+    } catch (PDOException $e) {
+        return ['status' => false, 'message' => 'Error en la base de datos: ' . $e->getMessage()];
+    }
+}
+
+function updateCliente($user_id, $cliente_id, $data) {
+    global $pdo;
+    try {
+        $query = "UPDATE clientes SET 
+                  nombre = ?, email = ?, telefono = ?, tipo_identificacion = ?,
+                  identificacion = ?, primer_nombre = ?, segundo_nombre = ?,
+                  apellidos = ?, municipio_departamento = ?, codigo_postal = ?
+                  WHERE id = ? AND user_id = ?";
+        $stmt = $pdo->prepare($query);
+        $result = $stmt->execute([
+            $data['nombre'],
+            $data['email'],
+            $data['telefono'],
+            $data['tipo_identificacion'],
+            $data['identificacion'],
+            $data['primer_nombre'],
+            $data['segundo_nombre'],
+            $data['apellidos'],
+            $data['municipio_departamento'],
+            $data['codigo_postal'],
+            $cliente_id,
+            $user_id
+        ]);
+        
+        if ($result) {
+            return ['status' => true, 'message' => 'Cliente actualizado exitosamente'];
+        }
+        return ['status' => false, 'message' => 'Error al actualizar el cliente'];
+    } catch (PDOException $e) {
+        return ['status' => false, 'message' => 'Error en la base de datos: ' . $e->getMessage()];
+    }
 }
 
 function deleteCliente($cliente_id, $user_id) {
     global $pdo;
-    $query = "DELETE FROM clientes WHERE id = ? AND user_id = ?";
-    $stmt = $pdo->prepare($query);
-    return $stmt->execute([$cliente_id, $user_id]);
-}
-
-// Mensajes
-$message = '';
-
-// Procesar formulario para agregar cliente
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_cliente'])) {
-    $nombre = trim($_POST['nombre']);
-    $email = filter_var(trim($_POST['email']), FILTER_SANITIZE_EMAIL);
-    $telefono = trim($_POST['telefono']);
-    $tipo_identificacion = trim($_POST['tipo_identificacion']);
-    $identificacion = trim($_POST['identificacion']);
-    $primer_nombre = trim($_POST['primer_nombre']);
-    $segundo_nombre = trim($_POST['segundo_nombre']);
-    $apellidos = trim($_POST['apellidos']);
-    $municipio_departamento = trim($_POST['municipio_departamento']);
-    $codigo_postal = trim($_POST['codigo_postal']);
-
-    // Validación
-    if (empty($nombre) || empty($email) || empty($telefono) || empty($tipo_identificacion) || empty($identificacion)) {
-        $message = "Por favor complete todos los campos obligatorios.";
-    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $message = "Ingrese un correo electrónico válido.";
-    } else {
-        if (addCliente($user_id, $nombre, $email, $telefono, $tipo_identificacion, $identificacion, $primer_nombre, $segundo_nombre, $apellidos, $municipio_departamento, $codigo_postal)) {
-            $message = "Cliente agregado exitosamente.";
-        } else {
-            $message = "Error al agregar cliente.";
+    try {
+        $query = "DELETE FROM clientes WHERE id = ? AND user_id = ?";
+        $stmt = $pdo->prepare($query);
+        $result = $stmt->execute([$cliente_id, $user_id]);
+        
+        if ($result) {
+            return ['status' => true, 'message' => 'Cliente eliminado exitosamente'];
         }
+        return ['status' => false, 'message' => 'Error al eliminar el cliente'];
+    } catch (PDOException $e) {
+        return ['status' => false, 'message' => 'Error en la base de datos: ' . $e->getMessage()];
     }
 }
 
-// Procesar eliminación de cliente
-if (isset($_POST['delete_cliente'])) {
-    $cliente_id = (int)$_POST['cliente_id'];
-    if (deleteCliente($cliente_id, $user_id)) {
-        $message = "Cliente eliminado correctamente.";
-    } else {
-        $message = "Error al eliminar cliente.";
+// Manejador de peticiones AJAX
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+    $action = $_POST['action'] ?? '';
+    
+    switch ($action) {
+        case 'add':
+            $result = addCliente($user_id, $_POST);
+            ApiResponse::send($result['status'], $result['message']);
+            break;
+            
+        case 'update':
+            $cliente_id = (int)$_POST['cliente_id'];
+            $result = updateCliente($user_id, $cliente_id, $_POST);
+            ApiResponse::send($result['status'], $result['message']);
+            break;
+            
+        case 'delete':
+            $cliente_id = (int)$_POST['cliente_id'];
+            $result = deleteCliente($cliente_id, $user_id);
+            ApiResponse::send($result['status'], $result['message']);
+            break;
+            
+        default:
+            ApiResponse::send(false, 'Acción no válida');
     }
 }
 
@@ -82,14 +147,42 @@ $clientes = getClientes($user_id);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clientes - VendEasy</title>
+    <title>Clientes | VendEasy</title>
+    <link rel="icon" type="image/png" href="/favicon/favicon.ico"/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
     <link rel="stylesheet" href="../../css/welcome.css">
     <link rel="stylesheet" href="../../css/modulos.css">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.all.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-material-ui/material-ui.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
+    <?php
+    // Sistema de notificaciones mejorado
+    if (!empty($message)) {
+        $alertType = strpos($message, 'exitosamente') !== false || strpos($message, 'correctamente') !== false ? 'success' : 'error';
+        $alertTitle = $alertType === 'success' ? '¡Éxito!' : '¡Atención!';
+        
+        echo "<script>
+            document.addEventListener('DOMContentLoaded', function() {
+                Swal.fire({
+                    title: '$alertTitle',
+                    text: '$message',
+                    icon: '$alertType',
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 3000,
+                    timerProgressBar: true,
+                    didOpen: (toast) => {
+                        toast.addEventListener('mouseenter', Swal.stopTimer)
+                        toast.addEventListener('mouseleave', Swal.resumeTimer)
+                    }
+                });
+            });
+        </script>";
+    }
+    ?>
+
     <header class="header">
         <div class="logo">
             <a href="../../welcome.php">VendEasy</a>
@@ -106,7 +199,7 @@ $clientes = getClientes($user_id);
         <div class="side_navbar">
                 <span>Menú Principal</span>
                 <a href="/welcome.php">Dashboard</a>
-                <a href="/modules/pos/index.php">Punto de Venta</a>
+                <a href="/modules/pos/index.php">POS</a>
                 <a href="/modules/ingresos/index.php">Ingresos</a>
                 <a href="/modules/egresos/index.php">Egresos</a>
                 <a href="/modules/ventas/index.php">Ventas</a>
@@ -131,18 +224,12 @@ $clientes = getClientes($user_id);
                 <span>Aquí puedes agregar y gestionar tus clientes.</span>
             </div>
 
-            <?php if (!empty($message)): ?>
-                <div class="alert <?= strpos($message, 'exitosamente') !== false ? 'alert-success' : 'alert-danger' ?>">
-                    <?= htmlspecialchars($message); ?>
-                </div>
-            <?php endif; ?>
-
             <div class="history_lists">
                 <div class="list1">
                     <div class="row">
                         <h4>Agregar Nuevo Cliente</h4>
                     </div>
-                    <form method="POST" action="">
+                    <form id="clienteForm" method="POST" action="">
                         <div class="form-group">
                             <label for="nombre">Nombre del Cliente:</label>
                             <input type="text" id="nombre" name="nombre" required>
@@ -226,42 +313,170 @@ $clientes = getClientes($user_id);
     </div>
 
     <script>
-    function editCliente(cliente) {
-        // Implementar la lógica para editar un cliente
-        console.log("Editar cliente:", cliente);
-        // Aquí puedes abrir un modal o redirigir a una página de edición
+    // Configuración global de notificaciones
+    const Toast = Swal.mixin({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 3000,
+        timerProgressBar: true,
+        didOpen: (toast) => {
+            toast.addEventListener('mouseenter', Swal.stopTimer)
+            toast.addEventListener('mouseleave', Swal.resumeTimer)
+        }
+    });
+
+    // Función para mostrar notificaciones
+    function showNotification(type, message) {
+        Toast.fire({
+            icon: type,
+            title: message
+        });
     }
 
-    function deleteCliente(id) {
+    // Función para mostrar errores
+    function showError(title, message) {
         Swal.fire({
-            title: '¿Estás seguro?',
-            text: "Esta acción no se puede deshacer",
-            icon: 'warning',
+            icon: 'error',
+            title: title,
+            text: message,
+            confirmButtonText: 'Entendido'
+        });
+    }
+
+    // Función para confirmar acciones
+    async function confirmAction(title, text, icon = 'warning') {
+        const result = await Swal.fire({
+            title: title,
+            text: text,
+            icon: icon,
             showCancelButton: true,
-            confirmButtonColor: '#3085d6',
-            cancelButtonColor: '#d33',
-            confirmButtonText: 'Sí, eliminar',
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Sí, continuar',
             cancelButtonText: 'Cancelar'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                // Enviar solicitud de eliminación
-                $.post('', { delete_cliente: true, cliente_id: id }, function(response) {
-                    Swal.fire(
-                        'Eliminado',
-                        'El cliente ha sido eliminado.',
-                        'success'
-                    ).then(() => {
-                        location.reload();
-                    });
-                }).fail(function() {
-                    Swal.fire(
-                        'Error',
-                        'No se pudo eliminar el cliente.',
-                        'error'
-                    );
-                });
+        });
+        return result.isConfirmed;
+    }
+
+    // Función para mostrar formulario de edición
+    async function showEditForm(cliente) {
+        const { value: formValues } = await Swal.fire({
+            title: 'Editar Cliente',
+            html: `
+                <form id="editForm">
+                    <div class="form-group">
+                        <label for="nombre">Nombre</label>
+                        <input id="nombre" class="swal2-input" value="${cliente.nombre}">
+                    </div>
+                    <!-- Agregar más campos según necesidad -->
+                </form>
+            `,
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: 'Guardar',
+            cancelButtonText: 'Cancelar',
+            preConfirm: () => {
+                return {
+                    nombre: document.getElementById('nombre').value,
+                    // Recoger más valores según necesidad
+                }
             }
         });
+        return formValues;
+    }
+
+    // Manejador del formulario de cliente
+    document.getElementById('clienteForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        try {
+            const formData = new FormData(this);
+            formData.append('action', 'add');
+
+            const response = await fetch('', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            const data = await response.json();
+            
+            if (data.status) {
+                showNotification('success', data.message);
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showError('Error', data.message);
+            }
+        } catch (error) {
+            showError('Error', 'Ocurrió un error al procesar la solicitud');
+        }
+    });
+
+    // Función para eliminar cliente
+    async function deleteCliente(id) {
+        if (await confirmAction('¿Eliminar cliente?', 'Esta acción no se puede deshacer')) {
+            try {
+                const formData = new FormData();
+                formData.append('action', 'delete');
+                formData.append('cliente_id', id);
+
+                const response = await fetch('', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                const data = await response.json();
+                
+                if (data.status) {
+                    showNotification('success', data.message);
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showError('Error', data.message);
+                }
+            } catch (error) {
+                showError('Error', 'Ocurrió un error al eliminar el cliente');
+            }
+        }
+    }
+
+    // Función para editar cliente
+    async function editCliente(cliente) {
+        const formValues = await showEditForm(cliente);
+        if (formValues) {
+            try {
+                const formData = new FormData();
+                formData.append('action', 'update');
+                formData.append('cliente_id', cliente.id);
+                Object.keys(formValues).forEach(key => {
+                    formData.append(key, formValues[key]);
+                });
+
+                const response = await fetch('', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                const data = await response.json();
+                
+                if (data.status) {
+                    showNotification('success', data.message);
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showError('Error', data.message);
+                }
+            } catch (error) {
+                showError('Error', 'Ocurrió un error al actualizar el cliente');
+            }
+        }
     }
     </script>
 </body>
