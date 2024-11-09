@@ -11,16 +11,16 @@ if (!isset($_SESSION['user_id']) || !isset($_GET['id'])) {
 $user_id = $_SESSION['user_id'];
 $venta_id = $_GET['id'];
 
-// Configuración para impresora térmica
-$ancho_papel = 80; // mm
-$caracteres_por_linea = 48;
-$ticket = ""; // Inicializar la variable ticket
+// Configuración para impresora térmica de 80mm
+$ancho_papel = 80; // mm 
+$caracteres_por_linea = 42; // Ajustado para 80mm (aproximadamente 42 caracteres)
+$ticket = "";
 
-// Funciones de formato mejoradas
+// Mejora en la función de centrado para manejar caracteres especiales
 function centrar_texto($texto, $ancho) {
-    if (!is_numeric($ancho)) return $texto;
     $texto = trim($texto);
-    $espacios = $ancho - mb_strlen($texto);
+    $longitud = mb_strlen($texto, 'UTF-8');
+    $espacios = $ancho - $longitud;
     if ($espacios < 0) return $texto;
     $espacios_izquierda = floor($espacios / 2);
     return str_repeat(' ', $espacios_izquierda) . $texto;
@@ -137,24 +137,29 @@ $ticket .= "Vendedor: " . truncar_texto($venta['vendedor_nombre'], 35) . "\n";
 $ticket .= str_repeat('-', $caracteres_por_linea) . "\n\n";
 
 // Encabezados de productos
-$ticket .= sprintf("%-20s %8s %8s %10s\n", 
+$ticket .= sprintf("%-18s %6s %8s %8s\n", 
     "PRODUCTO", "CANT", "PRECIO", "TOTAL");
 $ticket .= str_repeat('-', $caracteres_por_linea) . "\n";
 
 // Detalles de productos
 $subtotal = 0;
 foreach ($detalles as $detalle) {
-    $nombre_producto = truncar_texto($detalle['producto_nombre'], 20);
+    $nombre_producto = truncar_texto($detalle['producto_nombre'], 18);
     $cantidad = formatear_numero($detalle['cantidad']);
     $precio = formatear_numero($detalle['precio_unitario']);
     $total_linea = $detalle['cantidad'] * $detalle['precio_unitario'];
     $total = formatear_numero($total_linea);
     $subtotal += $total_linea;
     
-    $ticket .= sprintf("%-20s %8s %8s %10s\n",
+    $ticket .= sprintf("%-18s %6s %8s %8s\n",
         $nombre_producto, $cantidad, $precio, $total);
     
-    // Si el producto tiene código de barras, mostrarlo
+    // Si el nombre es más largo que 18 caracteres, mostrar en siguiente línea
+    if (mb_strlen($detalle['producto_nombre']) > 18) {
+        $ticket .= "  " . mb_substr($detalle['producto_nombre'], 18, 40) . "\n";
+    }
+    
+    // Código de barras en línea separada si existe
     if ($detalle['codigo_barras'] !== 'Sin código') {
         $ticket .= "  Cod: " . $detalle['codigo_barras'] . "\n";
     }
@@ -162,14 +167,21 @@ foreach ($detalles as $detalle) {
 
 // Totales
 $ticket .= str_repeat('-', $caracteres_por_linea) . "\n";
-$ticket .= alinear_derecha("SUBTOTAL: $" . formatear_numero($subtotal), $caracteres_por_linea) . "\n";
+$ticket .= sprintf("%31s %10s\n", "SUBTOTAL:", "$" . formatear_numero($subtotal));
 
 if ($venta['descuento'] > 0) {
-    $ticket .= alinear_derecha("DESCUENTO: $" . formatear_numero($venta['descuento']), $caracteres_por_linea) . "\n";
+    $ticket .= sprintf("%31s %10s\n", "DESCUENTO:", "$" . formatear_numero($venta['descuento']));
 }
 
-$ticket .= str_repeat('-', $caracteres_por_linea) . "\n";
-$ticket .= alinear_derecha("TOTAL A PAGAR: $" . formatear_numero($venta['total']), $caracteres_por_linea) . "\n\n";
+$ticket .= str_repeat('=', $caracteres_por_linea) . "\n";
+$ticket .= sprintf("%31s %10s\n", "TOTAL A PAGAR:", "$" . formatear_numero($venta['total']));
+
+// Agregar códigos de control para impresora térmica
+$ticket = "\x1B\x40" . // Inicializar impresora
+          "\x1B\x21\x00" . // Modo normal
+          $ticket .
+          "\n\n\n\n\n" . // Espacios para el corte
+          "\x1B\x69"; // Cortar papel
 
 // Método de pago
 $ticket .= "Método de pago: " . mb_strtoupper($venta['metodo_pago']) . "\n";

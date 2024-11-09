@@ -60,17 +60,19 @@ function obtenerImagenesProducto($producto_id)
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-function actualizarProducto($id, $codigo_barras, $nombre, $descripcion, $stock, $precio_costo, $impuesto, $margen_ganancia, $categoria_id, $departamento_id, $stock_minimo, $unidad_medida, $imagenes_nuevas, $imagenes_eliminar, $user_id)
+function actualizarProducto($id, $codigo_barras, $nombre, $descripcion, $stock, $precio_costo, $impuesto, $margen_ganancia, $categoria_id, $departamento_id, $stock_minimo, $unidad_medida, $imagenes_nuevas, $imagenes_eliminar, $user_id, $precio_venta = null)
 {
     global $pdo;
     
     try {
         $pdo->beginTransaction();
         
-        // Calcular precio de venta
-        $precio_base = $precio_costo * (1 + ($margen_ganancia / 100));
-        $precio_venta = $precio_base * (1 + ($impuesto / 100));
-        $precio_venta = round($precio_venta, 2);
+        // Si no se proporciona precio_venta, calcularlo
+        if ($precio_venta === null) {
+            $precio_base = $precio_costo * (1 + ($margen_ganancia / 100));
+            $precio_venta = $precio_base * (1 + ($impuesto / 100));
+            $precio_venta = round($precio_venta, 2);
+        }
         
         // Actualizar producto
         $query = "UPDATE inventario SET 
@@ -265,7 +267,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['actualizar'])) {
             }
         }
 
-        // Resto del código de actualización...
+        // Obtener los valores del formulario
         $nombre = trim(filter_input(INPUT_POST, 'nombre'));
         $descripcion = trim(filter_input(INPUT_POST, 'descripcion'));
         $stock = filter_input(INPUT_POST, 'stock', FILTER_VALIDATE_INT);
@@ -277,6 +279,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['actualizar'])) {
         $stock_minimo = filter_input(INPUT_POST, 'stock_minimo', FILTER_VALIDATE_INT);
         $unidad_medida = trim(filter_input(INPUT_POST, 'unidad_medida'));
         $imagenes_eliminar = $_POST['imagenes_eliminar'] ?? null;
+        $precio_venta = filter_input(INPUT_POST, 'precio_venta', FILTER_VALIDATE_FLOAT);
 
         if (!$id || empty($nombre) || $stock === false || $precio_costo === false) {
             throw new Exception("Por favor, complete todos los campos obligatorios correctamente.");
@@ -297,7 +300,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['actualizar'])) {
             $unidad_medida,
             $_FILES['imagenes'] ?? [],
             $imagenes_eliminar,
-            $user_id
+            $user_id,
+            $precio_venta  // Pasar el precio_venta como parámetro
         );
 
         $message = "Producto actualizado exitosamente.";
@@ -751,9 +755,12 @@ $imagenes = $producto ? obtenerImagenesProducto($producto['id']) : [];
                                         <label for="precio_venta">Precio Venta:</label>
                                         <div class="input-group">
                                             <span class="input-group-text">$</span>
-                                            <input type="number" step="0.01" id="precio_venta" 
+                                            <input type="number" 
+                                                   step="0.01" 
+                                                   id="precio_venta" 
+                                                   name="precio_venta"
                                                    value="<?= htmlspecialchars($producto['precio_venta']) ?>" 
-                                                   class="form-control" readonly>
+                                                   class="form-control">
                                         </div>
                                     </div>
                                 </div>
@@ -895,15 +902,61 @@ $imagenes = $producto ? obtenerImagenesProducto($producto['id']) : [];
                 const margenGanancia = parseFloat(elements.margenGanancia.value) || 0;
                 const impuesto = parseFloat(elements.impuesto.value) || 0;
                 
-                const precioBase = precioCosto * (1 + (margenGanancia / 100));
-                const precioVenta = precioBase * (1 + (impuesto / 100));
+                if (precioCosto <= 0) return;
                 
-                elements.precioVenta.value = precioVenta.toFixed(2);
+                // Solo calcular si no hay un precio de venta establecido
+                if (!elements.precioVenta.value) {
+                    const precioBase = precioCosto * (1 + (margenGanancia / 100));
+                    const precioVenta = precioBase * (1 + (impuesto / 100));
+                    elements.precioVenta.value = precioVenta.toFixed(2);
+                }
+            },
+
+            calcularMargenDesdeVenta() {
+                const precioCosto = parseFloat(elements.precioCosto.value) || 0;
+                const precioVenta = parseFloat(elements.precioVenta.value) || 0;
+                const impuesto = parseFloat(elements.impuesto.value) || 0;
+
+                if (precioCosto <= 0 || precioVenta <= 0) return;
+
+                // Calcular el margen necesario para llegar al precio de venta exacto
+                const precioSinImpuesto = precioVenta / (1 + (impuesto / 100));
+                const margen = ((precioSinImpuesto / precioCosto) - 1) * 100;
+                
+                // Actualizar solo el margen, manteniendo el precio de venta intacto
+                elements.margenGanancia.value = margen.toFixed(2);
             },
             
             inicializar() {
-                ['precioCosto', 'margenGanancia', 'impuesto'].forEach(id => {
-                    elements[id].addEventListener('input', () => this.calcularPrecioVenta());
+                // Remover el atributo readonly del campo precio_venta
+                elements.precioVenta.removeAttribute('readonly');
+
+                // Eventos para cálculo automático
+                elements.precioCosto.addEventListener('input', () => {
+                    if (!elements.precioVenta.value) {
+                        this.calcularPrecioVenta();
+                    } else {
+                        this.calcularMargenDesdeVenta();
+                    }
+                });
+
+                elements.margenGanancia.addEventListener('input', () => {
+                    if (!elements.precioVenta.value) {
+                        this.calcularPrecioVenta();
+                    }
+                });
+
+                elements.impuesto.addEventListener('input', () => {
+                    if (!elements.precioVenta.value) {
+                        this.calcularPrecioVenta();
+                    } else {
+                        this.calcularMargenDesdeVenta();
+                    }
+                });
+                
+                // Evento para calcular el margen cuando se modifica el precio de venta
+                elements.precioVenta.addEventListener('input', () => {
+                    this.calcularMargenDesdeVenta();
                 });
             }
         };

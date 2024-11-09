@@ -270,3 +270,114 @@ select:focus {
     white-space: nowrap;
     z-index: 10;
 }
+
+/* Nuevos estilos para el panel izquierdo */
+.new-active-invoice {
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    height: calc(100vh - 76px);
+}
+
+.invoice-top__header {
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.invoice-top__header-buttons {
+    padding: 8px;
+    border-radius: 4px;
+}
+
+.invoice-top__header-buttons:hover {
+    background-color: #f3f4f6;
+}
+
+.icon-gray {
+    color: #6b7280;
+}
+
+.fast-option-title {
+    font-size: 0.875rem;
+    color: #6b7280;
+    margin-bottom: 0.5rem;
+}
+
+.invoice-top__client-select {
+    display: flex;
+    gap: 8px;
+}
+
+.s-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 16px;
+    border-radius: 4px;
+    border: 1px solid #e5e7eb;
+    background: transparent;
+}
+
+.invoice-content {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.no-item svg {
+    color: #9ca3af;
+}
+
+.btn-sell-invoice {
+    width: 100%;
+    padding: 12px 24px;
+    margin-bottom: 8px;
+}
+
+.btn-cancel-invoice {
+    width: 100%;
+    padding: 12px 24px;
+    background-color: transparent;
+    border: 1px solid #e5e7eb;
+}
+
+.btn-cancel-invoice:hover {
+    background-color: #f3f4f6;
+}
+
+/* Ajustes responsive */
+@media (max-width: 576px) {
+    .w-sm-100 {
+        width: 100%;
+    }
+}
+
+/* Tipografía */
+.body-1-bold {
+    font-size: 1.125rem;
+    font-weight: 600;
+}
+
+.body-2-regular {
+    font-size: 0.875rem;
+}
+
+.label-2 {
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+/* Colores */
+.color-secondary {
+    color: #1f2937;
+}
+
+.color-tertiary {
+    color: #6b7280;
+}
+
+.variant-secondary {
+    color: #4b5563;
+}
+
+.variant-primary {
+    color: #2563eb;
+}

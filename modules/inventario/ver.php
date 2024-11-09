@@ -235,14 +235,18 @@ function formatoMoneda($monto) {
                     <h3>Galería de Imágenes</h3>
                     <div class="galeria-imagenes">
                         <?php 
-                        $imagenes = explode(',', $producto['imagenes']);
-                        foreach ($imagenes as $imagen): 
-                            if (!empty($imagen)):
+                        if (!empty($producto['imagenes'])) {
+                            $imagenes = explode(',', $producto['imagenes']);
+                            foreach ($imagenes as $imagen): 
+                                if (!empty($imagen)):
                         ?>
                             <img src="../../<?= htmlspecialchars($imagen) ?>" alt="Imagen del producto">
                         <?php 
-                            endif;
-                        endforeach; 
+                                endif;
+                            endforeach;
+                        } else {
+                            echo '<p>No hay imágenes disponibles para este producto.</p>';
+                        }
                         ?>
                     </div>
 

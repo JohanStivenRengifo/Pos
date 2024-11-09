@@ -40,8 +40,6 @@ $(document).ready(function () {
         let subtotal = 0;
         let cantidadTotal = 0;
 
-        $('#venta-lista-empty').toggle(carrito.length === 0);
-
         const fragment = document.createDocumentFragment();
         carrito.forEach(item => {
             const subtotalItem = item.precio * item.cantidad;
@@ -49,15 +47,14 @@ $(document).ready(function () {
             cantidadTotal += item.cantidad;
 
             const tr = document.createElement('tr');
-            tr.className = `producto-${item.id}`;
             tr.innerHTML = `
                 <td>${item.nombre}</td>
                 <td>
                     <input type="number" class="form-control form-control-sm cantidad-producto" 
                            data-id="${item.id}" value="${item.cantidad}" min="1" max="${item.stock}" style="width: 60px;">
                 </td>
-                <td>${formatearPrecioCOP(item.precio)}</td>
-                <td>${formatearPrecioCOP(subtotalItem)}</td>
+                <td class="text-right">${formatearPrecioCOP(item.precio)}</td>
+                <td class="text-right">${formatearPrecioCOP(subtotalItem)}</td>
                 <td>
                     <button class="btn btn-danger btn-sm eliminar-producto" data-id="${item.id}">
                         <i class="fas fa-trash"></i>
@@ -73,10 +70,12 @@ $(document).ready(function () {
         const total = subtotal - descuento;
 
         $('#subtotal').text(formatearPrecioCOP(subtotal));
-        $('#descuento-monto').text(formatearPrecioCOP(descuento));
-        $totalVentaElement.text(formatearPrecioCOP(total));
-        $cantidadTotalElement.text(cantidadTotal);
-
+        $('#descuento-monto').text(`-${formatearPrecioCOP(descuento)}`);
+        $('#venta-total').text(formatearPrecioCOP(total));
+        
+        // Actualizar contador de items
+        actualizarContadorItems();
+        
         $ventaBoton.prop('disabled', carrito.length === 0);
     }
 
@@ -244,17 +243,9 @@ $(document).ready(function () {
     $descuentoInput.on('input', actualizarCarrito);
 
     $ventaBoton.on('click', async function () {
-        if (carrito.length === 0) {
-            mostrarAlerta('error', 'Carrito vacío', 'No hay productos en el carrito.');
-            return;
-        }
+        if (!validarCarrito()) return;
 
         const clienteId = $clienteSelect.val();
-        if (!clienteId) {
-            mostrarAlerta('warning', 'Cliente no seleccionado', 'Por favor, seleccione un cliente.');
-            return;
-        }
-
         const tipoDocumento = $tipoDocumentoSelect.val();
         const descuento = parseFloat($descuentoInput.val()) || 0;
         const metodoPago = $metodoPagoSelect.val();
@@ -288,9 +279,23 @@ $(document).ready(function () {
                 }
             });
 
-            const data = await response.json();
+            let data;
+            const responseText = await response.text();
             
-            if (data.status) {
+            try {
+                data = JSON.parse(responseText);
+            } catch (e) {
+                console.error('Error al parsear respuesta:', responseText);
+                throw new Error('Error al procesar la respuesta del servidor');
+            }
+
+            if (!response.ok) {
+                throw new Error(data.message || `Error del servidor: ${response.status}`);
+            }
+
+            if (data.status === true) {
+                const clienteEmail = await obtenerEmailCliente(clienteId);
+                
                 Swal.fire({
                     title: 'Venta Completada',
                     html: `
@@ -298,45 +303,94 @@ $(document).ready(function () {
                         <p>Número de documento: ${data.numero_factura}</p>
                     `,
                     icon: 'success',
+                    showDenyButton: true,
                     showCancelButton: true,
                     confirmButtonText: 'Imprimir Ticket',
+                    denyButtonText: 'Enviar por Email',
                     cancelButtonText: 'Cerrar',
                     allowOutsideClick: false
-                }).then((result) => {
+                }).then(async (result) => {
                     if (result.isConfirmed) {
                         imprimirDocumento(data.venta_id);
+                    } else if (result.isDenied) {
+                        // Si el cliente es consumidor final o no tiene email registrado
+                        if (!clienteEmail) {
+                            const { value: email } = await Swal.fire({
+                                title: 'Ingrese el correo electrónico',
+                                input: 'email',
+                                inputLabel: 'Correo electrónico para enviar la factura',
+                                inputPlaceholder: 'correo@ejemplo.com',
+                                showCancelButton: true,
+                                cancelButtonText: 'Cancelar',
+                                confirmButtonText: 'Enviar',
+                                validationMessage: 'El correo electrónico no es válido'
+                            });
+
+                            if (email) {
+                                enviarFacturaEmail(data.venta_id, email);
+                            }
+                        } else {
+                            // Si el cliente tiene email registrado
+                            Swal.fire({
+                                title: 'Enviar Factura',
+                                html: `¿Desea enviar la factura al correo ${clienteEmail}?`,
+                                icon: 'question',
+                                showCancelButton: true,
+                                confirmButtonText: 'Sí, enviar',
+                                cancelButtonText: 'No, usar otro correo'
+                            }).then(async (result) => {
+                                if (result.isConfirmed) {
+                                    enviarFacturaEmail(data.venta_id, clienteEmail);
+                                } else if (result.dismiss === Swal.DismissReason.cancel) {
+                                    const { value: newEmail } = await Swal.fire({
+                                        title: 'Ingrese el correo electrónico',
+                                        input: 'email',
+                                        inputLabel: 'Correo electrónico para enviar la factura',
+                                        inputPlaceholder: 'correo@ejemplo.com',
+                                        showCancelButton: true,
+                                        cancelButtonText: 'Cancelar',
+                                        confirmButtonText: 'Enviar',
+                                        validationMessage: 'El correo electrónico no es válido'
+                                    });
+
+                                    if (newEmail) {
+                                        enviarFacturaEmail(data.venta_id, newEmail);
+                                    }
+                                }
+                            });
+                        }
                     }
-                    
-                    // Recargar la página después de cerrar la alerta
-                    location.reload();
+                    // Recargar la página después de todas las acciones
+                    if (!result.isDenied) {
+                        window.location.reload();
+                    }
                 });
-                
-                if (tipoDocumento === 'factura') {
+
+                // Actualizar stock en las tarjetas de productos si es una factura
+                if (tipoDocumento === 'factura' && data.productos_actualizados) {
                     data.productos_actualizados.forEach(producto => {
                         const productoCard = $(`.product-card[data-id="${producto.id}"]`);
-                        productoCard.data('cantidad', producto.nuevo_stock)
-                            .find('small:contains("Stock:")').text(`Stock: ${producto.nuevo_stock}`);
+                        if (productoCard.length) {
+                            productoCard.data('cantidad', producto.nuevo_stock);
+                            productoCard.find('.item-view__quantity').text(`Stock: ${producto.nuevo_stock}`);
+                        }
                     });
                 }
-                
-                // Reiniciar el formulario
-                carrito = [];
-                actualizarCarrito();
-                $descuentoInput.val(0);
-                $clienteSelect.val('');
-                $metodoPagoSelect.val('efectivo').trigger('change');
-                $buscarProductoInput.val('').focus();
             } else {
-                handleVentaError(data.message);
+                throw new Error(data.message || 'Error desconocido al procesar la venta');
             }
         } catch (error) {
-            showError(
-                'Error de Comunicación',
-                'No se pudo establecer conexión con el servidor.',
-                'Verifique su conexión a internet e intente nuevamente.'
-            );
+            console.error('Error completo:', error);
+            
+            Swal.fire({
+                title: 'Error al Procesar la Venta',
+                text: error.message || 'Ocurrió un error al procesar la venta. Por favor, intente nuevamente.',
+                icon: 'error',
+                confirmButtonText: 'Aceptar'
+            });
         } finally {
-            $ventaBoton.prop('disabled', false).html(tipoDocumento === 'factura' ? 'Confirmar Venta' : 'Generar Cotización');
+            $ventaBoton.prop('disabled', false)
+                .html(`<i class="fas fa-check-circle mr-2"></i>${tipoDocumento === 'factura' ? 'Confirmar Venta' : 'Generar Cotización'}`);
         }
     });
 
@@ -518,7 +572,7 @@ $(document).ready(function () {
         BARCODE: {
             title: 'Código No Encontrado',
             message: (codigo) => `No se encontró ningún producto con el código: ${codigo}`,
-            suggestion: 'Verifique que el c��digo sea correcto o busque el producto manualmente.'
+            suggestion: 'Verifique que el código sea correcto o busque el producto manualmente.'
         },
         CLIENTE: {
             title: 'Cliente No Seleccionado',
@@ -780,5 +834,169 @@ $(document).ready(function () {
                 'Si el problema persiste, contacte al soporte técnico.'
             );
         }
+    }
+
+    // Agregar esta función para actualizar el contador de items
+    function actualizarContadorItems() {
+        const cantidadTotal = carrito.reduce((sum, item) => sum + item.cantidad, 0);
+        $('#cantidad-items').text(`${cantidadTotal} ${cantidadTotal === 1 ? 'item' : 'items'}`);
+        $('#venta-lista-empty').toggle(carrito.length === 0);
+    }
+
+    // Agregar después de la inicialización de variables
+
+    // Manejador para el botón de nuevo cliente
+    $('#nuevo-cliente').on('click', function(e) {
+        e.preventDefault();
+        $('#nuevoClienteModal').modal({
+            backdrop: 'static',
+            keyboard: false,
+            show: true
+        });
+    });
+
+    // Manejador para guardar nuevo cliente
+    $('#guardarCliente').on('click', function(e) {
+        e.preventDefault();
+        const $btn = $(this);
+        const $form = $('#nuevoClienteForm');
+
+        // Validar campos requeridos
+        if (!$form[0].checkValidity()) {
+            $form[0].reportValidity();
+            return;
+        }
+
+        // Deshabilitar botón y mostrar spinner
+        $btn.prop('disabled', true)
+            .html('<i class="fas fa-spinner fa-spin mr-1"></i>Guardando...');
+
+        // Recopilar datos del formulario
+        const clienteData = {
+            nombre: $('#nombre').val().trim(),
+            documento: $('#documento').val().trim(),
+            telefono: $('#telefono').val().trim(),
+            email: $('#email').val().trim(),
+            direccion: $('#direccion').val().trim()
+        };
+
+        // Enviar datos al servidor
+        $.ajax({
+            url: 'guardar_cliente.php',
+            method: 'POST',
+            data: clienteData,
+            dataType: 'json',
+            success: function(response) {
+                if (response.status) {
+                    // Agregar el nuevo cliente al select
+                    const newOption = new Option(response.cliente.nombre, response.cliente.id, true, true);
+                    $('#cliente-select').append(newOption).trigger('change');
+
+                    // Mostrar mensaje de éxito
+                    Swal.fire({
+                        title: 'Cliente Guardado',
+                        text: 'El cliente se ha registrado correctamente',
+                        icon: 'success',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+
+                    // Cerrar modal y limpiar formulario
+                    $('#nuevoClienteModal').modal('hide');
+                    $form[0].reset();
+                } else {
+                    throw new Error(response.message || 'Error al guardar el cliente');
+                }
+            },
+            error: function(xhr, status, error) {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'No se pudo guardar el cliente. Por favor, intente nuevamente.',
+                    icon: 'error'
+                });
+            },
+            complete: function() {
+                // Restaurar botón
+                $btn.prop('disabled', false)
+                    .html('<i class="fas fa-save mr-1"></i>Guardar Cliente');
+            }
+        });
+    });
+
+    // Limpiar formulario al cerrar el modal
+    $('#nuevoClienteModal').on('hidden.bs.modal', function() {
+        $('#nuevoClienteForm')[0].reset();
+        const $btn = $('#guardarCliente');
+        $btn.prop('disabled', false)
+            .html('<i class="fas fa-save mr-1"></i>Guardar Cliente');
+    });
+
+    // Agregar validación en tiempo real
+    $('#nuevoClienteForm input').on('input', function() {
+        $(this).removeClass('is-invalid');
+        if ($(this).attr('required') && !$(this).val().trim()) {
+            $(this).addClass('is-invalid');
+        }
+    });
+
+    // Función para obtener el email del cliente
+    async function obtenerEmailCliente(clienteId) {
+        try {
+            const response = await fetch(`obtener_email_cliente.php?id=${clienteId}`);
+            const data = await response.json();
+            return data.email || null;
+        } catch (error) {
+            console.error('Error al obtener email del cliente:', error);
+            return null;
+        }
+    }
+
+    // Función para enviar la factura por email
+    function enviarFacturaEmail(ventaId, email) {
+        Swal.fire({
+            title: 'Enviando factura...',
+            text: 'Por favor espere mientras se envía la factura.',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        $.ajax({
+            url: 'enviar_factura_email.php',
+            method: 'POST',
+            data: {
+                venta_id: ventaId,
+                email: email
+            },
+            dataType: 'json',
+            success: function(response) {
+                if (response.status) {
+                    Swal.fire({
+                        title: 'Factura Enviada',
+                        text: 'La factura ha sido enviada correctamente al correo electrónico.',
+                        icon: 'success',
+                        confirmButtonText: 'Aceptar'
+                    }).then(() => {
+                        window.location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Error',
+                        text: response.message || 'No se pudo enviar la factura.',
+                        icon: 'error',
+                        confirmButtonText: 'Aceptar'
+                    });
+                }
+            },
+            error: function() {
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Hubo un problema al enviar la factura.',
+                    icon: 'error',
+                    confirmButtonText: 'Aceptar'
+                });
+            }
+        });
     }
 });

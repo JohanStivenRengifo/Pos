@@ -134,38 +134,84 @@ function getEmpresaInfo($empresa_id)
     return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
-function saveEmpresa($empresa_id, $nombre_empresa, $nit, $regimen_fiscal, $direccion, $telefono, $correo_contacto, $prefijo_factura, $numero_inicial, $numero_final)
+function saveEmpresa($empresa_id, $nombre_empresa, $nit, $regimen_fiscal, $direccion, $telefono, $correo_contacto, $prefijo_factura, $numero_inicial, $numero_final, $usuario_id)
 {
     global $pdo;
-    if ($empresa_id) {
-        $stmt = $pdo->prepare("UPDATE empresas SET 
-            nombre_empresa = ?, 
-            nit = ?,
-            regimen_fiscal = ?,
-            direccion = ?, 
-            telefono = ?, 
-            correo_contacto = ?, 
-            prefijo_factura = ?, 
-            numero_inicial = ?, 
-            numero_final = ?,
-            updated_at = CURRENT_TIMESTAMP
-            WHERE id = ?");
-        return $stmt->execute([$nombre_empresa, $nit, $regimen_fiscal, $direccion, $telefono, $correo_contacto, $prefijo_factura, $numero_inicial, $numero_final, $empresa_id]);
-    } else {
-        $stmt = $pdo->prepare("INSERT INTO empresas (
-            nombre_empresa, 
-            nit,
-            regimen_fiscal,
-            direccion, 
-            telefono, 
-            correo_contacto, 
-            prefijo_factura, 
-            numero_inicial, 
-            numero_final,
-            estado
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)");
-        $stmt->execute([$nombre_empresa, $nit, $regimen_fiscal, $direccion, $telefono, $correo_contacto, $prefijo_factura, $numero_inicial, $numero_final]);
-        return $pdo->lastInsertId();
+    try {
+        $pdo->beginTransaction();
+        
+        if ($empresa_id) {
+            // Actualizar empresa existente
+            $stmt = $pdo->prepare("UPDATE empresas SET 
+                nombre_empresa = ?, 
+                nit = ?,
+                regimen_fiscal = ?,
+                direccion = ?, 
+                telefono = ?, 
+                correo_contacto = ?, 
+                prefijo_factura = ?, 
+                numero_inicial = ?, 
+                numero_final = ?,
+                updated_at = CURRENT_TIMESTAMP,
+                usuario_id = ?
+                WHERE id = ?");
+            $result = $stmt->execute([
+                $nombre_empresa, 
+                $nit, 
+                $regimen_fiscal, 
+                $direccion, 
+                $telefono, 
+                $correo_contacto, 
+                $prefijo_factura, 
+                $numero_inicial, 
+                $numero_final,
+                $usuario_id,
+                $empresa_id
+            ]);
+        } else {
+            // Crear nueva empresa
+            $stmt = $pdo->prepare("INSERT INTO empresas (
+                nombre_empresa, 
+                nit,
+                regimen_fiscal,
+                direccion, 
+                telefono, 
+                correo_contacto, 
+                prefijo_factura, 
+                numero_inicial, 
+                numero_final,
+                estado,
+                usuario_id,
+                created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, CURRENT_TIMESTAMP)");
+            
+            $stmt->execute([
+                $nombre_empresa, 
+                $nit, 
+                $regimen_fiscal, 
+                $direccion, 
+                $telefono, 
+                $correo_contacto, 
+                $prefijo_factura, 
+                $numero_inicial, 
+                $numero_final,
+                $usuario_id
+            ]);
+            
+            $empresa_id = $pdo->lastInsertId();
+        }
+
+        // Actualizar el empresa_id del usuario
+        $stmt = $pdo->prepare("UPDATE users SET empresa_id = ? WHERE id = ?");
+        $stmt->execute([$empresa_id, $usuario_id]);
+
+        $pdo->commit();
+        return $empresa_id;
+        
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        error_log("Error guardando empresa: " . $e->getMessage());
+        throw new Exception("Error al guardar la empresa: " . $e->getMessage());
     }
 }
 
@@ -206,9 +252,11 @@ function updateNombre($user_id, $nuevo_nombre) {
 
 function getRoles() {
     return [
-        'admin' => 'Administrador',
-        'contador' => 'Contador',
-        'cajero' => 'Cajero'
+        'administrador' => 'Administrador',
+        'contador' => 'Contador', 
+        'supervisor' => 'Supervisor',
+        'cajero' => 'Cajero',
+        'cliente' => 'Cliente'
     ];
 }
 
@@ -332,25 +380,83 @@ function eliminarUsuario($user_id, $empresa_id) {
             throw new Exception("Usuario no encontrado o no pertenece a tu empresa");
         }
 
-        // Eliminar registros relacionados en login_history
-        $stmt = $pdo->prepare("DELETE FROM login_history WHERE user_id = ?");
-        $stmt->execute([$user_id]);
-
-        // Eliminar usuario
-        $stmt = $pdo->prepare("DELETE FROM users WHERE id = ? AND empresa_id = ?");
+        // Actualizamos el estado y la fecha de desactivación
+        $stmt = $pdo->prepare("UPDATE users SET estado = 'inactivo', fecha_desactivacion = CURRENT_TIMESTAMP WHERE id = ? AND empresa_id = ?");
         $result = $stmt->execute([$user_id, $empresa_id]);
 
         if (!$result) {
-            throw new Exception("No se pudo eliminar el usuario");
+            throw new Exception("No se pudo desactivar el usuario");
         }
+
+        // Programar eliminación automática
+        programarEliminacionUsuario();
 
         $pdo->commit();
         return true;
 
     } catch (Exception $e) {
         $pdo->rollBack();
-        error_log("Error eliminando usuario: " . $e->getMessage());
-        throw new Exception("Error al eliminar el usuario: " . $e->getMessage());
+        error_log("Error desactivando usuario: " . $e->getMessage());
+        throw new Exception("Error al desactivar el usuario: " . $e->getMessage());
+    }
+}
+
+function programarEliminacionUsuario() {
+    global $pdo;
+    try {
+        // Eliminar usuarios que han estado desactivados por más de 30 días
+        $stmt = $pdo->prepare("
+            DELETE u FROM users u
+            WHERE u.estado = 'inactivo' 
+            AND u.fecha_desactivacion IS NOT NULL
+            AND u.fecha_desactivacion <= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 30 DAY)
+            AND NOT EXISTS (
+                -- Verificar si el usuario tiene ventas
+                SELECT 1 FROM ventas v WHERE v.usuario_id = u.id
+                UNION
+                -- Verificar si el usuario tiene otras relaciones importantes
+                SELECT 1 FROM login_history lh WHERE lh.user_id = u.id
+            )
+        ");
+        
+        $stmt->execute();
+        
+        // Registrar en el log cuántos usuarios fueron eliminados
+        if ($stmt->rowCount() > 0) {
+            error_log("Se eliminaron " . $stmt->rowCount() . " usuarios inactivos automáticamente");
+        }
+        
+        return true;
+    } catch (Exception $e) {
+        error_log("Error en la eliminación automática de usuarios: " . $e->getMessage());
+        return false;
+    }
+}
+
+// Agregar esta función para obtener información sobre usuarios próximos a ser eliminados
+function getUsuariosProximosEliminar($empresa_id) {
+    global $pdo;
+    try {
+        $stmt = $pdo->prepare("
+            SELECT 
+                id,
+                nombre,
+                email,
+                fecha_desactivacion,
+                DATE_ADD(fecha_desactivacion, INTERVAL 30 DAY) as fecha_eliminacion
+            FROM users 
+            WHERE empresa_id = ? 
+            AND estado = 'inactivo' 
+            AND fecha_desactivacion IS NOT NULL
+            AND fecha_desactivacion > DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 30 DAY)
+            ORDER BY fecha_desactivacion DESC
+        ");
+        
+        $stmt->execute([$empresa_id]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Error obteniendo usuarios próximos a eliminar: " . $e->getMessage());
+        return [];
     }
 }
 
@@ -498,6 +604,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $message = "Correo electrónico actualizado correctamente";
                 $messageType = "success";
             }
+        } elseif (isset($_POST['update_nombre'])) {
+            if (empty($_POST['nombre'])) {
+                throw new Exception("El nombre es requerido");
+            }
+            if (updateNombre($user_id, $_POST['nombre'])) {
+                $message = "Nombre actualizado correctamente";
+                $messageType = "success";
+                // Actualizar la información del usuario
+                $user_info = getUserInfo($user_id);
+            }
         } elseif (isset($_POST['update_password'])) {
             if (updatePassword($user_id, $_POST['new_password'])) {
                 $message = "Contraseña actualizada correctamente";
@@ -528,16 +644,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $empresa_data['correo_contacto'],
                 $empresa_data['prefijo_factura'],
                 $empresa_data['numero_inicial'],
-                $empresa_data['numero_final']
+                $empresa_data['numero_final'],
+                $user_id
             )) {
                 $message = "Empresa guardada correctamente";
                 $messageType = "success";
+                
+                // Actualizar la información del usuario y empresa
+                $user_info = getUserInfo($user_id);
+                $empresa_info = $user_info['empresa_id'] ? getEmpresaInfo($user_info['empresa_id']) : null;
             }
         } elseif (isset($_POST['delete_empresa'])) {
             if (deleteEmpresa($user_info['empresa_id'])) {
                 associateEmpresaToUser($user_id, null);
                 $message = "Empresa eliminada correctamente";
                 $messageType = "success";
+            }
+        } elseif (isset($_POST['delete_account'])) {
+            // Verificar que no sea el último administrador
+            $stmt = $pdo->prepare("
+                SELECT COUNT(*) FROM users 
+                WHERE empresa_id = ? AND rol = 'administrador' AND estado = 'activo'
+            ");
+            $stmt->execute([$user_info['empresa_id']]);
+            $adminCount = $stmt->fetchColumn();
+
+            if ($adminCount <= 1 && $user_info['rol'] === 'administrador') {
+                throw new Exception("No puedes eliminar tu cuenta porque eres el único administrador");
+            }
+
+            // Desactivar la cuenta
+            $stmt = $pdo->prepare("
+                UPDATE users 
+                SET estado = 'eliminado', 
+                    fecha_desactivacion = CURRENT_TIMESTAMP 
+                WHERE id = ?
+            ");
+            if ($stmt->execute([$user_id])) {
+                session_destroy();
+                header("Location: ../../index.php?message=cuenta_eliminada");
+                exit;
             }
         }
     } catch (Exception $e) {
@@ -551,14 +697,14 @@ $user_info = getUserInfo($user_id);
 $empresa_info = $user_info['empresa_id'] ? getEmpresaInfo($user_info['empresa_id']) : null;
 $usuarios = getUsuarios($user_info['empresa_id']);
 
-?>
-<!DOCTYPE html>
+?><!DOCTYPE html>
 <html lang="es">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Configuración - VendEasy</title>
+    <link rel="icon" type="image/png" href="favicon/favicon.ico"/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
     <link rel="stylesheet" href="../../css/welcome.css">
     <link rel="stylesheet" href="../../css/modulos.css">
@@ -1080,6 +1226,332 @@ $usuarios = getUsuarios($user_info['empresa_id']);
             opacity: 1;
             visibility: visible;
         }
+
+        .danger-zone {
+            border: 1px solid #dc3545;
+            margin-top: 2rem;
+        }
+
+        .danger-zone .row {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .danger-content {
+            padding: 1.5rem;
+        }
+
+        .danger-content h5 {
+            color: #dc3545;
+            margin-bottom: 1rem;
+        }
+
+        .text-danger {
+            color: #dc3545;
+        }
+
+        .text-danger i {
+            margin-right: 0.5rem;
+        }
+
+        .danger-zone {
+            border: 2px solid #dc3545;
+            margin-top: 2rem;
+            background: #fff5f5;
+        }
+
+        .danger-zone .row {
+            background-color: #dc3545;
+            color: white;
+            padding: 1rem;
+        }
+
+        .danger-zone .row h4 {
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .danger-zone .row h4:before {
+            content: "⚠️";
+        }
+
+        .danger-content {
+            padding: 2rem;
+        }
+
+        .danger-content h5 {
+            color: #dc3545;
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        .danger-details {
+            background: #fff;
+            border: 1px solid #ffcccc;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+        }
+
+        .danger-details ul {
+            margin: 0;
+            padding-left: 1.5rem;
+        }
+
+        .danger-details li {
+            margin-bottom: 0.5rem;
+        }
+
+        .danger-details li:last-child {
+            margin-bottom: 0;
+        }
+
+        .text-danger {
+            color: #dc3545;
+        }
+
+        .text-danger i {
+            margin-right: 0.5rem;
+        }
+
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .btn-danger:hover {
+            background-color: #c82333;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(220, 53, 69, 0.2);
+        }
+
+        /* Grid Layout */
+        .grid-layout {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .grid-span-2 {
+            grid-column: span 2;
+        }
+
+        /* Ajustes responsivos */
+        @media (max-width: 768px) {
+            .grid-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .grid-span-2 {
+                grid-column: span 1;
+            }
+        }
+
+        /* Ajustes para mantener consistencia visual */
+        .list1 {
+            margin-top: 0;
+            height: fit-content;
+        }
+
+        .danger-zone {
+            margin-top: 0;
+        }
+
+        /* Mejorar espaciado interno */
+        .list1 .row {
+            padding: 1rem 1.5rem;
+        }
+
+        .table-responsive {
+            padding: 1.5rem;
+        }
+
+        /* Estilos para el formulario de empresa */
+        .empresa-form {
+            padding: 1.5rem;
+        }
+
+        .grid-form {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+        }
+
+        .grid-form .form-group {
+            margin: 0;
+        }
+
+        .grid-form .grid-span-2 {
+            grid-column: span 2;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-start;
+            align-items: center;
+            margin-top: 1rem;
+        }
+
+        /* Mejorar apariencia de inputs */
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ced4da;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            border-color: #80bdff;
+            outline: 0;
+            box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #2c3e50;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .grid-form {
+                grid-template-columns: 1fr;
+            }
+
+            .grid-form .grid-span-2 {
+                grid-column: span 1;
+            }
+
+            .form-actions {
+                flex-direction: column;
+            }
+
+            .form-actions button {
+                width: 100%;
+            }
+        }
+
+        .content-preview {
+            padding: 1.5rem;
+        }
+
+        .content-preview p {
+            color: #666;
+            margin-bottom: 1rem;
+        }
+
+        .content-preview ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .content-preview li {
+            padding: 0.5rem 0;
+            color: #666;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .content-preview li:before {
+            content: "✓";
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .swal2-danger-zone {
+            border: 2px solid #dc3545;
+        }
+
+        .text-left {
+            text-align: left;
+        }
+
+        .font-weight-bold {
+            font-weight: bold;
+        }
+
+        .mt-3 {
+            margin-top: 1rem;
+        }
+
+        .swal2-danger-zone {
+            border: 2px solid #dc3545;
+        }
+
+        .swal2-danger-zone .swal2-title {
+            color: #dc3545;
+        }
+
+        .swal2-danger-zone .swal2-html-container {
+            text-align: left;
+        }
+
+        .swal2-danger-zone .danger-details {
+            background: #fff;
+            border: 1px solid #ffcccc;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+
+        .swal2-danger-zone ul {
+            margin: 0;
+            padding-left: 1.5rem;
+        }
+
+        .swal2-danger-zone li {
+            margin-bottom: 0.5rem;
+            color: #dc3545;
+        }
+
+        .swal2-danger-zone .swal2-input {
+            border: 1px solid #ced4da;
+            border-radius: 8px;
+            padding: 0.75rem;
+            margin: 1rem 0;
+            font-size: 1rem;
+        }
+
+        .swal2-danger-zone .swal2-input:focus {
+            border-color: #dc3545;
+            box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+        }
+
+        .text-danger {
+            color: #dc3545 !important;
+        }
+
+        .mt-3 {
+            margin-top: 1rem !important;
+        }
+
+        .text-left {
+            text-align: left !important;
+        }
+
+        .font-weight-bold {
+            font-weight: bold !important;
+        }
     </style>
 </head>
 
@@ -1100,7 +1572,7 @@ $usuarios = getUsuarios($user_info['empresa_id']);
             <div class="side_navbar">
                 <span>Menú Principal</span>
                 <a href="/welcome.php">Dashboard</a>
-                <a href="/modules/pos/index.php">Punto de Venta</a>
+                <a href="/modules/pos/index.php">POS</a>
                 <a href="/modules/ingresos/index.php">Ingresos</a>
                 <a href="/modules/egresos/index.php">Egresos</a>
                 <a href="/modules/ventas/index.php">Ventas</a>
@@ -1175,184 +1647,143 @@ $usuarios = getUsuarios($user_info['empresa_id']);
                     </form>
                 </div>
 
-                <div class="list1">
-                    <div class="row">
-                        <h4>Información de la Empresa</h4>
+                <!-- Después del div de Cambiar Contraseña, reemplazar la sección de Información de la Empresa por esto: -->
+                <div class="grid-layout">
+                    <!-- Información de la Empresa - 2 columnas -->
+                    <div class="list1 grid-span-2">
+                        <div class="row">
+                            <h4>Información de la Empresa</h4>
+                        </div>
+                        <form method="POST" action="" class="empresa-form">
+                            <input type="hidden" name="empresa_id" value="<?= htmlspecialchars($empresa_info['id'] ?? ''); ?>">
+                            <div class="grid-form">
+                                <!-- Primera fila -->
+                                <div class="form-group grid-span-2">
+                                    <label for="nombre_empresa">Nombre de la Empresa:</label>
+                                    <input type="text" id="nombre_empresa" name="nombre_empresa" 
+                                           value="<?= htmlspecialchars($empresa_info['nombre_empresa'] ?? ''); ?>" required>
+                                </div>
+
+                                <!-- Segunda fila -->
+                                <div class="form-group">
+                                    <label for="nit">NIT:</label>
+                                    <input type="text" id="nit" name="nit" 
+                                           value="<?= htmlspecialchars($empresa_info['nit'] ?? ''); ?>" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="regimen_fiscal">Régimen Fiscal:</label>
+                                    <select id="regimen_fiscal" name="regimen_fiscal" required>
+                                        <option value="1" <?= ($empresa_info['regimen_fiscal'] ?? '') == '1' ? 'selected' : '' ?>>Régimen Común</option>
+                                        <option value="2" <?= ($empresa_info['regimen_fiscal'] ?? '') == '2' ? 'selected' : '' ?>>Simplificado</option>
+                                        <option value="3" <?= ($empresa_info['regimen_fiscal'] ?? '') == '3' ? 'selected' : '' ?>>Especial</option>
+                                        <option value="4" <?= ($empresa_info['regimen_fiscal'] ?? '') == '4' ? 'selected' : '' ?>>Contribuyentes del Impuesto al Consumo</option>
+                                        <option value="5" <?= ($empresa_info['regimen_fiscal'] ?? '') == '5' ? 'selected' : '' ?>>Grandes Contribuyentes</option>
+                                    </select>
+                                </div>
+
+                                <!-- Tercera fila -->
+                                <div class="form-group grid-span-2">
+                                    <label for="direccion">Dirección:</label>
+                                    <input type="text" id="direccion" name="direccion" 
+                                           value="<?= htmlspecialchars($empresa_info['direccion'] ?? ''); ?>" required>
+                                </div>
+
+                                <!-- Cuarta fila -->
+                                <div class="form-group">
+                                    <label for="telefono">Teléfono:</label>
+                                    <input type="text" id="telefono" name="telefono" 
+                                           value="<?= htmlspecialchars($empresa_info['telefono'] ?? ''); ?>" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="correo_contacto">Correo de Contacto:</label>
+                                    <input type="email" id="correo_contacto" name="correo_contacto" 
+                                           value="<?= htmlspecialchars($empresa_info['correo_contacto'] ?? ''); ?>" required>
+                                </div>
+
+                                <!-- Quinta fila -->
+                                <div class="form-group">
+                                    <label for="prefijo_factura">Prefijo de Factura:</label>
+                                    <input type="text" id="prefijo_factura" name="prefijo_factura" 
+                                           value="<?= htmlspecialchars($empresa_info['prefijo_factura'] ?? ''); ?>" required>
+                                </div>
+
+                                <!-- Sexta fila -->
+                                <div class="form-group">
+                                    <label for="numero_inicial">Número Inicial:</label>
+                                    <input type="number" id="numero_inicial" name="numero_inicial" 
+                                           value="<?= htmlspecialchars($empresa_info['numero_inicial'] ?? ''); ?>" required min="1">
+                                </div>
+                                <div class="form-group">
+                                    <label for="numero_final">Número Final:</label>
+                                    <input type="number" id="numero_final" name="numero_final" 
+                                           value="<?= htmlspecialchars($empresa_info['numero_final'] ?? ''); ?>" required min="1">
+                                </div>
+
+                                <!-- Séptima fila - Botones -->
+                                <div class="form-actions grid-span-2">
+                                    <button type="submit" name="save_empresa" class="btn btn-primary">
+                                        <?= $empresa_info ? 'Actualizar Empresa' : 'Crear Empresa' ?>
+                                    </button>
+                                    <?php if ($empresa_info): ?>
+                                        <button type="submit" name="delete_empresa" class="btn btn-danger" 
+                                                onclick="return confirm('¿Estás seguro de que quieres eliminar esta empresa?');">
+                                            Eliminar Empresa
+                                        </button>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </form>
                     </div>
-                    <form method="POST" action="">
-                        <input type="hidden" name="empresa_id" value="<?= htmlspecialchars($empresa_info['id'] ?? ''); ?>">
-                        <div class="form-group">
-                            <label for="nombre_empresa">Nombre de la Empresa:</label>
-                            <input type="text" id="nombre_empresa" name="nombre_empresa" value="<?= htmlspecialchars($empresa_info['nombre_empresa'] ?? ''); ?>" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="nit">NIT:</label>
-                            <input type="text" id="nit" name="nit" value="<?= htmlspecialchars($empresa_info['nit'] ?? ''); ?>" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="regimen_fiscal">Régimen Fiscal:</label>
-                            <select id="regimen_fiscal" name="regimen_fiscal" required>
-                                <option value="1">Régimen Común</option>
-                                <option value="2">Simplificado</option>
-                                <option value="3">Especial</option>
-                                <option value="4">Contribuyentes del Impuesto al Consumo</option>
-                                <option value="5">Grandes Contribuyentes</option>
-                                <option value="6">Impuesto al Consumo</option>
-                                <option value="7">Impuesto al Consumo - Régimen Simplificado</option>
-                                <option value="8">Impuesto al Consumo - Régimen Común</option>
-                                <option value="9">Impuesto al Consumo - Régimen Especial</option>
-                                <option value="10">Impuesto al Consumo - Grandes Contribuyentes</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="direccion">Dirección:</label>
-                            <input type="text" id="direccion" name="direccion" value="<?= htmlspecialchars($empresa_info['direccion'] ?? ''); ?>" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="telefono">Teléfono:</label>
-                            <input type="text" id="telefono" name="telefono" value="<?= htmlspecialchars($empresa_info['telefono'] ?? ''); ?>" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="correo_contacto">Correo de Contacto:</label>
-                            <input type="email" id="correo_contacto" name="correo_contacto" value="<?= htmlspecialchars($empresa_info['correo_contacto'] ?? ''); ?>" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="prefijo_factura">Prefijo de Factura:</label>
-                            <input type="text" id="prefijo_factura" name="prefijo_factura" value="<?= htmlspecialchars($empresa_info['prefijo_factura'] ?? ''); ?>" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="numero_inicial">Número Inicial de Factura:</label>
-                            <input type="number" id="numero_inicial" name="numero_inicial" value="<?= htmlspecialchars($empresa_info['numero_inicial'] ?? ''); ?>" required min="1">
-                        </div>
-                        <div class="form-group">
-                            <label for="numero_final">Número Final de Factura:</label>
-                            <input type="number" id="numero_final" name="numero_final" value="<?= htmlspecialchars($empresa_info['numero_final'] ?? ''); ?>" required min="1">
-                        </div>
-                        <button type="submit" name="save_empresa" class="btn btn-primary"><?= $empresa_info ? 'Actualizar Empresa' : 'Crear Empresa' ?></button>
-                        <?php if ($empresa_info): ?>
-                            <button type="submit" name="delete_empresa" class="btn btn-danger" onclick="return confirm('¿Estás seguro de que quieres eliminar esta empresa?');">Eliminar Empresa</button>
-                        <?php endif; ?>
-                    </form>
                 </div>
 
-                <div class="list1">
-                    <div class="row">
-                        <h4>Gestión de Usuarios</h4>
-                        <button type="button" class="btn btn-primary" onclick="abrirModalUsuario()">
-                            <i class="fas fa-user-plus"></i> Nuevo Usuario
-                        </button>
+                <!-- Continuar con el grid-layout existente para usuarios y zona de peligro -->
+                <div class="grid-layout">
+                    <!-- Enlace a Gestión de Usuarios -->
+                    <div class="list1 grid-span-2">
+                        <div class="row">
+                            <h4>Gestión de Usuarios</h4>
+                            <a href="usuarios/index.php" class="btn btn-primary">
+                                <i class="fas fa-users"></i> Administrar Usuarios
+                            </a>
+                        </div>
+                        <div class="content-preview">
+                            <p>Gestiona los usuarios de tu empresa, sus roles y permisos desde un módulo dedicado.</p>
+                            <ul>
+                                <li>Crear nuevos usuarios</li>
+                                <li>Modificar roles y permisos</li>
+                                <li>Activar o desactivar cuentas</li>
+                                <li>Ver historial de accesos</li>
+                            </ul>
+                        </div>
                     </div>
-                    
-                    <div class="table-responsive">
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>Nombre</th>
-                                    <th>Email</th>
-                                    <th>Rol</th>
-                                    <th>Estado</th>
-                                    <th>Último Acceso</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach (getUsuarios($user_info['empresa_id']) as $usuario): ?>
-                                    <tr>
-                                        <td><?= htmlspecialchars($usuario['nombre']) ?></td>
-                                        <td><?= htmlspecialchars($usuario['email']) ?></td>
-                                        <td><?= htmlspecialchars(getRoles()[$usuario['rol']] ?? $usuario['rol']) ?></td>
-                                        <td>
-                                            <span class="badge <?= $usuario['estado'] === 'activo' ? 'badge-success' : 'badge-danger' ?>">
-                                                <?= ucfirst($usuario['estado']) ?>
-                                            </span>
-                                        </td>
-                                        <td><?= $usuario['ultimo_acceso'] ? date('d/m/Y H:i', strtotime($usuario['ultimo_acceso'])) : 'Nunca' ?></td>
-                                        <td>
-                                            <button class="btn btn-sm btn-primary" onclick="editarUsuario(<?= htmlspecialchars(json_encode($usuario)) ?>)">
-                                                <i class="fas fa-edit"></i>
-                                            </button>
-                                            <button class="btn btn-sm btn-danger" onclick="eliminarUsuario(<?= $usuario['id'] ?>)">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- Modal para crear/editar usuario -->
-    <div class="modal" id="modalUsuario" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Gestionar Usuario</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <form id="formUsuario" class="needs-validation" novalidate>
-                        <input type="hidden" id="user_id" name="user_id">
-                        <div class="form-group">
-                            <label for="nombre_usuario">Nombre: *</label>
-                            <input type="text" class="form-control" id="nombre_usuario" name="nombre" required 
-                                   minlength="3" maxlength="100">
-                            <div class="invalid-feedback">
-                                El nombre es requerido y debe tener entre 3 y 100 caracteres
+                    <!-- Zona de Peligro - 2 columnas -->
+                    <div class="list1 danger-zone grid-span-2">
+                        <div class="row">
+                            <h4>Zona de Peligro</h4>
+                        </div>
+                        <div class="danger-content">
+                            <h5>Eliminar Cuenta</h5>
+                            <p class="text-danger">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                Esta acción es irreversible. Tu cuenta será desactivada inmediatamente y eliminada permanentemente después de 30 días.
+                            </p>
+                            <div class="danger-details">
+                                <ul class="text-danger">
+                                    <li>Se desactivará el acceso a tu cuenta inmediatamente</li>
+                                    <li>Perderás acceso a todos los datos y configuraciones</li>
+                                    <li>La eliminación será permanente después de 30 días</li>
+                                    <li>No podrás usar el mismo correo electrónico para registrarte nuevamente</li>
+                                </ul>
                             </div>
+                            <form method="POST" action="" onsubmit="return confirmarEliminacionCuenta(event)">
+                                <input type="hidden" name="delete_account" value="1">
+                                <button type="submit" class="btn btn-danger">
+                                    <i class="fas fa-user-times"></i> Eliminar mi cuenta permanentemente
+                                </button>
+                            </form>
                         </div>
-                        <div class="form-group">
-                            <label for="email_usuario">Email: *</label>
-                            <input type="email" class="form-control" id="email_usuario" name="email" required>
-                            <div class="invalid-feedback">
-                                Por favor ingrese un email válido
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="password_usuario">Contraseña:</label>
-                            <input type="password" class="form-control" id="password_usuario" name="password" 
-                                   minlength="6">
-                            <small class="form-text text-muted password-hint" style="display: none;">
-                                Dejar en blanco para mantener la contraseña actual
-                            </small>
-                            <div class="invalid-feedback">
-                                La contraseña debe tener al menos 6 caracteres
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="rol_usuario">Rol: *</label>
-                            <select class="form-control" id="rol_usuario" name="rol" required>
-                                <?php foreach (getRoles() as $key => $value): ?>
-                                    <option value="<?= htmlspecialchars($key) ?>">
-                                        <?= htmlspecialchars($value) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                            <div class="invalid-feedback">
-                                Por favor seleccione un rol
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="estado_usuario">Estado: *</label>
-                            <select class="form-control" id="estado_usuario" name="estado" required>
-                                <option value="activo">Activo</option>
-                                <option value="inactivo">Inactivo</option>
-                            </select>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">
-                        <i class="fas fa-times"></i> Cancelar
-                    </button>
-                    <button type="button" class="btn btn-primary" onclick="guardarUsuario()">
-                        <i class="fas fa-save"></i> Guardar
-                    </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1430,18 +1861,17 @@ $usuarios = getUsuarios($user_info['empresa_id']);
     }
 
     async function guardarUsuario() {
+        const form = document.getElementById('formUsuario');
+        const submitBtn = document.querySelector('.modal-footer .btn-primary');
+        
+        if (!form.checkValidity()) {
+            form.classList.add('was-validated');
+            return;
+        }
+
         try {
-            const form = document.getElementById('formUsuario');
-            const submitBtn = document.querySelector('.modal-footer .btn-primary');
+            const restoreButton = UI.showLoading(submitBtn);
             
-            if (!form.checkValidity()) {
-                form.classList.add('was-validated');
-                return;
-            }
-
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<span class="loading-spinner"></span> Guardando...';
-
             const formData = new FormData(form);
             formData.append('action', usuarioActual ? 'actualizar_usuario' : 'crear_usuario');
 
@@ -1452,7 +1882,7 @@ $usuarios = getUsuarios($user_info['empresa_id']);
 
             const data = await response.json();
             
-            if (!response.ok) {
+            if (!data.success) {
                 throw new Error(data.message || 'Error al guardar usuario');
             }
 
@@ -1464,9 +1894,7 @@ $usuarios = getUsuarios($user_info['empresa_id']);
                 showConfirmButton: false
             });
 
-            const modal = document.getElementById('modalUsuario');
-            modal.style.display = 'none';
-            document.body.style.overflow = '';
+            UI.hideModal('modalUsuario');
             location.reload();
 
         } catch (error) {
@@ -1476,21 +1904,48 @@ $usuarios = getUsuarios($user_info['empresa_id']);
                 text: error.message
             });
         } finally {
-            const submitBtn = document.querySelector('.modal-footer .btn-primary');
             submitBtn.disabled = false;
             submitBtn.innerHTML = '<i class="fas fa-save"></i> Guardar';
         }
     }
 
+    function editarUsuario(usuario) {
+        usuarioActual = usuario;
+        document.querySelector('.modal-title').textContent = 'Editar Usuario';
+        
+        // Llenar el formulario con los datos del usuario
+        document.getElementById('user_id').value = usuario.id;
+        document.getElementById('nombre_usuario').value = usuario.nombre;
+        document.getElementById('email_usuario').value = usuario.email;
+        document.getElementById('email_usuario').readOnly = true;
+        document.getElementById('password_usuario').required = false;
+        document.getElementById('rol_usuario').value = usuario.rol;
+        document.getElementById('estado_usuario').value = usuario.estado;
+        
+        // Mostrar mensaje sobre la contraseña
+        document.querySelector('.password-hint').style.display = 'block';
+        
+        UI.showModal('modalUsuario');
+    }
+
     function eliminarUsuario(userId) {
+        if (!userId) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'ID de usuario no válido'
+            });
+            return;
+        }
+
         Swal.fire({
             title: '¿Estás seguro?',
-            text: "Esta acción no se puede deshacer",
+            text: "El usuario será desactivado. Esta acción puede revertirse más tarde.",
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#dc3545',
             cancelButtonColor: '#6c757d',
-            confirmButtonText: 'Sí, eliminar',
+            confirmButtonText: 'Sí, desactivar',
             cancelButtonText: 'Cancelar',
             showLoaderOnConfirm: true,
             preConfirm: async () => {
@@ -1498,7 +1953,6 @@ $usuarios = getUsuarios($user_info['empresa_id']);
                     const formData = new FormData();
                     formData.append('action', 'eliminar_usuario');
                     formData.append('user_id', userId);
-                    formData.append('csrf_token', '<?= $_SESSION['csrf_token'] ?>');
 
                     const response = await fetch(window.location.href, {
                         method: 'POST',
@@ -1506,24 +1960,35 @@ $usuarios = getUsuarios($user_info['empresa_id']);
                     });
 
                     const data = await response.json();
-                    if (!response.ok) throw new Error(data.error);
+                    
+                    if (!data.success) {
+                        throw new Error(data.message || 'Error al desactivar usuario');
+                    }
+                    
                     return data;
                 } catch (error) {
-                    Swal.showValidationMessage(error.message);
+                    Swal.showValidationMessage(`Error: ${error.message}`);
+                    throw error;
                 }
             }
         }).then((result) => {
             if (result.isConfirmed) {
                 Swal.fire({
                     icon: 'success',
-                    title: 'Eliminado',
-                    text: 'Usuario eliminado correctamente',
+                    title: 'Usuario desactivado',
+                    text: 'El usuario ha sido desactivado correctamente',
                     timer: 1500,
                     showConfirmButton: false
                 }).then(() => {
                     location.reload();
                 });
             }
+        }).catch(error => {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: error.message
+            });
         });
     }
 
@@ -1532,9 +1997,7 @@ $usuarios = getUsuarios($user_info['empresa_id']);
         // Cerrar modal con el botón de cerrar
         document.querySelectorAll('[data-dismiss="modal"]').forEach(button => {
             button.addEventListener('click', () => {
-                const modal = document.getElementById('modalUsuario');
-                modal.style.display = 'none';
-                document.body.style.overflow = '';
+                UI.hideModal('modalUsuario');
             });
         });
 
@@ -1542,20 +2005,77 @@ $usuarios = getUsuarios($user_info['empresa_id']);
         window.addEventListener('click', (e) => {
             const modal = document.getElementById('modalUsuario');
             if (e.target === modal) {
-                modal.style.display = 'none';
-                document.body.style.overflow = '';
+                UI.hideModal('modalUsuario');
             }
         });
 
         // Cerrar modal con la tecla Escape
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                const modal = document.getElementById('modalUsuario');
-                modal.style.display = 'none';
-                document.body.style.overflow = '';
+                UI.hideModal('modalUsuario');
             }
         });
     });
+
+    async function confirmarEliminacionCuenta(event) {
+        event.preventDefault();
+
+        try {
+            const result = await Swal.fire({
+                title: '¿Estás seguro?',
+                html: `
+                    <div class="text-left">
+                        <p class="text-danger">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            Esta acción es irreversible.
+                        </p>
+                        <p>Tu cuenta será desactivada inmediatamente y eliminada permanentemente después de 30 días.</p>
+                        <div class="danger-details mt-3">
+                            <ul class="text-danger">
+                                <li>Se desactivará el acceso a tu cuenta inmediatamente</li>
+                                <li>Perderás acceso a todos los datos y configuraciones</li>
+                                <li>La eliminación será permanente después de 30 días</li>
+                                <li>No podrás usar el mismo correo electrónico para registrarte nuevamente</li>
+                            </ul>
+                        </div>
+                        <p class="font-weight-bold mt-3">Escribe ELIMINAR para confirmar:</p>
+                    </div>
+                `,
+                input: 'text',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Sí, eliminar mi cuenta',
+                cancelButtonText: 'Cancelar',
+                inputValidator: (value) => {
+                    if (value !== 'ELIMINAR') {
+                        return 'Por favor escribe ELIMINAR para confirmar';
+                    }
+                },
+                customClass: {
+                    popup: 'swal2-danger-zone',
+                    content: 'text-left',
+                    input: 'form-control'
+                }
+            });
+
+            if (result.isConfirmed) {
+                const form = event.target;
+                form.submit();
+                return true;
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Ocurrió un error al procesar la solicitud'
+            });
+        }
+
+        return false;
+    }
     </script>
 </body>
 

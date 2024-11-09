@@ -135,7 +135,7 @@ function checkIPBlocked($pdo, $ip_address) {
         ");
         
         $stmt->execute([$ip_address]);
-        return $stmt->fetchColumn() >= 10; // Bloquear después de 10 intentos fallidos
+        return $stmt->fetchColumn() >= 3; // Bloquear después de 3 intentos fallidos
     } catch (Exception $e) {
         error_log("Error verificando bloqueo de IP: " . $e->getMessage());
         return false;
@@ -553,4 +553,14 @@ function userExists($pdo, $user_id)
         error_log("Error en userExists: " . $e->getMessage());
         return false;
     }
+}
+
+/**
+ * Obtiene la fecha y hora actual en zona horaria de Bogotá
+ * @param string $format Formato de fecha deseado
+ * @return string Fecha formateada
+ */
+function getBogotaDateTime($format = 'Y-m-d H:i:s') {
+    $datetime = new DateTime('now', new DateTimeZone('America/Bogota'));
+    return $datetime->format($format);
 }

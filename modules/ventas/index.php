@@ -39,12 +39,12 @@ function anularVenta($id, $user_id) {
             throw new Exception('Venta no encontrada');
         }
         
-        // Actualizar estado de la venta
-        $stmt = $pdo->prepare("UPDATE ventas SET estado = 'anulada' WHERE id = ?");
+        // Actualizar estado de la venta usando la columna 'anulada'
+        $stmt = $pdo->prepare("UPDATE ventas SET anulada = 1 WHERE id = ?");
         $stmt->execute([$id]);
         
         // Devolver productos al inventario
-        $stmt = $pdo->prepare("SELECT * FROM detalle_venta WHERE venta_id = ?");
+        $stmt = $pdo->prepare("SELECT * FROM venta_detalles WHERE venta_id = ?");
         $stmt->execute([$id]);
         $detalles = $stmt->fetchAll();
         
@@ -85,7 +85,7 @@ function getUserVentas($user_id, $limit, $offset) {
                   FROM ventas v 
                   LEFT JOIN clientes c ON v.cliente_id = c.id 
                   WHERE v.user_id = :user_id 
-                  ORDER BY v.fecha DESC 
+                  ORDER BY v.fecha DESC, v.anulada ASC 
                   LIMIT :limit OFFSET :offset";
         $stmt = $pdo->prepare($query);
         $stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
@@ -113,6 +113,60 @@ function countUserVentas($user_id) {
     }
 }
 
+// Agregar estas funciones después de las funciones existentes y antes de obtener los datos necesarios
+
+function getTotalVentasMonto($user_id) {
+    global $pdo;
+    try {
+        $stmt = $pdo->prepare("
+            SELECT COALESCE(SUM(total), 0) as total 
+            FROM ventas 
+            WHERE user_id = ? 
+            AND anulada = 0
+        ");
+        $stmt->execute([$user_id]);
+        return $stmt->fetchColumn();
+    } catch (PDOException $e) {
+        error_log("Error en getTotalVentasMonto: " . $e->getMessage());
+        return 0;
+    }
+}
+
+function getVentasDia($user_id) {
+    global $pdo;
+    try {
+        $stmt = $pdo->prepare("
+            SELECT COALESCE(SUM(total), 0) as total 
+            FROM ventas 
+            WHERE user_id = ? 
+            AND DATE(fecha) = CURDATE() 
+            AND anulada = 0
+        ");
+        $stmt->execute([$user_id]);
+        return $stmt->fetchColumn();
+    } catch (PDOException $e) {
+        error_log("Error en getVentasDia: " . $e->getMessage());
+        return 0;
+    }
+}
+
+function getTotalAnuladas($user_id) {
+    global $pdo;
+    try {
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) 
+            FROM ventas 
+            WHERE user_id = ? 
+            AND anulada = 1
+        ");
+        $stmt->execute([$user_id]);
+        return $stmt->fetchColumn();
+    } catch (PDOException $e) {
+        error_log("Error en getTotalAnuladas: " . $e->getMessage());
+        return 0;
+    }
+}
+
 // Obtener datos necesarios
 $limit = 10;
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
@@ -121,6 +175,11 @@ $offset = ($page - 1) * $limit;
 $ventas = getUserVentas($user_id, $limit, $offset);
 $total_ventas = countUserVentas($user_id);
 $total_pages = ceil($total_ventas / $limit);
+
+// Agregar estas líneas después de obtener $total_pages
+$total_ventas_monto = getTotalVentasMonto($user_id);
+$ventas_dia = getVentasDia($user_id);
+$total_anuladas = getTotalAnuladas($user_id);
 ?>
 
 <!DOCTYPE html>
@@ -128,14 +187,179 @@ $total_pages = ceil($total_ventas / $limit);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ventas | VendEasy</title>
+    <title>Gestión de Ventas | VendEasy</title>
     <link rel="icon" type="image/png" href="/favicon/favicon.ico"/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
     <link rel="stylesheet" href="../../css/welcome.css">
     <link rel="stylesheet" href="../../css/modulos.css">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.all.min.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-material-ui/material-ui.css">
+    <style>
+        .filters-section {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .search-box {
+            flex: 1;
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 0.5rem 1rem 0.5rem 2.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .search-box i {
+            position: absolute;
+            left: 0.8rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #666;
+        }
+
+        .filter-dropdown {
+            min-width: 150px;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .date-filter {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .date-filter input {
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .ventas-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .ventas-table th {
+            background: #f8f9fa;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            color: #344767;
+        }
+
+        .ventas-table td {
+            padding: 1rem;
+            border-top: 1px solid #eee;
+        }
+
+        .estado-venta {
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            display: inline-block;
+        }
+
+        .estado-venta.activa {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .estado-venta.anulada {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .action-button {
+            padding: 0.5rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: transparent;
+        }
+
+        .btn-imprimir { color: #2196f3; }
+        .btn-modificar { color: #4caf50; }
+        .btn-anular { color: #f44336; }
+
+        .btn-imprimir:hover { background-color: #e3f2fd; }
+        .btn-modificar:hover { background-color: #e8f5e9; }
+        .btn-anular:hover { background-color: #ffebee; }
+
+        .stats-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: #fff;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .stat-card h3 {
+            margin: 0;
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .stat-card .value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #344767;
+            margin-top: 0.5rem;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 2rem;
+        }
+
+        .pagination a {
+            padding: 0.5rem 1rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            color: #666;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .pagination a.active {
+            background: #2196f3;
+            color: white;
+            border-color: #2196f3;
+        }
+
+        .pagination a:hover:not(.active) {
+            background: #f5f5f5;
+        }
+    </style>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
@@ -174,88 +398,135 @@ $total_pages = ceil($total_ventas / $limit);
         </nav>
 
         <div class="main-body">
-            <h2>Listado de Ventas</h2>
-            <div class="promo_card">
-                <h1>Gestión de Ventas</h1>
-                <span>Aquí puedes ver y gestionar todas tus ventas.</span>
+            <div class="page-header">
+                <h2>Gestión de Ventas</h2>
             </div>
 
-            <div class="history_lists">
-                <div class="list1">
-                    <div class="row">
-                        <h4>Ventas Recientes</h4>
-                    </div>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>ID Venta</th>
-                                <th>Fecha</th>
-                                <th>Cliente</th>
-                                <th>Total</th>
-                                <th>Numero de Factura</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($ventas as $venta): ?>
-                                <tr>
-                                    <td><?= htmlspecialchars($venta['id']); ?></td>
-                                    <td><?= htmlspecialchars($venta['fecha']); ?></td>
-                                    <td><?= htmlspecialchars($venta['cliente_nombre'] ?? 'N/A'); ?></td>
-                                    <td><?= htmlspecialchars(number_format($venta['total'], 2)); ?></td>
-                                    <td><?= htmlspecialchars($venta['numero_factura']); ?></td>
-                                    <td>
-                                        <button class="btn-imprimir" data-id="<?= $venta['id']; ?>"><i class="fas fa-print"></i></button>
-                                        <button class="btn-modificar" data-id="<?= $venta['id']; ?>"><i class="fas fa-edit"></i></button>
-                                        <button class="btn-anular" data-id="<?= $venta['id']; ?>"><i class="fas fa-trash-alt"></i></button>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                    
-                    <!-- Paginación -->
-                    <div class="pagination">
-                        <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                            <a href="?page=<?= $i; ?>" class="<?= $i === $page ? 'active' : ''; ?>"><?= $i; ?></a>
-                        <?php endfor; ?>
-                    </div>
+            <div class="stats-cards">
+                <div class="stat-card">
+                    <h3>Ventas Totales</h3>
+                    <div class="value">$<?= number_format($total_ventas_monto, 2) ?></div>
                 </div>
+                <div class="stat-card">
+                    <h3>Ventas del Día</h3>
+                    <div class="value">$<?= number_format($ventas_dia, 2) ?></div>
+                </div>
+                <div class="stat-card">
+                    <h3>Ventas Anuladas</h3>
+                    <div class="value"><?= $total_anuladas ?></div>
+                </div>
+            </div>
+
+            <div class="filters-section">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" placeholder="Buscar por cliente o número de factura...">
+                </div>
+                <select class="filter-dropdown" id="estadoFilter">
+                    <option value="">Todos los estados</option>
+                    <option value="activa">Activas</option>
+                    <option value="anulada">Anuladas</option>
+                </select>
+                <div class="date-filter">
+                    <input type="date" id="fechaDesde" placeholder="Desde">
+                    <input type="date" id="fechaHasta" placeholder="Hasta">
+                </div>
+            </div>
+
+            <table class="ventas-table">
+                <thead>
+                    <tr>
+                        <th>ID Venta</th>
+                        <th>Fecha</th>
+                        <th>Cliente</th>
+                        <th>Total</th>
+                        <th>N° Factura</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($ventas as $venta): ?>
+                        <tr class="venta-row" data-estado="<?= $venta['anulada'] ? 'anulada' : 'activa' ?>">
+                            <td><?= htmlspecialchars($venta['id']) ?></td>
+                            <td><?= date('d/m/Y H:i', strtotime($venta['fecha'])) ?></td>
+                            <td><?= htmlspecialchars($venta['cliente_nombre'] ?? 'N/A') ?></td>
+                            <td>$<?= number_format($venta['total'], 2) ?></td>
+                            <td><?= htmlspecialchars($venta['numero_factura']) ?></td>
+                            <td>
+                                <span class="estado-venta <?= $venta['anulada'] ? 'anulada' : 'activa' ?>">
+                                    <?= $venta['anulada'] ? 'Anulada' : 'Activa' ?>
+                                </span>
+                            </td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="action-button btn-imprimir" 
+                                            onclick="imprimirVenta(<?= $venta['id'] ?>)">
+                                        <i class="fas fa-print"></i>
+                                    </button>
+                                    <button class="action-button btn-modificar" 
+                                            onclick="editarVenta(<?= $venta['id'] ?>)">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <?php if (!$venta['anulada']): ?>
+                                        <button type="button" 
+                                                class="action-button btn-anular" 
+                                                onclick="confirmarAnulacion(<?= $venta['id'] ?>)">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    <?php endif; ?>
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+
+            <div class="pagination">
+                <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                    <a href="?page=<?= $i ?>" class="<?= $i === $page ? 'active' : '' ?>">
+                        <?= $i ?>
+                    </a>
+                <?php endfor; ?>
             </div>
         </div>
     </div>
 
     <script>
-    // Configuración global de notificaciones
-    const Toast = Swal.mixin({
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 3000,
-        timerProgressBar: true,
-        didOpen: (toast) => {
-            toast.addEventListener('mouseenter', Swal.stopTimer)
-            toast.addEventListener('mouseleave', Swal.resumeTimer)
+    // Mantener el código JavaScript existente y agregar:
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('searchInput');
+        const estadoFilter = document.getElementById('estadoFilter');
+        const fechaDesde = document.getElementById('fechaDesde');
+        const fechaHasta = document.getElementById('fechaHasta');
+        const ventasRows = document.querySelectorAll('.venta-row');
+
+        function filterVentas() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const estadoSelected = estadoFilter.value;
+            const dateFrom = fechaDesde.value ? new Date(fechaDesde.value) : null;
+            const dateTo = fechaHasta.value ? new Date(fechaHasta.value) : null;
+
+            ventasRows.forEach(row => {
+                const cliente = row.querySelector('td:nth-child(3)').textContent.toLowerCase();
+                const factura = row.querySelector('td:nth-child(5)').textContent.toLowerCase();
+                const estado = row.dataset.estado;
+                const fecha = new Date(row.querySelector('td:nth-child(2)').textContent);
+
+                const matchesSearch = cliente.includes(searchTerm) || factura.includes(searchTerm);
+                const matchesEstado = !estadoSelected || estado === estadoSelected;
+                const matchesDate = (!dateFrom || fecha >= dateFrom) && (!dateTo || fecha <= dateTo);
+
+                row.style.display = matchesSearch && matchesEstado && matchesDate ? '' : 'none';
+            });
         }
+
+        searchInput.addEventListener('input', filterVentas);
+        estadoFilter.addEventListener('change', filterVentas);
+        fechaDesde.addEventListener('change', filterVentas);
+        fechaHasta.addEventListener('change', filterVentas);
     });
-
-    // Función para mostrar notificaciones
-    function showNotification(type, message) {
-        Toast.fire({
-            icon: type,
-            title: message
-        });
-    }
-
-    // Función para mostrar errores
-    function showError(title, message) {
-        Swal.fire({
-            icon: 'error',
-            title: title,
-            text: message,
-            confirmButtonText: 'Entendido'
-        });
-    }
 
     // Función para imprimir venta
     function imprimirVenta(id) {
@@ -267,92 +538,96 @@ $total_pages = ceil($total_ventas / $limit);
         window.location.href = `editar.php?id=${id}`;
     }
 
-    // Función para anular venta
-    async function anularVenta(id) {
-        const result = await Swal.fire({
-            title: '¿Anular venta?',
-            text: "Esta acción no se puede deshacer y devolverá los productos al inventario",
+    function confirmarAnulacion(id) {
+        console.log('Iniciando confirmación de anulación para venta:', id); // Debug
+        Swal.fire({
+            title: '¿Estás seguro?',
+            text: "¿Deseas anular esta venta? Esta acción no se puede deshacer",
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#d33',
             cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Sí, anular venta',
-            cancelButtonText: 'Cancelar',
-            showLoaderOnConfirm: true,
-            preConfirm: async () => {
-                try {
-                    const formData = new FormData();
-                    formData.append('action', 'anular_venta');
-                    formData.append('id', id);
-
-                    const response = await fetch('', {
-                        method: 'POST',
-                        body: formData,
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest'
-                        }
-                    });
-
-                    const data = await response.json();
-                    
-                    if (!data.status) {
-                        throw new Error(data.message);
-                    }
-                    
-                    return data;
-                } catch (error) {
-                    Swal.showValidationMessage(`Error: ${error.message}`);
-                }
-            },
-            allowOutsideClick: () => !Swal.isLoading()
+            confirmButtonText: 'Sí, anular',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                realizarAnulacion(id);
+            }
         });
-
-        if (result.isConfirmed) {
-            showNotification('success', result.value.message);
-            setTimeout(() => location.reload(), 1500);
-        }
     }
 
-    // Manejadores de eventos para los botones
-    document.querySelectorAll('.btn-imprimir').forEach(btn => {
-        btn.addEventListener('click', function() {
-            imprimirVenta(this.dataset.id);
+    function realizarAnulacion(id) {
+        console.log('Iniciando proceso de anulación para venta:', id); // Debug
+        
+        fetch('anular_venta.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'id=' + id
+        })
+        .then(response => {
+            console.log('Respuesta recibida:', response); // Debug
+            return response.json();
+        })
+        .then(data => {
+            console.log('Datos recibidos:', data); // Debug
+            if (data.success) {
+                Swal.fire({
+                    title: '¡Éxito!',
+                    text: data.message,
+                    icon: 'success'
+                }).then(() => {
+                    window.location.reload();
+                });
+            } else {
+                throw new Error(data.message || 'Error al anular la venta');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error); // Debug
+            Swal.fire({
+                title: 'Error',
+                text: error.message || 'Hubo un error al anular la venta',
+                icon: 'error'
+            });
         });
-    });
+    }
 
-    document.querySelectorAll('.btn-modificar').forEach(btn => {
-        btn.addEventListener('click', function() {
-            editarVenta(this.dataset.id);
-        });
-    });
+    // Agregar estilos adicionales para los botones
+    const additionalStyles = `
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-start;
+        }
 
-    document.querySelectorAll('.btn-anular').forEach(btn => {
-        btn.addEventListener('click', function() {
-            anularVenta(this.dataset.id);
-        });
-    });
+        .action-button {
+            padding: 8px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: transparent;
+        }
 
-    // Estilo personalizado para SweetAlert2
-    const style = document.createElement('style');
-    style.textContent = `
-        .swal2-popup {
-            font-family: 'Poppins', sans-serif;
-            border-radius: 12px;
-        }
-        .swal2-title {
-            color: #344767;
-        }
-        .swal2-html-container {
-            color: #495057;
-        }
-        .swal2-confirm {
-            background: linear-gradient(145deg, #007bff, #0056b3) !important;
-        }
-        .swal2-cancel {
-            background: linear-gradient(145deg, #6c757d, #495057) !important;
+        .btn-imprimir { color: #2196f3; }
+        .btn-modificar { color: #4caf50; }
+        .btn-anular { color: #f44336; }
+
+        .btn-imprimir:hover { background-color: #e3f2fd; }
+        .btn-modificar:hover { background-color: #e8f5e9; }
+        .btn-anular:hover { background-color: #ffebee; }
+
+        .action-button i {
+            font-size: 1.1rem;
         }
     `;
-    document.head.appendChild(style);
+
+    // Agregar los estilos al documento
+    const styleSheet = document.createElement("style");
+    styleSheet.textContent = additionalStyles;
+    document.head.appendChild(styleSheet);
     </script>
 </body>
 </html>

@@ -1,4 +1,7 @@
 <?php
+// Establecer zona horaria
+date_default_timezone_set('America/Bogota');
+
 require_once __DIR__ . '/../../config/db.php';
 
 // Eliminar códigos OTP expirados o usados

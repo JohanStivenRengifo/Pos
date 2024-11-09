@@ -354,9 +354,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         // Agregar producto
         $producto_id = agregarProducto($user_id, $producto_data, $_FILES['imagenes'] ?? []);
 
-        // Mensaje de éxito
+        // Modificar la redirección para usar código de barras
         $_SESSION['success_message'] = "Producto agregado exitosamente";
-        header("Location: ver.php?id=" . $producto_id);
+        header("Location: ver.php?codigo_barras=" . urlencode($producto_data['codigo_barras']));
         exit;
 
     } catch (Exception $e) {

@@ -1,4 +1,7 @@
 <?php
+// Establecer zona horaria
+date_default_timezone_set('America/Bogota');
+
 session_start();
 require_once './config/db.php';
 require_once './includes/functions.php';
@@ -123,7 +126,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 // Generar CSRF token
 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 ?>
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -299,3 +301,4 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     </script>
 </body>
 </html>
+
