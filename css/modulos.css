@@ -318,3 +318,69 @@ textarea {
         transform: rotate(360deg);
     }
 }
+
+/* Estilos para el módulo de reportes */
+.summary-cards {
+    margin-top: 1rem;
+}
+
+.summary-card.positive {
+    border-left: 4px solid #28a745;
+}
+
+.summary-card.negative {
+    border-left: 4px solid #dc3545;
+}
+
+.chart-card h4 {
+    color: #344767;
+    margin-bottom: 1rem;
+}
+
+.table-container h4 {
+    color: #344767;
+    margin-bottom: 1rem;
+}
+
+@media (max-width: 768px) {
+    .charts-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .summary-cards {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+}
+
+/* Estilos para las gráficas */
+.charts-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.chart-card {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    height: 400px;
+    position: relative;
+}
+
+.chart-wrapper {
+    position: relative;
+    height: calc(100% - 40px); /* Altura total menos el espacio del título */
+}
+
+.chart-wrapper canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+@media (max-width: 768px) {
+    .chart-card {
+        height: 300px;
+    }
+}

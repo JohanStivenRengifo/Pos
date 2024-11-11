@@ -18,19 +18,19 @@ $email = $_SESSION['email'];
 
 function obtenerCategorias()
 {
-    global $pdo;
-    $query = "SELECT id, nombre FROM categorias";
+    global $pdo, $user_id;
+    $query = "SELECT id, nombre FROM categorias WHERE user_id = ? AND estado = 'activo'";
     $stmt = $pdo->prepare($query);
-    $stmt->execute();
+    $stmt->execute([$user_id]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
 function obtenerDepartamentos()
 {
-    global $pdo;
-    $query = "SELECT id, nombre FROM departamentos";
+    global $pdo, $user_id;
+    $query = "SELECT id, nombre FROM departamentos WHERE user_id = ? AND estado = 'activo'";
     $stmt = $pdo->prepare($query);
-    $stmt->execute();
+    $stmt->execute([$user_id]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
@@ -373,83 +373,64 @@ function formatoMoneda($monto)
     return '$' . number_format($monto, 2, ',', '.');
 }
 
-// Modificar las funciones de crear categoría y departamento
-
-function categoriaExiste($nombre) {
+// Funciones de verificación
+function categoriaExiste($nombre, $user_id) {
     global $pdo;
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM categorias WHERE LOWER(nombre) = LOWER(?)");
-    $stmt->execute([trim($nombre)]);
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM categorias WHERE LOWER(nombre) = LOWER(?) AND user_id = ? AND estado = 'activo'");
+    $stmt->execute([trim($nombre), $user_id]);
     return $stmt->fetchColumn() > 0;
 }
 
-function departamentoExiste($nombre) {
+function departamentoExiste($nombre, $user_id) {
     global $pdo;
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM departamentos WHERE LOWER(nombre) = LOWER(?)");
-    $stmt->execute([trim($nombre)]);
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM departamentos WHERE LOWER(nombre) = LOWER(?) AND user_id = ? AND estado = 'activo'");
+    $stmt->execute([trim($nombre), $user_id]);
     return $stmt->fetchColumn() > 0;
 }
 
+// Funciones de creación
 function crearCategoria($nombre, $user_id) {
     global $pdo;
     try {
         $nombre = trim($nombre);
         
-        // Validar longitud del nombre
+        // Validaciones
         if (strlen($nombre) < 3 || strlen($nombre) > 50) {
             throw new Exception("El nombre debe tener entre 3 y 50 caracteres");
         }
 
-        // Verificar si ya existe
-        if (categoriaExiste($nombre)) {
-            throw new Exception("Ya existe una categoría con este nombre");
+        if (categoriaExiste($nombre, $user_id)) {
+            throw new Exception("Ya tienes una categoría con este nombre");
         }
 
+        $pdo->beginTransaction();
+
+        // Insertar categoría
         $stmt = $pdo->prepare("
             INSERT INTO categorias (
+                user_id,
                 nombre, 
                 descripcion,
                 estado, 
                 fecha_creacion
-            ) VALUES (
-                ?, 
-                ?, 
-                'activo', 
-                NOW()
-            )
+            ) VALUES (?, ?, ?, 'activo', NOW())
         ");
         
         $descripcion = "Categoría creada desde el módulo de inventario";
-        $stmt->execute([$nombre, $descripcion]);
+        $stmt->execute([$user_id, $nombre, $descripcion]);
         $id = $pdo->lastInsertId();
 
         // Registrar en el log
-        $stmt = $pdo->prepare("
-            INSERT INTO log_actividades (
-                user_id, 
-                tipo_actividad, 
-                descripcion, 
-                fecha_hora, 
-                ip_address
-            ) VALUES (
-                ?, 
-                'crear_categoria', 
-                ?, 
-                NOW(), 
-                ?
-            )
-        ");
-        
-        $stmt->execute([
-            $user_id,
-            "Creación de categoría: {$nombre}",
-            $_SERVER['REMOTE_ADDR']
-        ]);
+        registrarLog($user_id, 'crear_categoria', "Creación de categoría: {$nombre}");
 
+        $pdo->commit();
         return [
             'id' => $id,
             'nombre' => $nombre
         ];
+
     } catch (Exception $e) {
+        $pdo->rollBack();
         error_log("Error al crear categoría: " . $e->getMessage());
         throw new Exception("Error al crear la categoría: " . $e->getMessage());
     }
@@ -460,138 +441,180 @@ function crearDepartamento($nombre, $user_id) {
     try {
         $nombre = trim($nombre);
         
-        // Validar longitud del nombre
+        // Validaciones
         if (strlen($nombre) < 3 || strlen($nombre) > 50) {
             throw new Exception("El nombre debe tener entre 3 y 50 caracteres");
         }
 
-        // Verificar si ya existe
-        if (departamentoExiste($nombre)) {
-            throw new Exception("Ya existe un departamento con este nombre");
+        if (departamentoExiste($nombre, $user_id)) {
+            throw new Exception("Ya tienes un departamento con este nombre");
         }
 
+        $pdo->beginTransaction();
+
+        // Insertar departamento
         $stmt = $pdo->prepare("
             INSERT INTO departamentos (
+                user_id,
                 nombre, 
                 descripcion,
                 estado, 
                 fecha_creacion
-            ) VALUES (
-                ?, 
-                ?, 
-                'activo', 
-                NOW()
-            )
+            ) VALUES (?, ?, ?, 'activo', NOW())
         ");
         
         $descripcion = "Departamento creado desde el módulo de inventario";
-        $stmt->execute([$nombre, $descripcion]);
+        $stmt->execute([$user_id, $nombre, $descripcion]);
         $id = $pdo->lastInsertId();
 
         // Registrar en el log
-        $stmt = $pdo->prepare("
-            INSERT INTO log_actividades (
-                user_id, 
-                tipo_actividad, 
-                descripcion, 
-                fecha_hora, 
-                ip_address
-            ) VALUES (
-                ?, 
-                'crear_departamento', 
-                ?, 
-                NOW(), 
-                ?
-            )
-        ");
-        
-        $stmt->execute([
-            $user_id,
-            "Creación de departamento: {$nombre}",
-            $_SERVER['REMOTE_ADDR']
-        ]);
+        registrarLog($user_id, 'crear_departamento', "Creación de departamento: {$nombre}");
 
+        $pdo->commit();
         return [
             'id' => $id,
             'nombre' => $nombre
         ];
+
     } catch (Exception $e) {
+        $pdo->rollBack();
         error_log("Error al crear departamento: " . $e->getMessage());
         throw new Exception("Error al crear el departamento: " . $e->getMessage());
     }
 }
 
-// Colocar después de la validación de sesión y antes de las funciones
+// Función auxiliar para registrar logs
+function registrarLog($user_id, $tipo_actividad, $descripcion) {
+    global $pdo;
+    try {
+        $stmt = $pdo->prepare("SHOW TABLES LIKE 'log_actividades'");
+        $stmt->execute();
+        if ($stmt->rowCount() > 0) {
+            $stmt = $pdo->prepare("
+                INSERT INTO log_actividades (
+                    user_id, 
+                    tipo_actividad, 
+                    descripcion, 
+                    fecha_hora, 
+                    ip_address
+                ) VALUES (?, ?, ?, NOW(), ?)
+            ");
+            
+            $stmt->execute([
+                $user_id,
+                $tipo_actividad,
+                $descripcion,
+                $_SERVER['REMOTE_ADDR']
+            ]);
+        }
+    } catch (Exception $e) {
+        error_log("Error al registrar en log_actividades: " . $e->getMessage());
+    }
+}
+
+// Manejador de peticiones AJAX
 if (isset($_POST['action']) && !empty($_POST['action'])) {
     header('Content-Type: application/json');
     
     try {
+        if (!isset($_SESSION['user_id'])) {
+            throw new Exception("Sesión no válida");
+        }
+
         $nombre = trim($_POST['nombre'] ?? '');
         if (empty($nombre)) {
             throw new Exception("El nombre es requerido");
         }
 
+        $user_id = $_SESSION['user_id']; // Aseguramos tener el user_id
+
         switch ($_POST['action']) {
             case 'crear_categoria':
-                if (categoriaExiste($nombre)) {
-                    throw new Exception("Ya existe una categoría con este nombre");
+                try {
+                    $pdo->beginTransaction();
+                    
+                    // Verificar si ya existe
+                    if (categoriaExiste($nombre, $user_id)) {
+                        throw new Exception("Ya tienes una categoría con este nombre");
+                    }
+
+                    // Insertar categoría
+                    $stmt = $pdo->prepare("
+                        INSERT INTO categorias (
+                            user_id,
+                            nombre, 
+                            descripcion,
+                            estado, 
+                            fecha_creacion
+                        ) VALUES (?, ?, ?, 'activo', NOW())
+                    ");
+                    
+                    $descripcion = "Categoría creada desde el módulo de inventario";
+                    $stmt->execute([$user_id, $nombre, $descripcion]);
+                    $id = $pdo->lastInsertId();
+
+                    // Registrar en el log
+                    registrarLog($user_id, 'crear_categoria', "Creación de categoría: {$nombre}");
+
+                    $pdo->commit();
+
+                    echo json_encode([
+                        'success' => true,
+                        'data' => [
+                            'id' => $id,
+                            'nombre' => $nombre
+                        ]
+                    ]);
+                } catch (Exception $e) {
+                    $pdo->rollBack();
+                    throw $e;
                 }
-                
-                $stmt = $pdo->prepare("
-                    INSERT INTO categorias (
-                        nombre, 
-                        descripcion,
-                        estado, 
-                        fecha_creacion
-                    ) VALUES (?, ?, 'activo', NOW())
-                ");
-                
-                $descripcion = "Categoría creada desde el módulo de inventario";
-                if (!$stmt->execute([$nombre, $descripcion])) {
-                    throw new Exception("Error al crear la categoría");
-                }
-                
-                $id = $pdo->lastInsertId();
-                echo json_encode([
-                    'success' => true,
-                    'data' => [
-                        'id' => $id,
-                        'nombre' => $nombre
-                    ]
-                ]);
-                exit;
+                break;
 
             case 'crear_departamento':
-                if (departamentoExiste($nombre)) {
-                    throw new Exception("Ya existe un departamento con este nombre");
+                try {
+                    $pdo->beginTransaction();
+                    
+                    // Verificar si ya existe
+                    if (departamentoExiste($nombre, $user_id)) {
+                        throw new Exception("Ya tienes un departamento con este nombre");
+                    }
+
+                    // Insertar departamento
+                    $stmt = $pdo->prepare("
+                        INSERT INTO departamentos (
+                            user_id,
+                            nombre, 
+                            descripcion,
+                            estado, 
+                            fecha_creacion
+                        ) VALUES (?, ?, ?, 'activo', NOW())
+                    ");
+                    
+                    $descripcion = "Departamento creado desde el módulo de inventario";
+                    $stmt->execute([$user_id, $nombre, $descripcion]);
+                    $id = $pdo->lastInsertId();
+
+                    // Registrar en el log
+                    registrarLog($user_id, 'crear_departamento', "Creación de departamento: {$nombre}");
+
+                    $pdo->commit();
+
+                    echo json_encode([
+                        'success' => true,
+                        'data' => [
+                            'id' => $id,
+                            'nombre' => $nombre
+                        ]
+                    ]);
+                } catch (Exception $e) {
+                    $pdo->rollBack();
+                    throw $e;
                 }
-                
-                $stmt = $pdo->prepare("
-                    INSERT INTO departamentos (
-                        nombre, 
-                        descripcion,
-                        estado, 
-                        fecha_creacion
-                    ) VALUES (?, ?, 'activo', NOW())
-                ");
-                
-                $descripcion = "Departamento creado desde el módulo de inventario";
-                if (!$stmt->execute([$nombre, $descripcion])) {
-                    throw new Exception("Error al crear el departamento");
-                }
-                
-                $id = $pdo->lastInsertId();
-                echo json_encode([
-                    'success' => true,
-                    'data' => [
-                        'id' => $id,
-                        'nombre' => $nombre
-                    ]
-                ]);
-                exit;
+                break;
 
             default:
-                throw new Exception("Acción no válida");
+                throw new Exception("Acción no v��lida");
         }
     } catch (Exception $e) {
         http_response_code(400);
@@ -599,8 +622,8 @@ if (isset($_POST['action']) && !empty($_POST['action'])) {
             'success' => false,
             'error' => $e->getMessage()
         ]);
-        exit;
     }
+    exit;
 }
 ?>
 
@@ -881,8 +904,8 @@ if (isset($_POST['action']) && !empty($_POST['action'])) {
 
                 <div class="links">
                     <span>Enlaces Rápidos</span>
-                    <a href="#">Ayuda</a>
-                    <a href="#">Soporte</a>
+                    <a href="/ayuda.php">Ayuda</a>
+                    <a href="/contacto.php">Soporte</a>
                 </div>
             </div>
         </nav>
@@ -1475,18 +1498,43 @@ if (isset($_POST['action']) && !empty($_POST['action'])) {
                         const nombreInput = document.getElementById('nuevaCategoria');
                         const nombre = nombreInput.value.trim();
                         
+                        if (!nombre) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: 'El nombre de la categoría es requerido'
+                            });
+                            return;
+                        }
+
                         try {
-                            if (!nombre) {
-                                throw new Error('El nombre de la categoría es requerido');
+                            const response = await fetch(window.location.href, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/x-www-form-urlencoded',
+                                },
+                                body: new URLSearchParams({
+                                    action: 'crear_categoria',
+                                    nombre: nombre
+                                })
+                            });
+
+                            const data = await response.json();
+                            
+                            if (!data.success) {
+                                throw new Error(data.error);
                             }
 
-                            const result = await this.crearCategoria(nombre);
-                            await this.recargarCategorias(result.data.id);
-                            
+                            // Actualizar select
+                            const selectCategoria = document.getElementById('categoria');
+                            const option = new Option(data.data.nombre, data.data.id);
+                            selectCategoria.add(option, selectCategoria.options[selectCategoria.options.length - 1]);
+                            selectCategoria.value = data.data.id;
+
                             // Limpiar y ocultar formulario
                             nombreInput.value = '';
                             document.getElementById('nuevaCategoriaForm').style.display = 'none';
-                            
+
                             Swal.fire({
                                 icon: 'success',
                                 title: '¡Éxito!',
@@ -1513,18 +1561,43 @@ if (isset($_POST['action']) && !empty($_POST['action'])) {
                         const nombreInput = document.getElementById('nuevoDepartamento');
                         const nombre = nombreInput.value.trim();
                         
+                        if (!nombre) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: 'El nombre del departamento es requerido'
+                            });
+                            return;
+                        }
+
                         try {
-                            if (!nombre) {
-                                throw new Error('El nombre del departamento es requerido');
+                            const response = await fetch(window.location.href, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/x-www-form-urlencoded',
+                                },
+                                body: new URLSearchParams({
+                                    action: 'crear_departamento',
+                                    nombre: nombre
+                                })
+                            });
+
+                            const data = await response.json();
+                            
+                            if (!data.success) {
+                                throw new Error(data.error);
                             }
 
-                            const result = await this.crearDepartamento(nombre);
-                            await this.recargarDepartamentos(result.data.id);
-                            
+                            // Actualizar select
+                            const selectDepartamento = document.getElementById('departamento');
+                            const option = new Option(data.data.nombre, data.data.id);
+                            selectDepartamento.add(option, selectDepartamento.options[selectDepartamento.options.length - 1]);
+                            selectDepartamento.value = data.data.id;
+
                             // Limpiar y ocultar formulario
                             nombreInput.value = '';
                             document.getElementById('nuevoDepartamentoForm').style.display = 'none';
-                            
+
                             Swal.fire({
                                 icon: 'success',
                                 title: '¡Éxito!',

@@ -46,8 +46,8 @@ function descargarPlantilla() {
         'G' => ['Precio Costo', 'Precio de compra sin IVA'],
         'H' => ['Margen Ganancia', 'Porcentaje de ganancia'],
         'I' => ['Impuesto', 'Porcentaje de IVA (ej: 19)'],
-        'J' => ['Departamento ID', 'ID del departamento'],
-        'K' => ['Categoría ID', 'ID de la categoría']
+        'J' => ['Departamento', 'Nombre del departamento'],
+        'K' => ['Categoría', 'Nombre de la categoría']
     ];
 
     // Aplicar encabezados y estilos
@@ -62,8 +62,8 @@ function descargarPlantilla() {
     
     // Agregar datos de ejemplo
     $ejemplos = [
-        ['7501234567890', 'Producto Ejemplo', 'Descripción del producto', '100', '10', 'UNIDAD', '1000.00', '30', '19', '1', '1'],
-        ['7502345678901', 'Otro Producto', 'Otra descripción', '50', '5', 'KG', '500.00', '25', '19', '2', '2']
+        ['7501234567890', 'Producto Ejemplo', 'Descripción del producto', '100', '10', 'UNIDAD', '1000.00', '30', '19', 'Electrónicos', 'Smartphones'],
+        ['7502345678901', 'Otro Producto', 'Otra descripción', '50', '5', 'KG', '500.00', '25', '19', 'Alimentos', 'Frutas']
     ];
     
     // Agregar los ejemplos usando coordenadas de celda directas
@@ -117,77 +117,267 @@ if (isset($_GET['descargar_plantilla'])) {
     descargarPlantilla();
 }
 
+// Agregar funciones auxiliares para manejar departamentos y categorías
+function obtenerOCrearDepartamento($pdo, $nombre, $user_id, &$cache = []) {
+    $nombre = trim(strtoupper($nombre));
+    $cacheKey = $user_id . '_' . $nombre;
+    
+    if (isset($cache[$cacheKey])) {
+        return $cache[$cacheKey];
+    }
+    
+    $stmt = $pdo->prepare("SELECT id FROM departamentos WHERE UPPER(nombre) = ? AND user_id = ?");
+    $stmt->execute([$nombre, $user_id]);
+    $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if ($resultado) {
+        $cache[$cacheKey] = $resultado['id'];
+        return $resultado['id'];
+    }
+    
+    $stmt = $pdo->prepare("INSERT INTO departamentos (nombre, user_id, estado) VALUES (?, ?, 'activo')");
+    $stmt->execute([$nombre, $user_id]);
+    $id = $pdo->lastInsertId();
+    $cache[$cacheKey] = $id;
+    return $id;
+}
+
+function obtenerOCrearCategoria($pdo, $nombre, $user_id, &$cache = []) {
+    $nombre = trim(strtoupper($nombre));
+    $cacheKey = $user_id . '_' . $nombre;
+    
+    if (isset($cache[$cacheKey])) {
+        return $cache[$cacheKey];
+    }
+    
+    $stmt = $pdo->prepare("SELECT id FROM categorias WHERE UPPER(nombre) = ? AND user_id = ?");
+    $stmt->execute([$nombre, $user_id]);
+    $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if ($resultado) {
+        $cache[$cacheKey] = $resultado['id'];
+        return $resultado['id'];
+    }
+    
+    $stmt = $pdo->prepare("INSERT INTO categorias (nombre, user_id, estado) VALUES (?, ?, 'activo')");
+    $stmt->execute([$nombre, $user_id]);
+    $id = $pdo->lastInsertId();
+    $cache[$cacheKey] = $id;
+    return $id;
+}
+
+// Función para validar datos
+function validarDatosProducto($datos) {
+    $errores = [];
+    
+    // Validar código de barras
+    if (empty($datos[0]) || !preg_match('/^\d{8,13}$/', $datos[0])) {
+        $errores[] = "Código de barras inválido: debe tener entre 8 y 13 dígitos";
+    }
+    
+    // Validar nombre
+    if (empty($datos[1]) || strlen($datos[1]) > 100) {
+        $errores[] = "Nombre inválido: no debe estar vacío ni exceder 100 caracteres";
+    }
+    
+    // Validar stock y stock mínimo
+    if (!is_numeric($datos[3]) || $datos[3] < 0) {
+        $errores[] = "Stock inválido: debe ser un número positivo";
+    }
+    if (!is_numeric($datos[4]) || $datos[4] < 0) {
+        $errores[] = "Stock mínimo inválido: debe ser un número positivo";
+    }
+    
+    // Validar unidad de medida
+    $unidades_validas = ['UNIDAD', 'KG', 'GR', 'LT', 'MT', 'CM'];
+    if (!in_array(strtoupper($datos[5]), $unidades_validas)) {
+        $errores[] = "Unidad de medida inválida: debe ser una de " . implode(', ', $unidades_validas);
+    }
+    
+    // Validar precios y porcentajes
+    if (!is_numeric($datos[6]) || $datos[6] < 0) {
+        $errores[] = "Precio de costo inválido: debe ser un número positivo";
+    }
+    if (!is_numeric($datos[7]) || $datos[7] < 0 || $datos[7] > 100) {
+        $errores[] = "Margen de ganancia inválido: debe ser un porcentaje entre 0 y 100";
+    }
+    if (!is_numeric($datos[8]) || $datos[8] < 0 || $datos[8] > 100) {
+        $errores[] = "Impuesto inválido: debe ser un porcentaje entre 0 y 100";
+    }
+    
+    return $errores;
+}
+
+// Modificar la parte de procesamiento del archivo
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['archivo_excel'])) {
-    $archivo = $_FILES['archivo_excel'];
+    header('Content-Type: application/json');
+    $response = ['success' => false, 'message' => '', 'errors' => [], 'debug' => []];
     
-    // Verificar si es un archivo Excel
-    $extensiones_permitidas = ['xlsx', 'xls'];
-    $extension = strtolower(pathinfo($archivo['name'], PATHINFO_EXTENSION));
-    
-    if (in_array($extension, $extensiones_permitidas)) {
-        $ruta_temporal = $archivo['tmp_name'];
+    try {
+        // Validaciones iniciales del archivo
+        if ($_FILES['archivo_excel']['size'] > MAX_TAMANO_ARCHIVO) {
+            throw new Exception("El archivo excede el tamaño máximo permitido de " . (MAX_TAMANO_ARCHIVO / 1024 / 1024) . "MB");
+        }
         
-        try {
-            // Cargar el archivo Excel
-            $spreadsheet = IOFactory::load($ruta_temporal);
-            $worksheet = $spreadsheet->getActiveSheet();
-            
-            // Preparar la consulta SQL para insertar o actualizar productos
-            $sql = "INSERT INTO inventario (user_id, codigo_barras, nombre, descripcion, stock, precio_costo, impuesto, precio_venta, otro_dato, fecha_ingreso, departamento_id, categoria_id) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?) 
-                    ON DUPLICATE KEY UPDATE 
-                    nombre = VALUES(nombre), 
-                    descripcion = VALUES(descripcion),
-                    stock = VALUES(stock), 
-                    precio_costo = VALUES(precio_costo), 
-                    impuesto = VALUES(impuesto),
-                    precio_venta = VALUES(precio_venta), 
-                    otro_dato = VALUES(otro_dato),
-                    fecha_ingreso = NOW(),
-                    departamento_id = VALUES(departamento_id), 
-                    categoria_id = VALUES(categoria_id)";
-            $stmt = $pdo->prepare($sql);
-
-            // Desactivar el autocommit para mejorar el rendimiento
-            $pdo->beginTransaction();
-
-            // Leer y procesar cada fila del Excel
-            foreach ($worksheet->getRowIterator(2) as $row) {
-                $cellIterator = $row->getCellIterator();
-                $cellIterator->setIterateOnlyExistingCells(false);
-                
-                $datos = [];
-                foreach ($cellIterator as $cell) {
-                    $datos[] = $cell->getValue();
-                }
-                
-                if (count($datos) >= 10) {
-                    $stmt->execute([
-                        $user_id,
-                        $datos[0], // codigo_barras
-                        $datos[1], // nombre
-                        $datos[2], // descripcion
-                        $datos[3], // stock
-                        $datos[4], // precio_costo
-                        $datos[5], // impuesto
-                        $datos[6], // precio_venta
-                        $datos[7], // otro_dato
-                        $datos[8], // departamento_id
-                        $datos[9]  // categoria_id
-                    ]);
-                }
+        $extension = strtolower(pathinfo($_FILES['archivo_excel']['name'], PATHINFO_EXTENSION));
+        if (!in_array($extension, ['xlsx', 'xls'])) {
+            throw new Exception("Formato de archivo no válido. Use .xlsx o .xls");
+        }
+        
+        // Cargar el archivo
+        $spreadsheet = IOFactory::load($_FILES['archivo_excel']['tmp_name']);
+        $worksheet = $spreadsheet->getActiveSheet();
+        $highestRow = $worksheet->getHighestRow();
+        
+        // Preparar la consulta para verificar existencia
+        $sqlCheck = "SELECT codigo_barras FROM inventario WHERE codigo_barras = ? AND user_id = ?";
+        $stmtCheck = $pdo->prepare($sqlCheck);
+        
+        // Preparar la consulta de inserción
+        $sqlInsert = "INSERT INTO inventario (
+            user_id, codigo_barras, nombre, descripcion, stock, stock_minimo,
+            unidad_medida, precio_costo, margen_ganancia, impuesto, precio_venta,
+            departamento_id, categoria_id, fecha_ingreso, fecha_modificacion, estado
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), 'activo')";
+        $stmtInsert = $pdo->prepare($sqlInsert);
+        
+        // Preparar la consulta de actualización
+        $sqlUpdate = "UPDATE inventario SET 
+            nombre = ?, descripcion = ?, stock = ?, stock_minimo = ?,
+            unidad_medida = ?, precio_costo = ?, margen_ganancia = ?,
+            impuesto = ?, precio_venta = ?, departamento_id = ?,
+            categoria_id = ?, fecha_modificacion = NOW()
+            WHERE codigo_barras = ? AND user_id = ?";
+        $stmtUpdate = $pdo->prepare($sqlUpdate);
+        
+        // Inicializar contadores y arrays
+        $productosImportados = 0;
+        $productosActualizados = 0;
+        $errores = [];
+        $procesados = [];
+        
+        // Iniciar transacción
+        $pdo->beginTransaction();
+        
+        // Preparar caché
+        $cacheDepartamentos = [];
+        $cacheCategorias = [];
+        
+        // Procesar cada fila
+        for ($row = 3; $row <= $highestRow; $row++) {
+            $datos = [];
+            for ($col = 'A'; $col <= 'K'; $col++) {
+                $datos[] = trim($worksheet->getCell($col . $row)->getValue());
             }
             
-            // Confirmar la transacción
-            $pdo->commit();
-            $mensaje = "Importación realizada con éxito.";
-        } catch (Exception $e) {
-            $pdo->rollBack();
-            $mensaje = "Error al procesar el archivo: " . $e->getMessage();
+            // Saltar filas vacías
+            if (empty($datos[0])) continue;
+            
+            try {
+                // Validar datos
+                $erroresValidacion = validarDatosProducto($datos);
+                if (!empty($erroresValidacion)) {
+                    $errores[] = "Fila $row: " . implode(", ", $erroresValidacion);
+                    continue;
+                }
+                
+                // Obtener IDs de departamento y categoría
+                $departamento_id = obtenerOCrearDepartamento($pdo, $datos[9], $user_id, $cacheDepartamentos);
+                $categoria_id = obtenerOCrearCategoria($pdo, $datos[10], $user_id, $cacheCategorias);
+                
+                // Calcular precio de venta
+                $precio_costo = floatval($datos[6]);
+                $margen = floatval($datos[7]);
+                $impuesto = floatval($datos[8]);
+                $precio_sin_iva = $precio_costo * (1 + ($margen / 100));
+                $precio_venta = $precio_sin_iva * (1 + ($impuesto / 100));
+                
+                // Verificar si el producto existe
+                $stmtCheck->execute([$datos[0], $user_id]);
+                $existe = $stmtCheck->fetch();
+                
+                if ($existe) {
+                    // Actualizar producto existente
+                    $stmtUpdate->execute([
+                        $datos[1],            // nombre
+                        $datos[2],            // descripcion
+                        floatval($datos[3]),  // stock
+                        floatval($datos[4]),  // stock_minimo
+                        strtoupper($datos[5]),// unidad_medida
+                        $precio_costo,
+                        $margen,
+                        $impuesto,
+                        $precio_venta,
+                        $departamento_id,
+                        $categoria_id,
+                        $datos[0],            // codigo_barras
+                        $user_id
+                    ]);
+                    $productosActualizados++;
+                } else {
+                    // Insertar nuevo producto
+                    $stmtInsert->execute([
+                        $user_id,
+                        $datos[0],            // codigo_barras
+                        $datos[1],            // nombre
+                        $datos[2],            // descripcion
+                        floatval($datos[3]),  // stock
+                        floatval($datos[4]),  // stock_minimo
+                        strtoupper($datos[5]),// unidad_medida
+                        $precio_costo,
+                        $margen,
+                        $impuesto,
+                        $precio_venta,
+                        $departamento_id,
+                        $categoria_id
+                    ]);
+                    $productosImportados++;
+                }
+                
+                $procesados[] = [
+                    'fila' => $row,
+                    'codigo' => $datos[0],
+                    'accion' => $existe ? 'actualizado' : 'importado'
+                ];
+                
+            } catch (Exception $e) {
+                $errores[] = "Error en fila $row (código: {$datos[0]}): " . $e->getMessage();
+                error_log("Error en importación: " . $e->getMessage());
+            }
         }
-    } else {
-        $mensaje = "Por favor, sube un archivo Excel válido (.xlsx o .xls).";
+        
+        // Si hay errores, hacer rollback
+        if (!empty($errores)) {
+            $pdo->rollBack();
+            throw new Exception("Se encontraron errores durante la importación");
+        }
+        
+        // Si todo está bien, confirmar la transacción
+        $pdo->commit();
+        
+        $response['success'] = true;
+        $response['message'] = "Proceso completado: $productosImportados productos nuevos importados, $productosActualizados productos actualizados.";
+        $response['debug'] = [
+            'total_procesados' => count($procesados),
+            'detalle_procesados' => $procesados,
+            'errores' => $errores
+        ];
+        
+    } catch (Exception $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        $response['success'] = false;
+        $response['message'] = "Error: " . $e->getMessage();
+        $response['errors'] = $errores;
+        $response['debug'] = [
+            'error_detalle' => $e->getTraceAsString(),
+            'productos_procesados' => $procesados
+        ];
     }
+    
+    echo json_encode($response);
+    exit;
 }
 ?>
 

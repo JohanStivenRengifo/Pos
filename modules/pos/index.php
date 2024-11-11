@@ -517,6 +517,85 @@ $productos = obtenerProductos($pdo, $user_id);
         #nuevoClienteForm .is-invalid {
             border-color: #dc3545;
         }
+
+        .nav-pills .nav-link {
+            border-radius: 30px;
+            padding: 10px 20px;
+            margin: 0 5px;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .nav-pills .nav-link.active {
+            background-color: var(--primary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(50, 50, 93, 0.11), 0 1px 3px rgba(0, 0, 0, 0.08);
+        }
+
+        .nav-pills .nav-link:not(.active):hover {
+            background-color: #f8f9fa;
+            transform: translateY(-1px);
+        }
+
+        .form-control {
+            border-radius: 20px;
+            padding: 0.5rem 1rem;
+        }
+
+        .input-group-text {
+            border-radius: 20px 0 0 20px;
+            background-color: #f8f9fa;
+        }
+
+        .input-group .form-control {
+            border-radius: 0 20px 20px 0;
+        }
+
+        .progress {
+            border-radius: 10px;
+            background-color: #e9ecef;
+        }
+
+        .progress-bar {
+            background-color: var(--primary-color);
+            transition: width 0.3s ease;
+        }
+
+        .btn {
+            border-radius: 20px;
+            padding: 0.5rem 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px rgba(50, 50, 93, 0.11), 0 1px 3px rgba(0, 0, 0, 0.08);
+        }
+
+        .modal-content {
+            border-radius: 15px;
+            overflow: hidden;
+        }
+
+        .invalid-feedback {
+            font-size: 0.8rem;
+            margin-left: 1rem;
+        }
+
+        .form-group label {
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Animaciones para los tabs */
+        .tab-pane {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 
@@ -906,76 +985,409 @@ $productos = obtenerProductos($pdo, $user_id);
 
     <!-- Modal para Nuevo Cliente -->
     <div class="modal fade" id="nuevoClienteModal" tabindex="-1" role="dialog" aria-labelledby="nuevoClienteModalLabel" aria-hidden="true">
-        <div class="modal-dialog" role="document">
+        <div class="modal-dialog modal-lg" role="document">
             <div class="modal-content">
-                <div class="modal-header">
+                <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title" id="nuevoClienteModalLabel">
                         <i class="fas fa-user-plus mr-2"></i>Nuevo Cliente
                     </h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
                         <span aria-hidden="true">&times;</span>
                     </button>
                 </div>
                 <div class="modal-body">
-                    <form id="nuevoClienteForm">
-                        <div class="row">
-                            <div class="col-12">
-                                <div class="form-group">
-                                    <label for="nombre">
-                                        <i class="fas fa-user mr-1"></i>Nombre completo *
-                                    </label>
-                                    <input type="text" class="form-control" id="nombre" name="nombre" required 
-                                           placeholder="Ej: Juan Carlos Pérez Gómez">
-                                    <small class="form-text text-muted">Ingrese nombres y apellidos completos</small>
+                    <form id="nuevoClienteForm" class="needs-validation" novalidate>
+                        <!-- Progress Bar -->
+                        <div class="progress mb-4" style="height: 5px;">
+                            <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                        </div>
+
+                        <!-- Tabs de navegación -->
+                        <ul class="nav nav-pills nav-justified mb-4" id="clienteTabs" role="tablist">
+                            <li class="nav-item">
+                                <a class="nav-link active" data-toggle="tab" href="#personal">
+                                    <i class="fas fa-user"></i> Personal
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" data-toggle="tab" href="#identificacion">
+                                    <i class="fas fa-id-card"></i> Identificación
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" data-toggle="tab" href="#contacto">
+                                    <i class="fas fa-envelope"></i> Contacto
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" data-toggle="tab" href="#ubicacion">
+                                    <i class="fas fa-map-marker-alt"></i> Ubicación
+                                </a>
+                            </li>
+                        </ul>
+
+                        <!-- Contenido de los tabs -->
+                        <div class="tab-content">
+                            <!-- Tab Personal -->
+                            <div class="tab-pane fade show active" id="personal">
+                                <div class="form-row">
+                                    <div class="form-group col-md-6">
+                                        <label for="primer_nombre">Primer Nombre <span class="text-danger">*</span></label>
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text"><i class="fas fa-user"></i></span>
+                                            </div>
+                                            <input type="text" class="form-control" id="primer_nombre" name="primer_nombre" required>
+                                            <div class="invalid-feedback">
+                                                Por favor ingrese el primer nombre
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="form-group col-md-6">
+                                        <label for="segundo_nombre">Segundo Nombre</label>
+                                        <input type="text" class="form-control" id="segundo_nombre" name="segundo_nombre">
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group col-md-6">
+                                        <label for="apellidos">Apellidos <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="apellidos" name="apellidos" required>
+                                        <div class="invalid-feedback">
+                                            Por favor ingrese los apellidos
+                                        </div>
+                                    </div>
+                                    <div class="form-group col-md-6">
+                                        <label for="nombre">Nombre Comercial</label>
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text"><i class="fas fa-store"></i></span>
+                                            </div>
+                                            <input type="text" class="form-control" id="nombre" name="nombre">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="text-right mt-3">
+                                    <button type="button" class="btn btn-primary next-tab">Siguiente <i class="fas fa-arrow-right"></i></button>
                                 </div>
                             </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="documento">
-                                        <i class="fas fa-id-card mr-1"></i>Número de identificación
-                                    </label>
-                                    <input type="text" class="form-control" id="documento" name="documento" 
-                                           placeholder="Ej: 12345678">
+
+                            <!-- Tab Identificación -->
+                            <div class="tab-pane fade" id="identificacion">
+                                <div class="form-row">
+                                    <div class="form-group col-md-6">
+                                        <label for="tipo_identificacion">Tipo de Identificación <span class="text-danger">*</span></label>
+                                        <select class="form-control" id="tipo_identificacion" name="tipo_identificacion" required>
+                                            <option value="">Seleccione...</option>
+                                            <option value="CC">Cédula de Ciudadanía</option>
+                                            <option value="CE">Cédula de Extranjería</option>
+                                            <option value="NIT">NIT</option>
+                                            <option value="PA">Pasaporte</option>
+                                        </select>
+                                        <div class="invalid-feedback">
+                                            Por favor seleccione un tipo de identificación
+                                        </div>
+                                    </div>
+                                    <div class="form-group col-md-6">
+                                        <label for="identificacion">Número <span class="text-danger">*</span></label>
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text"><i class="fas fa-hashtag"></i></span>
+                                            </div>
+                                            <input type="text" class="form-control" id="identificacion" name="identificacion" required>
+                                            <div class="invalid-feedback">
+                                                Por favor ingrese el número de identificación
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="text-right mt-3">
+                                    <button type="button" class="btn btn-secondary prev-tab"><i class="fas fa-arrow-left"></i> Anterior</button>
+                                    <button type="button" class="btn btn-primary next-tab">Siguiente <i class="fas fa-arrow-right"></i></button>
                                 </div>
                             </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="telefono">
-                                        <i class="fas fa-phone mr-1"></i>Teléfono
-                                    </label>
-                                    <input type="tel" class="form-control" id="telefono" name="telefono" 
-                                           placeholder="Ej: 3001234567">
+
+                            <!-- Tab Contacto -->
+                            <div class="tab-pane fade" id="contacto">
+                                <div class="form-row">
+                                    <div class="form-group col-md-6">
+                                        <label for="email">Correo Electrónico <span class="text-danger">*</span></label>
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                                            </div>
+                                            <input type="email" class="form-control" id="email" name="email" required>
+                                            <div class="invalid-feedback">
+                                                Por favor ingrese un correo electrónico válido
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="form-group col-md-6">
+                                        <label for="telefono">Teléfono <span class="text-danger">*</span></label>
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text"><i class="fas fa-phone"></i></span>
+                                            </div>
+                                            <input type="tel" class="form-control" id="telefono" name="telefono" required>
+                                            <div class="invalid-feedback">
+                                                Por favor ingrese un número de teléfono
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="text-right mt-3">
+                                    <button type="button" class="btn btn-secondary prev-tab"><i class="fas fa-arrow-left"></i> Anterior</button>
+                                    <button type="button" class="btn btn-primary next-tab">Siguiente <i class="fas fa-arrow-right"></i></button>
                                 </div>
                             </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="email">
-                                <i class="fas fa-envelope mr-1"></i>Correo electrónico
-                            </label>
-                            <input type="email" class="form-control" id="email" name="email" 
-                                   placeholder="Ej: cliente@email.com">
-                        </div>
-                        <div class="form-group">
-                            <label for="direccion">
-                                <i class="fas fa-map-marker-alt mr-1"></i>Municipio/Departamento
-                            </label>
-                            <input type="text" class="form-control" id="direccion" name="direccion" 
-                                   placeholder="Ej: Medellín, Antioquia">
+
+                            <!-- Tab Ubicación -->
+                            <div class="tab-pane fade" id="ubicacion">
+                                <div class="form-row">
+                                    <div class="form-group col-md-6">
+                                        <label for="departamento">Departamento <span class="text-danger">*</span></label>
+                                        <div class="input-group">
+                                            <div class="input-group-prepend">
+                                                <span class="input-group-text"><i class="fas fa-map-marked-alt"></i></span>
+                                            </div>
+                                            <select class="form-control" id="departamento" name="departamento" required>
+                                                <option value="">Seleccione un departamento...</option>
+                                                <option value="Amazonas">Amazonas</option>
+                                                <option value="Antioquia">Antioquia</option>
+                                                <option value="Arauca">Arauca</option>
+                                                <option value="Atlántico">Atlántico</option>
+                                                <option value="Bolívar">Bolívar</option>
+                                                <option value="Boyacá">Boyacá</option>
+                                                <option value="Caldas">Caldas</option>
+                                                <option value="Caquetá">Caquetá</option>
+                                                <option value="Casanare">Casanare</option>
+                                                <option value="Cauca">Cauca</option>
+                                                <option value="Cesar">Cesar</option>
+                                                <option value="Chocó">Chocó</option>
+                                                <option value="Córdoba">Córdoba</option>
+                                                <option value="Cundinamarca">Cundinamarca</option>
+                                                <option value="Guainía">Guainía</option>
+                                                <option value="Guaviare">Guaviare</option>
+                                                <option value="Huila">Huila</option>
+                                                <option value="La Guajira">La Guajira</option>
+                                                <option value="Magdalena">Magdalena</option>
+                                                <option value="Meta">Meta</option>
+                                                <option value="Nariño">Nariño</option>
+                                                <option value="Norte de Santander">Norte de Santander</option>
+                                                <option value="Putumayo">Putumayo</option>
+                                                <option value="Quindío">Quindío</option>
+                                                <option value="Risaralda">Risaralda</option>
+                                                <option value="San Andrés y Providencia">San Andrés y Providencia</option>
+                                                <option value="Santander">Santander</option>
+                                                <option value="Sucre">Sucre</option>
+                                                <option value="Tolima">Tolima</option>
+                                                <option value="Valle del Cauca">Valle del Cauca</option>
+                                                <option value="Vaupés">Vaupés</option>
+                                                <option value="Vichada">Vichada</option>
+                                            </select>
+                                            <div class="invalid-feedback">
+                                                Por favor seleccione un departamento
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="form-group col-md-6">
+                                        <label for="codigo_postal">Código Postal</label>
+                                        <input type="text" class="form-control" id="codigo_postal" name="codigo_postal" readonly>
+                                    </div>
+                                </div>
+                                <div class="text-right mt-3">
+                                    <button type="button" class="btn btn-secondary prev-tab"><i class="fas fa-arrow-left"></i> Anterior</button>
+                                    <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> Guardar Cliente</button>
+                                </div>
+                            </div>
                         </div>
                     </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">
-                        <i class="fas fa-times mr-1"></i>Cancelar
-                    </button>
-                    <button type="button" class="btn btn-primary" id="guardarCliente">
-                        <i class="fas fa-save mr-1"></i>Guardar Cliente
-                    </button>
                 </div>
             </div>
         </div>
     </div>
+
+    <script>
+        document.getElementById('departamento').addEventListener('change', function() {
+            const departamento = this.value;
+            let codigoPostal = '';
+            switch(departamento) {
+                case 'Amazonas':
+                    codigoPostal = '910001';
+                    break;
+                case 'Antioquia':
+                    codigoPostal = '050001';
+                    break;
+                case 'Arauca':
+                    codigoPostal = '810001';
+                    break;
+                case 'Atlántico':
+                    codigoPostal = '080001';
+                    break;
+                case 'Bolívar':
+                    codigoPostal = '130001';
+                    break;
+                case 'Boyacá':
+                    codigoPostal = '150001';
+                    break;
+                case 'Caldas':
+                    codigoPostal = '170001';
+                    break;
+                case 'Caquetá':
+                    codigoPostal = '180001';
+                    break;
+                case 'Casanare':
+                    codigoPostal = '850001';
+                    break;
+                case 'Cauca':
+                    codigoPostal = '190001';
+                    break;
+                case 'Cesar':
+                    codigoPostal = '200001';
+                    break;
+                case 'Chocó':
+                    codigoPostal = '270001';
+                    break;
+                case 'Córdoba':
+                    codigoPostal = '230001';
+                    break;
+                case 'Cundinamarca':
+                    codigoPostal = '250001';
+                    break;
+                case 'Guainía':
+                    codigoPostal = '940001';
+                    break;
+                case 'Guaviare':
+                    codigoPostal = '950001';
+                    break;
+                case 'Huila':
+                    codigoPostal = '410001';
+                    break;
+                case 'La Guajira':
+                    codigoPostal = '440001';
+                    break;
+                case 'Magdalena':
+                    codigoPostal = '470001';
+                    break;
+                case 'Meta':
+                    codigoPostal = '500001';
+                    break;
+                case 'Nariño':
+                    codigoPostal = '520001';
+                    break;
+                case 'Norte de Santander':
+                    codigoPostal = '540001';
+                    break;
+                case 'Putumayo':
+                    codigoPostal = '860001';
+                    break;
+                case 'Quindío':
+                    codigoPostal = '630001';
+                    break;
+                case 'Risaralda':
+                    codigoPostal = '660001';
+                    break;
+                case 'San Andrés y Providencia':
+                    codigoPostal = '880001';
+                    break;
+                case 'Santander':
+                    codigoPostal = '680001';
+                    break;
+                case 'Sucre':
+                    codigoPostal = '700001';
+                    break;
+                case 'Tolima':
+                    codigoPostal = '730001';
+                    break;
+                case 'Valle del Cauca':
+                    codigoPostal = '760001';
+                    break;
+                case 'Vaupés':
+                    codigoPostal = '970001';
+                    break;
+                case 'Vichada':
+                    codigoPostal = '990001';
+                    break;
+                default:
+                    codigoPostal = '';
+            }
+            document.getElementById('codigo_postal').value = codigoPostal;
+        });
+    </script>
+
+    <script>
+    $(document).ready(function() {
+        // Validación del formulario
+        const form = document.getElementById('nuevoClienteForm');
+        
+        // Actualizar progress bar
+        function updateProgress() {
+            const totalSteps = 4;
+            const currentStep = $('.nav-pills .active').parent().index() + 1;
+            const progress = (currentStep / totalSteps) * 100;
+            $('.progress-bar').css('width', progress + '%');
+        }
+
+        // Navegación entre tabs
+        $('.next-tab').click(function() {
+            const currentTab = $('.nav-pills .active').parent();
+            const nextTab = currentTab.next('li').find('a');
+            nextTab.tab('show');
+            updateProgress();
+        });
+
+        $('.prev-tab').click(function() {
+            const currentTab = $('.nav-pills .active').parent();
+            const prevTab = currentTab.prev('li').find('a');
+            prevTab.tab('show');
+            updateProgress();
+        });
+
+        // Validación en tiempo real
+        $('.form-control').on('input', function() {
+            if (this.checkValidity()) {
+                $(this).removeClass('is-invalid').addClass('is-valid');
+            } else {
+                $(this).removeClass('is-valid').addClass('is-invalid');
+            }
+        });
+
+        // Manejo del envío del formulario
+        form.addEventListener('submit', function(event) {
+            event.preventDefault();
+            
+            if (form.checkValidity()) {
+                // Aquí va la lógica para guardar el cliente
+                Swal.fire({
+                    title: '¡Éxito!',
+                    text: 'Cliente guardado correctamente',
+                    icon: 'success',
+                    showConfirmButton: false,
+                    timer: 1500
+                }).then(() => {
+                    $('#nuevoClienteModal').modal('hide');
+                    form.reset();
+                    $('.form-control').removeClass('is-valid is-invalid');
+                });
+            }
+            
+            form.classList.add('was-validated');
+        });
+
+        // Reset del formulario al cerrar el modal
+        $('#nuevoClienteModal').on('hidden.bs.modal', function() {
+            form.reset();
+            form.classList.remove('was-validated');
+            $('.form-control').removeClass('is-valid is-invalid');
+            $('.nav-pills .nav-link:first').tab('show');
+            updateProgress();
+        });
+
+        // Inicializar tooltips
+        $('[data-toggle="tooltip"]').tooltip();
+
+        // Actualizar progress bar inicial
+        updateProgress();
+    });
+    </script>
 </body>
 </html>

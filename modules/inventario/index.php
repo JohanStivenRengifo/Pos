@@ -224,6 +224,40 @@ class InventoryManager {
             throw $e;
         }
     }
+
+    public function vaciarInventario() {
+        try {
+            $this->pdo->beginTransaction();
+
+            // Primero eliminar las imágenes físicas
+            $stmt = $this->pdo->prepare("
+                SELECT ip.ruta 
+                FROM imagenes_producto ip
+                JOIN inventario i ON ip.producto_id = i.id
+                WHERE i.user_id = ?
+            ");
+            $stmt->execute([$this->user_id]);
+            $imagenes = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+            foreach ($imagenes as $ruta) {
+                $ruta_completa = __DIR__ . '/../../' . $ruta;
+                if (file_exists($ruta_completa)) {
+                    unlink($ruta_completa);
+                }
+            }
+
+            // Eliminar todos los productos del usuario
+            $stmt = $this->pdo->prepare("DELETE FROM inventario WHERE user_id = ?");
+            $stmt->execute([$this->user_id]);
+
+            $this->pdo->commit();
+            return true;
+
+        } catch (Exception $e) {
+            $this->pdo->rollBack();
+            throw new Exception('Error al vaciar el inventario: ' . $e->getMessage());
+        }
+    }
 }
 
 // Inicializar configuración y manejador
@@ -245,6 +279,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
                 $codigo_barras = $_POST['codigo_barras'];
                 $inventory_manager->deleteProduct($codigo_barras);
                 ApiResponse::send(true, 'Producto eliminado exitosamente');
+                break;
+                
+            case 'vaciar_inventario':
+                $inventory_manager->vaciarInventario();
+                ApiResponse::send(true, 'Inventario vaciado exitosamente');
                 break;
                 
             default:
@@ -559,8 +598,8 @@ $total_paginas = ceil($total_productos / $config->items_per_page);
 
                 <div class="links">
                     <span>Enlaces Rápidos</span>
-                    <a href="#">Ayuda</a>
-                    <a href="#">Soporte</a>
+                    <a href="/ayuda.php">Ayuda</a>
+                    <a href="/contacto.php">Soporte</a>
                 </div>
             </div>
         </nav>
@@ -606,6 +645,12 @@ $total_paginas = ceil($total_productos / $config->items_per_page);
                 <a href="reporte_stock_bajo.php" class="btn btn-warning">
                     <i class="fas fa-file-pdf"></i> Reporte Stock Bajo
                 </a>
+                <a href="exportar_pdf.php" class="btn btn-success">
+                    <i class="fas fa-file-export"></i> Exportar Inventario
+                </a>
+                <button type="button" class="btn btn-danger" id="btnVaciarInventario">
+                    <i class="fas fa-trash-alt"></i> Vaciar Inventario
+                </button>
             </div>
 
             <div class="filters">
@@ -857,6 +902,59 @@ $total_paginas = ceil($total_productos / $config->items_per_page);
                 tooltip.style.left = rect.left + (rect.width - tooltip.offsetWidth) / 2 + 'px';
                 
                 e.target.addEventListener('mouseleave', () => tooltip.remove());
+            });
+        });
+
+        // Función para vaciar inventario
+        document.getElementById('btnVaciarInventario').addEventListener('click', function() {
+            Swal.fire({
+                title: '¿Estás seguro?',
+                text: "¡Esta acción eliminará todos los productos del inventario! Esta acción no se puede deshacer.",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Sí, vaciar inventario',
+                cancelButtonText: 'Cancelar',
+                showLoaderOnConfirm: true,
+                preConfirm: () => {
+                    return new Promise((resolve, reject) => {
+                        $.ajax({
+                            url: '',
+                            method: 'POST',
+                            data: {
+                                action: 'vaciar_inventario'
+                            },
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest'
+                            },
+                            success: function(response) {
+                                if (response.status) {
+                                    resolve(response);
+                                } else {
+                                    reject(response.message);
+                                }
+                            },
+                            error: function() {
+                                reject('Error al procesar la solicitud');
+                            }
+                        });
+                    });
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Inventario vaciado!',
+                        text: 'Todos los productos han sido eliminados correctamente.',
+                        showConfirmButton: false,
+                        timer: 1500
+                    }).then(() => {
+                        location.reload();
+                    });
+                }
+            }).catch(error => {
+                Swal.fire('Error', error, 'error');
             });
         });
     </script>

@@ -391,8 +391,8 @@ $total_anuladas = getTotalAnuladas($user_id);
 
                 <div class="links">
                     <span>Enlaces Rápidos</span>
-                    <a href="#">Ayuda</a>
-                    <a href="#">Soporte</a>
+                    <a href="/ayuda.php">Ayuda</a>
+                    <a href="/contacto.php">Soporte</a>
                 </div>
             </div>
         </nav>

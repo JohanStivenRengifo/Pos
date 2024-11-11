@@ -399,7 +399,7 @@ function sendFormattedEmail($to, $subject, $content)
                 <tr>
                     <td style="text-align: center; padding-top: 30px;">
                         <p class="footer-text">
-                            Este es un correo automático, por favor no responda a este mensaje.
+                            Este es un correo automático, por favor no respondas a este mensaje.
                         </p>
                     </td>
                 </tr>
