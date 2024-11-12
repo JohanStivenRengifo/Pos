@@ -11,6 +11,20 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id'];
 
+// Verificar si hay un turno activo para el usuario
+$stmt = $pdo->prepare("SELECT id, fecha_apertura, monto_inicial FROM turnos WHERE user_id = ? AND fecha_cierre IS NULL");
+$stmt->execute([$user_id]);
+$turno_activo = $stmt->fetch(PDO::FETCH_ASSOC);
+
+// Si no hay turno activo, redirigir a la página de apertura de turno
+if (!$turno_activo) {
+    header("Location: ./controllers/apertura_turno.php");
+    exit();
+}
+
+// Guardar el ID del turno en la sesión
+$_SESSION['turno_id'] = $turno_activo['id'];
+
 // Obtener datos de clientes y productos
 $clientes = obtenerClientes($pdo, $user_id);
 $productos = obtenerProductos($pdo, $user_id);
@@ -613,6 +627,35 @@ $productos = obtenerProductos($pdo, $user_id);
             </button>
         </div>
     </nav>
+
+    <!-- Agregar barra de información del turno -->
+    <div class="turno-info-bar">
+        <div class="container-fluid">
+            <div class="row align-items-center">
+                <div class="col-md-3">
+                    <span class="turno-label">Turno iniciado:</span>
+                    <span class="turno-value" id="hora-apertura">
+                        <?= date('d/m/Y H:i', strtotime($turno_activo['fecha_apertura'])) ?>
+                    </span>
+                </div>
+                <div class="col-md-3">
+                    <span class="turno-label">Monto inicial:</span>
+                    <span class="turno-value">
+                        $<?= number_format($turno_activo['monto_inicial'], 2, ',', '.') ?>
+                    </span>
+                </div>
+                <div class="col-md-3">
+                    <span class="turno-label">Tiempo transcurrido:</span>
+                    <span class="turno-value" id="tiempo-transcurrido"></span>
+                </div>
+                <div class="col-md-3 text-right">
+                    <button class="btn btn-danger btn-sm" id="cerrar-turno">
+                        <i class="fas fa-clock mr-1"></i>Cerrar Turno
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div class="container-fluid mt-4">
         <div class="row">
@@ -1388,6 +1431,46 @@ $productos = obtenerProductos($pdo, $user_id);
         // Actualizar progress bar inicial
         updateProgress();
     });
+    </script>
+
+    <script>
+        // Agregar después de los scripts existentes
+        document.addEventListener('DOMContentLoaded', function() {
+            // Función para actualizar el tiempo transcurrido
+            function actualizarTiempoTranscurrido() {
+                const fechaApertura = new Date('<?= $turno_activo['fecha_apertura'] ?>');
+                const ahora = new Date();
+                const diferencia = ahora - fechaApertura;
+                
+                const horas = Math.floor(diferencia / (1000 * 60 * 60));
+                const minutos = Math.floor((diferencia % (1000 * 60 * 60)) / (1000 * 60));
+                
+                document.getElementById('tiempo-transcurrido').textContent = 
+                    `${horas}h ${minutos}m`;
+            }
+
+            // Actualizar cada minuto
+            actualizarTiempoTranscurrido();
+            setInterval(actualizarTiempoTranscurrido, 60000);
+
+            // Manejador para el botón de cerrar turno
+            document.getElementById('cerrar-turno').addEventListener('click', function() {
+                Swal.fire({
+                    title: '¿Cerrar turno?',
+                    text: 'Se realizará el arqueo de caja. Esta acción no se puede deshacer.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Sí, cerrar turno',
+                    cancelButtonText: 'Cancelar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        window.location.href = './controllers/cierre_turno.php';
+                    }
+                });
+            });
+        });
     </script>
 </body>
 </html>

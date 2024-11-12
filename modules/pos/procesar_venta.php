@@ -11,14 +11,24 @@ error_reporting(E_ALL);
 header('Content-Type: application/json');
 
 try {
-    // Verificar que el usuario esté autenticado
-    if (!isset($_SESSION['user_id'])) {
-        throw new Exception('Usuario no autenticado');
+    // Verificar que el usuario esté autenticado y tenga un turno activo
+    if (!isset($_SESSION['user_id']) || !isset($_SESSION['turno_id'])) {
+        throw new Exception('Usuario no autenticado o turno no iniciado');
+    }
+
+    $user_id = $_SESSION['user_id'];
+    $turno_id = $_SESSION['turno_id'];
+
+    // Verificar que el turno esté activo
+    $stmt = $pdo->prepare("SELECT id FROM turnos WHERE id = ? AND user_id = ? AND fecha_cierre IS NULL");
+    $stmt->execute([$turno_id, $user_id]);
+    if (!$stmt->fetch()) {
+        throw new Exception('No hay un turno activo');
     }
 
     // Obtener la configuración de la empresa del usuario
     $stmt = $pdo->prepare("SELECT * FROM empresas WHERE usuario_id = ? AND estado = 1 LIMIT 1");
-    $stmt->execute([$_SESSION['user_id']]);
+    $stmt->execute([$user_id]);
     $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$empresa) {
@@ -50,7 +60,7 @@ try {
 
     // Generar número de factura según la configuración de la empresa
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM ventas WHERE user_id = ?");
-    $stmt->execute([$_SESSION['user_id']]);
+    $stmt->execute([$user_id]);
     $num_facturas = $stmt->fetchColumn();
     
     $siguiente_numero = $empresa['numero_inicial'] + $num_facturas;
@@ -63,6 +73,7 @@ try {
     // Insertar venta con manejo de errores mejorado
     try {
         $sql = "INSERT INTO ventas (
+            user_id,
             cliente_id, 
             total, 
             subtotal,
@@ -70,10 +81,12 @@ try {
             metodo_pago, 
             tipo_documento, 
             fecha, 
-            user_id, 
             numero_factura,
-            numeracion_tipo
+            numeracion_tipo,
+            turno_id,
+            anulada
         ) VALUES (
+            :user_id,
             :cliente_id, 
             :total, 
             :subtotal,
@@ -81,9 +94,10 @@ try {
             :metodo_pago, 
             :tipo_documento, 
             NOW(), 
-            :user_id, 
             :numero_factura,
-            :numeracion_tipo
+            :numeracion_tipo,
+            :turno_id,
+            0
         )";
         
         // Calcular subtotal (total antes del descuento)
@@ -91,15 +105,16 @@ try {
         
         $stmt = $pdo->prepare($sql);
         $result = $stmt->execute([
+            ':user_id' => $user_id,
             ':cliente_id' => $datos['cliente_id'],
             ':total' => $datos['total'],
             ':subtotal' => $subtotal,
             ':descuento' => $datos['descuento'] ?? 0,
             ':metodo_pago' => $datos['metodo_pago'],
             ':tipo_documento' => $datos['tipo_documento'],
-            ':user_id' => $_SESSION['user_id'],
             ':numero_factura' => $numero_factura,
-            ':numeracion_tipo' => 'principal' // o el valor que corresponda según tu lógica
+            ':numeracion_tipo' => 'principal',
+            ':turno_id' => $turno_id
         ]);
 
         if (!$result) {
@@ -109,7 +124,7 @@ try {
         $venta_id = $pdo->lastInsertId();
         
         // Log de venta creada
-        error_log("Venta creada con ID: " . $venta_id);
+        error_log("Venta creada con ID: " . $venta_id . " para el turno: " . $turno_id);
 
     } catch (PDOException $e) {
         throw new Exception('Error en la base de datos al crear la venta: ' . $e->getMessage());
@@ -193,6 +208,7 @@ try {
         'message' => 'Venta procesada correctamente',
         'venta_id' => $venta_id,
         'numero_factura' => $numero_factura,
+        'turno_id' => $turno_id,
         'productos_actualizados' => $productos_actualizados
     ];
 
