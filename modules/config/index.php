@@ -8,261 +8,160 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-// Crear un archivo separado para manejar las peticiones AJAX
-if (isset($_POST['action'])) {
-    // Asegurarnos de que no haya salida previa
-    ob_clean();
-    header('Content-Type: application/json; charset=utf-8');
-    
-    try {
-        $response = ['success' => false, 'message' => '', 'data' => null];
-        
-        switch ($_POST['action']) {
-            case 'crear_usuario':
-                if (empty($_POST['nombre']) || empty($_POST['email']) || 
-                    empty($_POST['password']) || empty($_POST['rol'])) {
-                    throw new Exception("Todos los campos son requeridos");
-                }
-
-                // Validar email
-                if (!filter_var($_POST['email'], FILTER_VALIDATE_EMAIL)) {
-                    throw new Exception("Email inválido");
-                }
-
-                // Validar contraseña
-                if (strlen($_POST['password']) < 6) {
-                    throw new Exception("La contraseña debe tener al menos 6 caracteres");
-                }
-
-                // Obtener empresa_id del usuario actual
-                $stmt = $pdo->prepare("SELECT empresa_id FROM users WHERE id = ?");
-                $stmt->execute([$_SESSION['user_id']]);
-                $empresa_id = $stmt->fetchColumn();
-
-                if (!$empresa_id) {
-                    throw new Exception("No hay una empresa asociada al usuario administrador");
-                }
-
-                $result = crearUsuario([
-                    'nombre' => trim($_POST['nombre']),
-                    'email' => trim($_POST['email']),
-                    'password' => $_POST['password'],
-                    'rol' => $_POST['rol'],
-                    'empresa_id' => $empresa_id,
-                    'estado' => 'activo'
-                ]);
-
-                $response['success'] = true;
-                $response['message'] = 'Usuario creado exitosamente';
-                $response['data'] = [
-                    'nombre' => trim($_POST['nombre']),
-                    'email' => trim($_POST['email']),
-                    'rol' => $_POST['rol']
-                ];
-                break;
-
-            case 'actualizar_usuario':
-                if (empty($_POST['user_id']) || empty($_POST['nombre']) || 
-                    empty($_POST['rol']) || !isset($_POST['estado'])) {
-                    throw new Exception("Datos incompletos");
-                }
-
-                $result = actualizarUsuario($_POST['user_id'], [
-                    'nombre' => trim($_POST['nombre']),
-                    'rol' => $_POST['rol'],
-                    'estado' => $_POST['estado'],
-                    'password' => $_POST['password'] ?? ''
-                ]);
-
-                $response['success'] = true;
-                $response['message'] = 'Usuario actualizado exitosamente';
-                break;
-
-            case 'eliminar_usuario':
-                if (empty($_POST['user_id'])) {
-                    throw new Exception("ID de usuario no proporcionado");
-                }
-
-                if ($_POST['user_id'] == $_SESSION['user_id']) {
-                    throw new Exception("No puedes eliminar tu propio usuario");
-                }
-
-                // Obtener empresa_id del usuario actual
-                $stmt = $pdo->prepare("SELECT empresa_id FROM users WHERE id = ?");
-                $stmt->execute([$_SESSION['user_id']]);
-                $empresa_id = $stmt->fetchColumn();
-
-                $result = eliminarUsuario($_POST['user_id'], $empresa_id);
-
-                $response['success'] = true;
-                $response['message'] = 'Usuario eliminado exitosamente';
-                break;
-
-            default:
-                throw new Exception("Acción no válida");
-        }
-        
-        echo json_encode($response);
-        exit;
-        
-    } catch (Exception $e) {
-        http_response_code(400);
-        echo json_encode([
-            'success' => false,
-            'message' => $e->getMessage()
-        ]);
-        exit;
-    }
-}
-
 $user_id = $_SESSION['user_id'];
-$email = $_SESSION['email'];
+$user_info = getUserInfo($user_id);
+$empresa_info = $user_info['empresa_id'] ? getEmpresaInfo($user_info['empresa_id']) : null;
+$usuarios = getUsuarios($user_info['empresa_id']);
 
-function getUserInfo($user_id)
-{
-    global $pdo;
-    $stmt = $pdo->prepare("SELECT email, nombre, empresa_id FROM users WHERE id = ?");
-    $stmt->execute([$user_id]);
-    return $stmt->fetch(PDO::FETCH_ASSOC);
+// Funciones OTP
+function generateOTP() {
+    return str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 }
 
-function getEmpresaInfo($empresa_id)
-{
-    global $pdo;
-    $stmt = $pdo->prepare("SELECT * FROM empresas WHERE id = ?");
-    $stmt->execute([$empresa_id]);
-    return $stmt->fetch(PDO::FETCH_ASSOC);
-}
-
-function saveEmpresa($empresa_id, $nombre_empresa, $nit, $regimen_fiscal, $direccion, $telefono, $correo_contacto, $prefijo_factura, $numero_inicial, $numero_final, $usuario_id)
-{
+function saveOTP($user_id, $otp, $type) {
     global $pdo;
     try {
-        $pdo->beginTransaction();
+        // Eliminar OTPs anteriores del mismo tipo para este usuario
+        $stmt = $pdo->prepare("DELETE FROM otp_codes WHERE user_id = ?");
+        $stmt->execute([$user_id]);
         
-        if ($empresa_id) {
-            // Actualizar empresa existente
-            $stmt = $pdo->prepare("UPDATE empresas SET 
-                nombre_empresa = ?, 
-                nit = ?,
-                regimen_fiscal = ?,
-                direccion = ?, 
-                telefono = ?, 
-                correo_contacto = ?, 
-                prefijo_factura = ?, 
-                numero_inicial = ?, 
-                numero_final = ?,
-                updated_at = CURRENT_TIMESTAMP,
-                usuario_id = ?
-                WHERE id = ?");
-            $result = $stmt->execute([
-                $nombre_empresa, 
-                $nit, 
-                $regimen_fiscal, 
-                $direccion, 
-                $telefono, 
-                $correo_contacto, 
-                $prefijo_factura, 
-                $numero_inicial, 
-                $numero_final,
-                $usuario_id,
-                $empresa_id
-            ]);
-        } else {
-            // Crear nueva empresa
-            $stmt = $pdo->prepare("INSERT INTO empresas (
-                nombre_empresa, 
-                nit,
-                regimen_fiscal,
-                direccion, 
-                telefono, 
-                correo_contacto, 
-                prefijo_factura, 
-                numero_inicial, 
-                numero_final,
-                estado,
-                usuario_id,
-                created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, CURRENT_TIMESTAMP)");
-            
-            $stmt->execute([
-                $nombre_empresa, 
-                $nit, 
-                $regimen_fiscal, 
-                $direccion, 
-                $telefono, 
-                $correo_contacto, 
-                $prefijo_factura, 
-                $numero_inicial, 
-                $numero_final,
-                $usuario_id
-            ]);
-            
-            $empresa_id = $pdo->lastInsertId();
-        }
-
-        // Actualizar el empresa_id del usuario
-        $stmt = $pdo->prepare("UPDATE users SET empresa_id = ? WHERE id = ?");
-        $stmt->execute([$empresa_id, $usuario_id]);
-
-        $pdo->commit();
-        return $empresa_id;
-        
+        // Guardar nuevo OTP
+        $stmt = $pdo->prepare("INSERT INTO otp_codes (user_id, code, created_at, expires_at) 
+                              VALUES (?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 10 MINUTE))");
+        return $stmt->execute([$user_id, $otp]);
     } catch (Exception $e) {
-        $pdo->rollBack();
-        error_log("Error guardando empresa: " . $e->getMessage());
-        throw new Exception("Error al guardar la empresa: " . $e->getMessage());
+        error_log("Error guardando OTP: " . $e->getMessage());
+        return false;
     }
 }
 
-function deleteEmpresa($empresa_id)
-{
+function verifyOTP($user_id, $otp) {
     global $pdo;
-    $stmt = $pdo->prepare("DELETE FROM empresas WHERE id = ?");
-    return $stmt->execute([$empresa_id]);
+    try {
+        $stmt = $pdo->prepare("SELECT id FROM otp_codes 
+                              WHERE user_id = ? 
+                              AND code = ? 
+                              AND expires_at > NOW() 
+                              AND used = 0");
+        $stmt->execute([$user_id, $otp]);
+        
+        if ($stmt->rowCount() > 0) {
+            // Marcar OTP como usado
+            $stmt = $pdo->prepare("UPDATE otp_codes SET used = 1 WHERE user_id = ? AND code = ?");
+            $stmt->execute([$user_id, $otp]);
+            return true;
+        }
+        return false;
+    } catch (Exception $e) {
+        error_log("Error verificando OTP: " . $e->getMessage());
+        return false;
+    }
 }
 
-function associateEmpresaToUser($user_id, $empresa_id)
-{
-    global $pdo;
-    $stmt = $pdo->prepare("UPDATE users SET empresa_id = ? WHERE id = ?");
-    return $stmt->execute([$empresa_id, $user_id]);
+function sendOTPEmail($email, $otp, $type) {
+    $subject = "Código de verificación - VendEasy";
+    $message = "Tu código de verificación para " . 
+               ($type == 'email' ? "cambiar tu correo" : "cambiar tu contraseña") . 
+               " es: $otp\n\nEste código expirará en 10 minutos.";
+    
+    $headers = "From: noreply@vendeasy.com\r\n";
+    $headers .= "Reply-To: noreply@vendeasy.com\r\n";
+    $headers .= "X-Mailer: PHP/" . phpversion();
+    
+    return mail($email, $subject, $message, $headers);
 }
 
-function updateEmail($user_id, $new_email)
-{
+// Agregar después de las funciones OTP existentes
+
+function getUserInfo($user_id) {
     global $pdo;
-    $stmt = $pdo->prepare("UPDATE users SET email = ? WHERE id = ?");
-    return $stmt->execute([$new_email, $user_id]);
+    try {
+        // Obtener información básica del usuario
+        $stmt = $pdo->prepare("
+            SELECT u.id, u.email, u.nombre,
+                   GROUP_CONCAT(DISTINCT ue.empresa_id) as empresas_ids
+            FROM users u
+            LEFT JOIN user_empresas ue ON u.id = ue.user_id
+            WHERE u.id = ?
+            GROUP BY u.id
+        ");
+        $stmt->execute([$user_id]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($user) {
+            // Obtener todas las empresas asociadas al usuario
+            $stmt = $pdo->prepare("
+                SELECT e.*, ue.rol, ue.es_principal
+                FROM empresas e
+                JOIN user_empresas ue ON e.id = ue.empresa_id
+                WHERE ue.user_id = ?
+            ");
+            $stmt->execute([$user_id]);
+            $user['empresas'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }
+        
+        return $user;
+    } catch (Exception $e) {
+        error_log("Error obteniendo información del usuario: " . $e->getMessage());
+        return false;
+    }
 }
 
-function updatePassword($user_id, $new_password)
-{
+function getEmpresaInfo($user_id) {
     global $pdo;
-    $hashed_password = password_hash($new_password, PASSWORD_BCRYPT);
-    $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ?");
-    return $stmt->execute([$hashed_password, $user_id]);
+    try {
+        $stmt = $pdo->prepare("
+            SELECT e.*
+            FROM empresas e
+            JOIN user_empresas ue ON e.id = ue.empresa_id
+            WHERE ue.user_id = ? AND ue.es_principal = 1
+            LIMIT 1
+        ");
+        $stmt->execute([$user_id]);
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Error obteniendo información de la empresa: " . $e->getMessage());
+        return false;
+    }
 }
 
-function updateNombre($user_id, $nuevo_nombre) {
+function updateEmail($user_id, $new_email) {
     global $pdo;
-    $stmt = $pdo->prepare("UPDATE users SET nombre = ? WHERE id = ?");
-    return $stmt->execute([$nuevo_nombre, $user_id]);
+    try {
+        // Verificar si el email ya existe
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE email = ? AND id != ?");
+        $stmt->execute([$new_email, $user_id]);
+        if ($stmt->fetchColumn() > 0) {
+            throw new Exception("Este correo electrónico ya está registrado");
+        }
+
+        $stmt = $pdo->prepare("UPDATE users SET email = ? WHERE id = ?");
+        return $stmt->execute([$new_email, $user_id]);
+    } catch (Exception $e) {
+        error_log("Error actualizando email: " . $e->getMessage());
+        throw $e;
+    }
 }
 
-function getRoles() {
-    return [
-        'administrador' => 'Administrador',
-        'contador' => 'Contador', 
-        'supervisor' => 'Supervisor',
-        'cajero' => 'Cajero',
-        'cliente' => 'Cliente'
-    ];
+function updatePassword($user_id, $new_password) {
+    global $pdo;
+    try {
+        // Validar longitud mínima de la contraseña
+        if (strlen($new_password) < 6) {
+            throw new Exception("La contraseña debe tener al menos 6 caracteres");
+        }
+
+        $hashed_password = password_hash($new_password, PASSWORD_BCRYPT);
+        $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ?");
+        return $stmt->execute([$hashed_password, $user_id]);
+    } catch (Exception $e) {
+        error_log("Error actualizando contraseña: " . $e->getMessage());
+        throw $e;
+    }
 }
 
 function getUsuarios($empresa_id) {
     global $pdo;
-    
     try {
         $stmt = $pdo->prepare("
             SELECT 
@@ -285,12 +184,13 @@ function getUsuarios($empresa_id) {
         
         $stmt->execute([$empresa_id]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
     } catch (PDOException $e) {
         error_log("Error obteniendo usuarios: " . $e->getMessage());
-        throw new Exception("Error al obtener la lista de usuarios");
+        return [];
     }
 }
+
+// Agregar después de las funciones existentes
 
 function crearUsuario($data) {
     global $pdo;
@@ -318,13 +218,12 @@ function crearUsuario($data) {
                 rol, 
                 empresa_id, 
                 estado, 
-                fecha_creacion,
-                ultimo_acceso
-            ) VALUES (?, ?, ?, ?, ?, ?, NOW(), NULL)
+                fecha_creacion
+            ) VALUES (?, ?, ?, ?, ?, ?, NOW())
         ");
 
-        $hashed_password = password_hash($data['password'], PASSWORD_BCRYPT, ['cost' => 12]);
-        $stmt->execute([
+        $hashed_password = password_hash($data['password'], PASSWORD_BCRYPT);
+        $result = $stmt->execute([
             $data['nombre'],
             $data['email'],
             $hashed_password,
@@ -333,8 +232,11 @@ function crearUsuario($data) {
             $data['estado']
         ]);
 
+        if (!$result) {
+            throw new Exception("Error al crear el usuario");
+        }
+
         $nuevo_usuario_id = $pdo->lastInsertId();
-        
         $pdo->commit();
         return $nuevo_usuario_id;
 
@@ -345,281 +247,223 @@ function crearUsuario($data) {
     }
 }
 
-function actualizarUsuario($user_id, $data) {
-    global $pdo;
-    try {
-        $sql = "UPDATE users SET nombre = ?, rol = ?, estado = ?";
-        $params = [$data['nombre'], $data['rol'], $data['estado']];
-
-        // Si se proporciona una nueva contraseña, actualizarla
-        if (!empty($data['password'])) {
-            $sql .= ", password = ?";
-            $params[] = password_hash($data['password'], PASSWORD_BCRYPT);
-        }
-
-        $sql .= " WHERE id = ?";
-        $params[] = $user_id;
-
-        $stmt = $pdo->prepare($sql);
-        return $stmt->execute($params);
-    } catch (Exception $e) {
-        error_log("Error actualizando usuario: " . $e->getMessage());
-        throw $e;
-    }
+function getRoles() {
+    return [
+        'administrador' => 'Administrador',
+        'contador' => 'Contador', 
+        'supervisor' => 'Supervisor',
+        'cajero' => 'Cajero',
+        'cliente' => 'Cliente'
+    ];
 }
 
-function eliminarUsuario($user_id, $empresa_id) {
+// Agregar esta función después de las funciones existentes
+function saveEmpresa($user_id, $empresa_id, $data, $logo = null) {
     global $pdo;
     try {
         $pdo->beginTransaction();
-
-        // Verificar que el usuario pertenezca a la empresa
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE id = ? AND empresa_id = ?");
-        $stmt->execute([$user_id, $empresa_id]);
-        if ($stmt->fetchColumn() == 0) {
-            throw new Exception("Usuario no encontrado o no pertenece a tu empresa");
+        
+        // Procesar el logo si se ha subido uno nuevo
+        $logo_path = null;
+        if ($logo && $logo['error'] === UPLOAD_ERR_OK) {
+            $allowed = ['jpg', 'jpeg', 'png', 'gif'];
+            $filename = $logo['name'];
+            $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+            
+            if (!in_array($ext, $allowed)) {
+                throw new Exception('Formato de imagen no válido. Use: ' . implode(', ', $allowed));
+            }
+            
+            // Usar la ruta absoluta del servidor
+            $upload_dir = $_SERVER['DOCUMENT_ROOT'] . '/uploads/logos/';
+            if (!file_exists($upload_dir)) {
+                mkdir($upload_dir, 0777, true);
+            }
+            
+            // Generar nombre único para el archivo
+            $new_filename = uniqid('logo_') . '.' . $ext;
+            $logo_path = 'uploads/logos/' . $new_filename;
+            
+            // Ruta completa para mover el archivo
+            $full_path = $upload_dir . $new_filename;
+            
+            // Mover el archivo
+            if (!move_uploaded_file($logo['tmp_name'], $full_path)) {
+                throw new Exception('Error al subir el logo');
+            }
+            
+            // Eliminar logo anterior si existe
+            if ($empresa_id) {
+                $stmt = $pdo->prepare("SELECT logo FROM empresas WHERE id = ?");
+                $stmt->execute([$empresa_id]);
+                $old_logo = $stmt->fetchColumn();
+                
+                if ($old_logo && file_exists($_SERVER['DOCUMENT_ROOT'] . '/' . $old_logo)) {
+                    unlink($_SERVER['DOCUMENT_ROOT'] . '/' . $old_logo);
+                }
+            }
+        }
+        
+        if ($empresa_id) {
+            // Actualizar empresa existente
+            $sql = "UPDATE empresas SET 
+                nombre_empresa = ?, 
+                nit = ?,
+                regimen_fiscal = ?,
+                direccion = ?, 
+                telefono = ?, 
+                correo_contacto = ?, 
+                prefijo_factura = ?, 
+                numero_inicial = ?, 
+                numero_final = ?,
+                updated_at = CURRENT_TIMESTAMP";
+            
+            $params = [
+                $data['nombre_empresa'], 
+                $data['nit'], 
+                $data['regimen_fiscal'], 
+                $data['direccion'], 
+                $data['telefono'], 
+                $data['correo_contacto'], 
+                $data['prefijo_factura'], 
+                $data['numero_inicial'], 
+                $data['numero_final']
+            ];
+            
+            if ($logo_path) {
+                $sql .= ", logo = ?";
+                $params[] = $logo_path;
+            }
+            
+            $sql .= " WHERE id = ?";
+            $params[] = $empresa_id;
+            
+            $stmt = $pdo->prepare($sql);
+            $result = $stmt->execute($params);
+            
+        } else {
+            // Crear nueva empresa
+            $sql = "INSERT INTO empresas (
+                nombre_empresa, 
+                nit,
+                regimen_fiscal,
+                direccion, 
+                telefono, 
+                correo_contacto, 
+                prefijo_factura, 
+                numero_inicial, 
+                numero_final,
+                estado,
+                created_at,
+                updated_at";
+            
+            $values = "?, ?, ?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP";
+            $params = [
+                $data['nombre_empresa'], 
+                $data['nit'], 
+                $data['regimen_fiscal'], 
+                $data['direccion'], 
+                $data['telefono'], 
+                $data['correo_contacto'], 
+                $data['prefijo_factura'], 
+                $data['numero_inicial'], 
+                $data['numero_final']
+            ];
+            
+            if ($logo_path) {
+                $sql .= ", logo";
+                $values .= ", ?";
+                $params[] = $logo_path;
+            }
+            
+            $sql .= ") VALUES (" . $values . ")";
+            
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+            
+            $empresa_id = $pdo->lastInsertId();
         }
 
-        // Actualizamos el estado y la fecha de desactivación
-        $stmt = $pdo->prepare("UPDATE users SET estado = 'inactivo', fecha_desactivacion = CURRENT_TIMESTAMP WHERE id = ? AND empresa_id = ?");
-        $result = $stmt->execute([$user_id, $empresa_id]);
-
-        if (!$result) {
-            throw new Exception("No se pudo desactivar el usuario");
+        // Si es una nueva empresa, crear la relación usuario-empresa
+        if (!$empresa_id) {
+            $stmt = $pdo->prepare("
+                INSERT INTO user_empresas (user_id, empresa_id, rol, es_principal) 
+                SELECT ?, ?, 'administrador', 
+                    CASE WHEN NOT EXISTS (
+                        SELECT 1 FROM user_empresas WHERE user_id = ?
+                    ) THEN 1 ELSE 0 END
+            ");
+            $stmt->execute([$user_id, $pdo->lastInsertId(), $user_id]);
         }
-
-        // Programar eliminación automática
-        programarEliminacionUsuario();
 
         $pdo->commit();
-        return true;
-
+        return $empresa_id;
+        
     } catch (Exception $e) {
         $pdo->rollBack();
-        error_log("Error desactivando usuario: " . $e->getMessage());
-        throw new Exception("Error al desactivar el usuario: " . $e->getMessage());
-    }
-}
-
-function programarEliminacionUsuario() {
-    global $pdo;
-    try {
-        // Eliminar usuarios que han estado desactivados por más de 30 días
-        $stmt = $pdo->prepare("
-            DELETE u FROM users u
-            WHERE u.estado = 'inactivo' 
-            AND u.fecha_desactivacion IS NOT NULL
-            AND u.fecha_desactivacion <= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 30 DAY)
-            AND NOT EXISTS (
-                -- Verificar si el usuario tiene ventas
-                SELECT 1 FROM ventas v WHERE v.usuario_id = u.id
-                UNION
-                -- Verificar si el usuario tiene otras relaciones importantes
-                SELECT 1 FROM login_history lh WHERE lh.user_id = u.id
-            )
-        ");
-        
-        $stmt->execute();
-        
-        // Registrar en el log cuántos usuarios fueron eliminados
-        if ($stmt->rowCount() > 0) {
-            error_log("Se eliminaron " . $stmt->rowCount() . " usuarios inactivos automáticamente");
+        // Si hubo error y se subió un logo, eliminarlo
+        if (isset($logo_path) && file_exists($_SERVER['DOCUMENT_ROOT'] . '/' . $logo_path)) {
+            unlink($_SERVER['DOCUMENT_ROOT'] . '/' . $logo_path);
         }
-        
-        return true;
-    } catch (Exception $e) {
-        error_log("Error en la eliminación automática de usuarios: " . $e->getMessage());
-        return false;
+        error_log("Error guardando empresa: " . $e->getMessage());
+        throw new Exception("Error al guardar la empresa: " . $e->getMessage());
     }
 }
 
-// Agregar esta función para obtener información sobre usuarios próximos a ser eliminados
-function getUsuariosProximosEliminar($empresa_id) {
+// Agregar función para obtener todas las empresas del usuario
+function getUserEmpresas($user_id) {
     global $pdo;
     try {
         $stmt = $pdo->prepare("
-            SELECT 
-                id,
-                nombre,
-                email,
-                fecha_desactivacion,
-                DATE_ADD(fecha_desactivacion, INTERVAL 30 DAY) as fecha_eliminacion
-            FROM users 
-            WHERE empresa_id = ? 
-            AND estado = 'inactivo' 
-            AND fecha_desactivacion IS NOT NULL
-            AND fecha_desactivacion > DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 30 DAY)
-            ORDER BY fecha_desactivacion DESC
+            SELECT e.*, ue.rol, ue.es_principal
+            FROM empresas e
+            JOIN user_empresas ue ON e.id = ue.empresa_id
+            WHERE ue.user_id = ?
+            ORDER BY ue.es_principal DESC, e.nombre_empresa ASC
         ");
-        
-        $stmt->execute([$empresa_id]);
+        $stmt->execute([$user_id]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (Exception $e) {
-        error_log("Error obteniendo usuarios próximos a eliminar: " . $e->getMessage());
+        error_log("Error obteniendo empresas del usuario: " . $e->getMessage());
         return [];
     }
 }
 
-// Agregar al inicio del archivo, después de las validaciones de sesión
-if (isset($_POST['action'])) {
-    // Asegurarnos de que no haya salida previa
-    ob_end_clean();
-    header('Content-Type: application/json; charset=utf-8');
-    
-    try {
-        // Validar CSRF token si está configurado
-        if (isset($_SESSION['csrf_token']) && (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token'])) {
-            throw new Exception('Token de seguridad inválido');
-        }
-
-        switch ($_POST['action']) {
-            case 'crear_usuario':
-                if (empty($_POST['nombre']) || empty($_POST['email']) || 
-                    empty($_POST['password']) || empty($_POST['rol'])) {
-                    throw new Exception("Todos los campos son requeridos");
-                }
-
-                // Validar email
-                if (!filter_var($_POST['email'], FILTER_VALIDATE_EMAIL)) {
-                    throw new Exception("Email inválido");
-                }
-
-                // Validar contraseña
-                if (strlen($_POST['password']) < 6) {
-                    throw new Exception("La contraseña debe tener al menos 6 caracteres");
-                }
-
-                $result = crearUsuario([
-                    'nombre' => trim($_POST['nombre']),
-                    'email' => trim($_POST['email']),
-                    'password' => $_POST['password'],
-                    'rol' => $_POST['rol']
-                ], $user_info['empresa_id']);
-
-                echo json_encode([
-                    'success' => true,
-                    'message' => 'Usuario creado exitosamente'
-                ]);
-                break;
-
-            case 'actualizar_usuario':
-                if (empty($_POST['user_id']) || empty($_POST['nombre']) || 
-                    empty($_POST['rol']) || !isset($_POST['estado'])) {
-                    throw new Exception("Datos incompletos");
-                }
-
-                $result = actualizarUsuario($_POST['user_id'], [
-                    'nombre' => trim($_POST['nombre']),
-                    'rol' => $_POST['rol'],
-                    'estado' => $_POST['estado'],
-                    'password' => $_POST['password'] ?? ''
-                ]);
-
-                echo json_encode([
-                    'success' => true,
-                    'message' => 'Usuario actualizado exitosamente'
-                ]);
-                break;
-
-            case 'eliminar_usuario':
-                if (empty($_POST['user_id'])) {
-                    throw new Exception("ID de usuario no proporcionado");
-                }
-
-                if ($_POST['user_id'] == $user_id) {
-                    throw new Exception("No puedes eliminar tu propio usuario");
-                }
-
-                $result = eliminarUsuario($_POST['user_id'], $user_info['empresa_id']);
-
-                echo json_encode([
-                    'success' => true,
-                    'message' => 'Usuario eliminado exitosamente'
-                ]);
-                break;
-
-            default:
-                throw new Exception("Acción no válida");
-        }
-        exit;
-    } catch (Exception $e) {
-        http_response_code(400);
-        echo json_encode([
-            'success' => false,
-            'message' => $e->getMessage()
-        ]);
-        exit;
-    }
-}
-
-// Agregar función para verificar disponibilidad de email
-function verificarEmailDisponible($email, $exclude_user_id = null) {
-    global $pdo;
-    $sql = "SELECT COUNT(*) FROM users WHERE email = ?";
-    $params = [$email];
-
-    if ($exclude_user_id) {
-        $sql .= " AND id != ?";
-        $params[] = $exclude_user_id;
-    }
-
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
-    return $stmt->fetchColumn() == 0;
-}
-
-// Agregar función para registrar actividades
-function registrarActividad($user_id, $tipo, $descripcion) {
+// Agregar función para establecer empresa principal
+function setEmpresaPrincipal($user_id, $empresa_id) {
     global $pdo;
     try {
+        $pdo->beginTransaction();
+        
+        // Quitar marca de principal de todas las empresas del usuario
         $stmt = $pdo->prepare("
-            INSERT INTO log_actividades (
-                user_id, 
-                tipo_actividad, 
-                descripcion, 
-                fecha_hora, 
-                ip_address
-            ) VALUES (?, ?, ?, NOW(), ?)
+            UPDATE user_empresas 
+            SET es_principal = 0 
+            WHERE user_id = ?
         ");
-        $stmt->execute([
-            $user_id,
-            $tipo,
-            $descripcion,
-            $_SERVER['REMOTE_ADDR']
-        ]);
+        $stmt->execute([$user_id]);
+        
+        // Establecer la nueva empresa principal
+        $stmt = $pdo->prepare("
+            UPDATE user_empresas 
+            SET es_principal = 1 
+            WHERE user_id = ? AND empresa_id = ?
+        ");
+        $stmt->execute([$user_id, $empresa_id]);
+        
+        $pdo->commit();
+        return true;
     } catch (Exception $e) {
-        error_log("Error registrando actividad: " . $e->getMessage());
+        $pdo->rollBack();
+        error_log("Error estableciendo empresa principal: " . $e->getMessage());
+        return false;
     }
 }
 
-// Al inicio del archivo, después de las validaciones de sesión
-$message = '';
-$messageType = '';
-
+// Modificar la sección de manejo POST para incluir la gestión de múltiples empresas
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
-        if (isset($_POST['update_email'])) {
-            if (updateEmail($user_id, $_POST['email'])) {
-                $_SESSION['email'] = $_POST['email'];
-                $message = "Correo electrónico actualizado correctamente";
-                $messageType = "success";
-            }
-        } elseif (isset($_POST['update_nombre'])) {
-            if (empty($_POST['nombre'])) {
-                throw new Exception("El nombre es requerido");
-            }
-            if (updateNombre($user_id, $_POST['nombre'])) {
-                $message = "Nombre actualizado correctamente";
-                $messageType = "success";
-                // Actualizar la información del usuario
-                $user_info = getUserInfo($user_id);
-            }
-        } elseif (isset($_POST['update_password'])) {
-            if (updatePassword($user_id, $_POST['new_password'])) {
-                $message = "Contraseña actualizada correctamente";
-                $messageType = "success";
-            }
-        } elseif (isset($_POST['save_empresa'])) {
+        if (isset($_POST['save_empresa'])) {
             $empresa_data = [
                 'nombre_empresa' => trim($_POST['nombre_empresa']),
                 'nit' => trim($_POST['nit']),
@@ -632,72 +476,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'numero_final' => (int)$_POST['numero_final']
             ];
 
-            $empresa_id = $user_info['empresa_id'] ?? null;
+            $empresa_id = $_POST['empresa_id'] ?? null;
+            $logo = isset($_FILES['logo']) ? $_FILES['logo'] : null;
             
-            if (saveEmpresa(
-                $empresa_id,
-                $empresa_data['nombre_empresa'],
-                $empresa_data['nit'],
-                $empresa_data['regimen_fiscal'],
-                $empresa_data['direccion'],
-                $empresa_data['telefono'],
-                $empresa_data['correo_contacto'],
-                $empresa_data['prefijo_factura'],
-                $empresa_data['numero_inicial'],
-                $empresa_data['numero_final'],
-                $user_id
-            )) {
+            if (saveEmpresa($user_id, $empresa_id, $empresa_data, $logo)) {
                 $message = "Empresa guardada correctamente";
                 $messageType = "success";
-                
-                // Actualizar la información del usuario y empresa
-                $user_info = getUserInfo($user_id);
-                $empresa_info = $user_info['empresa_id'] ? getEmpresaInfo($user_info['empresa_id']) : null;
             }
-        } elseif (isset($_POST['delete_empresa'])) {
-            if (deleteEmpresa($user_info['empresa_id'])) {
-                associateEmpresaToUser($user_id, null);
-                $message = "Empresa eliminada correctamente";
+        } elseif (isset($_POST['set_empresa_principal'])) {
+            $empresa_id = (int)$_POST['empresa_id'];
+            if (setEmpresaPrincipal($user_id, $empresa_id)) {
+                $message = "Empresa principal actualizada correctamente";
                 $messageType = "success";
             }
-        } elseif (isset($_POST['delete_account'])) {
-            // Verificar que no sea el último administrador
-            $stmt = $pdo->prepare("
-                SELECT COUNT(*) FROM users 
-                WHERE empresa_id = ? AND rol = 'administrador' AND estado = 'activo'
-            ");
-            $stmt->execute([$user_info['empresa_id']]);
-            $adminCount = $stmt->fetchColumn();
-
-            if ($adminCount <= 1 && $user_info['rol'] === 'administrador') {
-                throw new Exception("No puedes eliminar tu cuenta porque eres el único administrador");
-            }
-
-            // Desactivar la cuenta
-            $stmt = $pdo->prepare("
-                UPDATE users 
-                SET estado = 'eliminado', 
-                    fecha_desactivacion = CURRENT_TIMESTAMP 
-                WHERE id = ?
-            ");
-            if ($stmt->execute([$user_id])) {
-                session_destroy();
-                header("Location: ../../index.php?message=cuenta_eliminada");
-                exit;
-            }
         }
+        
+        // Actualizar información del usuario y empresas
+        $user_info = getUserInfo($user_id);
+        $empresa_info = getEmpresaInfo($user_id);
+        $empresas_usuario = getUserEmpresas($user_id);
+        
     } catch (Exception $e) {
         $message = $e->getMessage();
         $messageType = "error";
     }
 }
 
-// Obtener información necesaria para la vista
-$user_info = getUserInfo($user_id);
-$empresa_info = $user_info['empresa_id'] ? getEmpresaInfo($user_info['empresa_id']) : null;
-$usuarios = getUsuarios($user_info['empresa_id']);
+// Manejar solicitudes POST normales
 
-?><!DOCTYPE html>
+$message = '';
+$messageType = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    try {
+        if (isset($_POST['update_email'])) {
+            if (!verifyOTP($user_id, $_POST['email_otp'])) {
+                throw new Exception("Código de verificación inválido o expirado");
+            }
+            if (updateEmail($user_id, $_POST['email'])) {
+                $_SESSION['email'] = $_POST['email'];
+                $message = "Correo electrónico actualizado correctamente";
+                $messageType = "success";
+            }
+        } 
+        elseif (isset($_POST['update_password'])) {
+            if (!verifyOTP($user_id, $_POST['password_otp'])) {
+                throw new Exception("Código de verificación inválido o expirado");
+            }
+            if (updatePassword($user_id, $_POST['new_password'])) {
+                $message = "Contraseña actualizada correctamente";
+                $messageType = "success";
+            }
+        }
+        // ... resto del código de manejo POST existente ...
+    } catch (Exception $e) {
+        $message = $e->getMessage();
+        $messageType = "error";
+    }
+}
+
+// Continuar con el resto del archivo (HTML, estilos, scripts, etc.)
+?>
+<!DOCTYPE html>
 <html lang="es">
 
 <head>
@@ -1310,234 +1150,6 @@ $usuarios = getUsuarios($user_info['empresa_id']);
         }
 
         .text-danger {
-            color: #dc3545;
-        }
-
-        .text-danger i {
-            margin-right: 0.5rem;
-        }
-
-        .btn-danger {
-            background-color: #dc3545;
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 8px;
-            font-weight: 500;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            transition: all 0.2s;
-        }
-
-        .btn-danger:hover {
-            background-color: #c82333;
-            transform: translateY(-1px);
-            box-shadow: 0 2px 4px rgba(220, 53, 69, 0.2);
-        }
-
-        /* Grid Layout */
-        .grid-layout {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 1.5rem;
-            margin-top: 1.5rem;
-        }
-
-        .grid-span-2 {
-            grid-column: span 2;
-        }
-
-        /* Ajustes responsivos */
-        @media (max-width: 768px) {
-            .grid-layout {
-                grid-template-columns: 1fr;
-            }
-
-            .grid-span-2 {
-                grid-column: span 1;
-            }
-        }
-
-        /* Ajustes para mantener consistencia visual */
-        .list1 {
-            margin-top: 0;
-            height: fit-content;
-        }
-
-        .danger-zone {
-            margin-top: 0;
-        }
-
-        /* Mejorar espaciado interno */
-        .list1 .row {
-            padding: 1rem 1.5rem;
-        }
-
-        .table-responsive {
-            padding: 1.5rem;
-        }
-
-        /* Estilos para el formulario de empresa */
-        .empresa-form {
-            padding: 1.5rem;
-        }
-
-        .grid-form {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 1.5rem;
-        }
-
-        .grid-form .form-group {
-            margin: 0;
-        }
-
-        .grid-form .grid-span-2 {
-            grid-column: span 2;
-        }
-
-        .form-actions {
-            display: flex;
-            gap: 1rem;
-            justify-content: flex-start;
-            align-items: center;
-            margin-top: 1rem;
-        }
-
-        /* Mejorar apariencia de inputs */
-        .form-group input,
-        .form-group select {
-            width: 100%;
-            padding: 0.75rem;
-            border: 1px solid #ced4da;
-            border-radius: 8px;
-            font-size: 1rem;
-            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-        }
-
-        .form-group input:focus,
-        .form-group select:focus {
-            border-color: #80bdff;
-            outline: 0;
-            box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-            color: #2c3e50;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .grid-form {
-                grid-template-columns: 1fr;
-            }
-
-            .grid-form .grid-span-2 {
-                grid-column: span 1;
-            }
-
-            .form-actions {
-                flex-direction: column;
-            }
-
-            .form-actions button {
-                width: 100%;
-            }
-        }
-
-        .content-preview {
-            padding: 1.5rem;
-        }
-
-        .content-preview p {
-            color: #666;
-            margin-bottom: 1rem;
-        }
-
-        .content-preview ul {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        .content-preview li {
-            padding: 0.5rem 0;
-            color: #666;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .content-preview li:before {
-            content: "✓";
-            color: #28a745;
-            font-weight: bold;
-        }
-
-        .swal2-danger-zone {
-            border: 2px solid #dc3545;
-        }
-
-        .text-left {
-            text-align: left;
-        }
-
-        .font-weight-bold {
-            font-weight: bold;
-        }
-
-        .mt-3 {
-            margin-top: 1rem;
-        }
-
-        .swal2-danger-zone {
-            border: 2px solid #dc3545;
-        }
-
-        .swal2-danger-zone .swal2-title {
-            color: #dc3545;
-        }
-
-        .swal2-danger-zone .swal2-html-container {
-            text-align: left;
-        }
-
-        .swal2-danger-zone .danger-details {
-            background: #fff;
-            border: 1px solid #ffcccc;
-            border-radius: 8px;
-            padding: 1rem;
-            margin: 1rem 0;
-        }
-
-        .swal2-danger-zone ul {
-            margin: 0;
-            padding-left: 1.5rem;
-        }
-
-        .swal2-danger-zone li {
-            margin-bottom: 0.5rem;
-            color: #dc3545;
-        }
-
-        .swal2-danger-zone .swal2-input {
-            border: 1px solid #ced4da;
-            border-radius: 8px;
-            padding: 0.75rem;
-            margin: 1rem 0;
-            font-size: 1rem;
-        }
-
-        .swal2-danger-zone .swal2-input:focus {
-            border-color: #dc3545;
-            box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
-        }
-
-        .text-danger {
             color: #dc3545 !important;
         }
 
@@ -1552,43 +1164,269 @@ $usuarios = getUsuarios($user_info['empresa_id']);
         .font-weight-bold {
             font-weight: bold !important;
         }
+
+        /* Estilos para la previsualización del logo */
+        .current-logo {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #f8f9fa;
+            max-width: 300px;
+        }
+
+        .logo-image {
+            width: 200px;
+            height: 200px;
+            object-fit: contain;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            background: white;
+            padding: 10px;
+        }
+
+        .current-logo p {
+            margin-top: 10px;
+            margin-bottom: 0;
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+
+        /* Estilo para el input de archivo */
+        input[type="file"].form-control {
+            padding: 8px;
+            line-height: 1.5;
+            background-color: #fff;
+        }
+
+        /* Previsualización de imagen antes de subir */
+        #logo-preview {
+            width: 200px;
+            height: 200px;
+            margin-top: 15px;
+            display: none;
+            object-fit: contain;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            background: white;
+            padding: 10px;
+        }
+
+        /* Añadir estos estilos */
+        .header-icons {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .company-logo {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8f9fa;
+        }
+
+        .company-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .default-logo {
+            background: #e9ecef;
+            color: #6c757d;
+            font-size: 1.2rem;
+        }
+
+        .account {
+            display: flex;
+            align-items: center;
+        }
+
+        .account h4 {
+            margin: 0;
+            font-size: 0.9rem;
+            color: #333;
+        }
+
+        /* Efecto hover para el logo */
+        .company-logo:hover {
+            transform: scale(1.05);
+            transition: transform 0.2s ease;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+        }
+
+        /* Estilos para el formulario de empresa */
+        .empresa-section {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.08);
+            margin-bottom: 25px;
+        }
+
+        .logo-section {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .current-logo {
+            margin-bottom: 1rem;
+        }
+
+        .logo-image {
+            max-width: 200px;
+            max-height: 200px;
+            object-fit: contain;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            background: white;
+            padding: 10px;
+        }
+
+        .logo-upload {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logo-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            background: #e9ecef;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .logo-label:hover {
+            background: #dee2e6;
+        }
+
+        .form-grid {
+            display: grid;
+            gap: 2rem;
+            padding: 1.5rem;
+        }
+
+        .form-section {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 8px;
+        }
+
+        .form-section h5 {
+            margin: 0 0 1rem 0;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .form-group {
+            margin-bottom: 0;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #495057;
+            font-weight: 500;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ced4da;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .form-control:focus {
+            border-color: #4a90e2;
+            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+        }
+
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            padding: 1.5rem;
+            background: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+        }
+
+        /* Estilos para inputs de archivo */
+        input[type="file"] {
+            display: none;
+        }
+
+        /* Animaciones */
+        .form-section {
+            transition: transform 0.2s;
+        }
+
+        .form-section:hover {
+            transform: translateY(-2px);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+
+            .form-actions {
+                flex-direction: column;
+            }
+
+            .form-actions button {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 
 <body>
-    <header class="header">
-        <div class="logo">
-            <a href="../../welcome.php">VendEasy</a>
-        </div>
-        <div class="header-icons">
-            <i class="fas fa-bell"></i>
-            <div class="account">
-                <h4><?= htmlspecialchars($email) ?></h4>
-            </div>
-        </div>
-    </header>
+<?php include '../../includes/header.php'; ?>
     <div class="container">
-        <nav>
-            <div class="side_navbar">
-                <span>Menú Principal</span>
-                <a href="/welcome.php">Dashboard</a>
-                <a href="/modules/pos/index.php">POS</a>
-                <a href="/modules/ingresos/index.php">Ingresos</a>
-                <a href="/modules/egresos/index.php">Egresos</a>
-                <a href="/modules/ventas/index.php">Ventas</a>
-                <a href="/modules/inventario/index.php">Inventario</a>
-                <a href="/modules/clientes/index.php">Clientes</a>
-                <a href="/modules/proveedores/index.php">Proveedores</a>
-                <a href="/modules/reportes/index.php">Reportes</a>
-                <a href="/modules/config/index.php" class="active">Configuración</a>
-
-                <div class="links">
-                    <span>Enlaces Rápidos</span>
-                    <a href="/ayuda.php">Ayuda</a>
-                    <a href="/contacto.php">Soporte</a>
-                </div>
-            </div>
-        </nav>
+        <?php include '../../includes/sidebar.php'; ?>
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const currentUrl = window.location.pathname;
+                const sidebarLinks = document.querySelectorAll('.side_navbar a');
+                sidebarLinks.forEach(link => {
+                    if (link.getAttribute('href') === currentUrl) {
+                        link.classList.add('active');
+                    }
+                });
+            });
+        </script>
 
         <div class="main-body">
             <h2>Configuración de la Cuenta</h2>
@@ -1608,25 +1446,20 @@ $usuarios = getUsuarios($user_info['empresa_id']);
                     <div class="row">
                         <h4>Actualizar Correo Electrónico</h4>
                     </div>
-                    <form method="POST" action="">
+                    <form method="POST" action="" id="emailForm">
                         <div class="form-group">
-                            <label for="email">Correo Electrónico:</label>
+                            <label for="email">Nuevo Correo Electrónico:</label>
                             <input type="email" id="email" name="email" value="<?= htmlspecialchars($user_info['email']); ?>" required>
                         </div>
-                        <button type="submit" name="update_email" class="btn btn-primary">Actualizar Correo</button>
-                    </form>
-                </div>
-
-                <div class="list1">
-                    <div class="row">
-                        <h4>Actualizar Nombre</h4>
-                    </div>
-                    <form method="POST" action="">
-                        <div class="form-group">
-                            <label for="nombre">Nombre:</label>
-                            <input type="text" id="nombre" name="nombre" value="<?= htmlspecialchars($user_info['nombre']); ?>" required>
+                        <div class="form-group" id="emailOtpGroup" style="display: none;">
+                            <label for="email_otp">Código de Verificación:</label>
+                            <input type="text" id="email_otp" name="email_otp" maxlength="6" pattern="\d{6}" required>
+                            <small class="text-muted">Ingresa el código de 6 dígitos enviado a tu correo actual</small>
                         </div>
-                        <button type="submit" name="update_nombre" class="btn btn-primary">Actualizar Nombre</button>
+                        <button type="button" id="requestEmailOtp" class="btn btn-secondary">Solicitar código</button>
+                        <button type="submit" name="update_email" id="updateEmailBtn" class="btn btn-primary" style="display: none;">
+                            Actualizar Correo
+                        </button>
                     </form>
                 </div>
 
@@ -1634,7 +1467,7 @@ $usuarios = getUsuarios($user_info['empresa_id']);
                     <div class="row">
                         <h4>Cambiar Contraseña</h4>
                     </div>
-                    <form method="POST" action="">
+                    <form method="POST" action="" id="passwordForm">
                         <div class="form-group">
                             <label for="new_password">Nueva Contraseña:</label>
                             <input type="password" id="new_password" name="new_password" required>
@@ -1643,97 +1476,35 @@ $usuarios = getUsuarios($user_info['empresa_id']);
                             <label for="confirm_password">Confirmar Nueva Contraseña:</label>
                             <input type="password" id="confirm_password" name="confirm_password" required>
                         </div>
-                        <button type="submit" name="update_password" class="btn btn-primary">Actualizar Contraseña</button>
+                        <div class="form-group" id="passwordOtpGroup" style="display: none;">
+                            <label for="password_otp">Código de Verificación:</label>
+                            <input type="text" id="password_otp" name="password_otp" maxlength="6" pattern="\d{6}" required>
+                            <small class="text-muted">Ingresa el código de 6 dígitos enviado a tu correo</small>
+                        </div>
+                        <button type="button" id="requestPasswordOtp" class="btn btn-secondary">Solicitar código</button>
+                        <button type="submit" name="update_password" id="updatePasswordBtn" class="btn btn-primary" style="display: none;">
+                            Actualizar Contraseña
+                        </button>
                     </form>
                 </div>
 
-                <!-- Después del div de Cambiar Contraseña, reemplazar la sección de Información de la Empresa por esto: -->
-                <div class="grid-layout">
-                    <!-- Información de la Empresa - 2 columnas -->
-                    <div class="list1 grid-span-2">
-                        <div class="row">
-                            <h4>Información de la Empresa</h4>
-                        </div>
-                        <form method="POST" action="" class="empresa-form">
-                            <input type="hidden" name="empresa_id" value="<?= htmlspecialchars($empresa_info['id'] ?? ''); ?>">
-                            <div class="grid-form">
-                                <!-- Primera fila -->
-                                <div class="form-group grid-span-2">
-                                    <label for="nombre_empresa">Nombre de la Empresa:</label>
-                                    <input type="text" id="nombre_empresa" name="nombre_empresa" 
-                                           value="<?= htmlspecialchars($empresa_info['nombre_empresa'] ?? ''); ?>" required>
-                                </div>
-
-                                <!-- Segunda fila -->
-                                <div class="form-group">
-                                    <label for="nit">NIT:</label>
-                                    <input type="text" id="nit" name="nit" 
-                                           value="<?= htmlspecialchars($empresa_info['nit'] ?? ''); ?>" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="regimen_fiscal">Régimen Fiscal:</label>
-                                    <select id="regimen_fiscal" name="regimen_fiscal" required>
-                                        <option value="1" <?= ($empresa_info['regimen_fiscal'] ?? '') == '1' ? 'selected' : '' ?>>Régimen Común</option>
-                                        <option value="2" <?= ($empresa_info['regimen_fiscal'] ?? '') == '2' ? 'selected' : '' ?>>Simplificado</option>
-                                        <option value="3" <?= ($empresa_info['regimen_fiscal'] ?? '') == '3' ? 'selected' : '' ?>>Especial</option>
-                                        <option value="4" <?= ($empresa_info['regimen_fiscal'] ?? '') == '4' ? 'selected' : '' ?>>Contribuyentes del Impuesto al Consumo</option>
-                                        <option value="5" <?= ($empresa_info['regimen_fiscal'] ?? '') == '5' ? 'selected' : '' ?>>Grandes Contribuyentes</option>
-                                    </select>
-                                </div>
-
-                                <!-- Tercera fila -->
-                                <div class="form-group grid-span-2">
-                                    <label for="direccion">Dirección:</label>
-                                    <input type="text" id="direccion" name="direccion" 
-                                           value="<?= htmlspecialchars($empresa_info['direccion'] ?? ''); ?>" required>
-                                </div>
-
-                                <!-- Cuarta fila -->
-                                <div class="form-group">
-                                    <label for="telefono">Teléfono:</label>
-                                    <input type="text" id="telefono" name="telefono" 
-                                           value="<?= htmlspecialchars($empresa_info['telefono'] ?? ''); ?>" required>
-                                </div>
-                                <div class="form-group">
-                                    <label for="correo_contacto">Correo de Contacto:</label>
-                                    <input type="email" id="correo_contacto" name="correo_contacto" 
-                                           value="<?= htmlspecialchars($empresa_info['correo_contacto'] ?? ''); ?>" required>
-                                </div>
-
-                                <!-- Quinta fila -->
-                                <div class="form-group">
-                                    <label for="prefijo_factura">Prefijo de Factura:</label>
-                                    <input type="text" id="prefijo_factura" name="prefijo_factura" 
-                                           value="<?= htmlspecialchars($empresa_info['prefijo_factura'] ?? ''); ?>" required>
-                                </div>
-
-                                <!-- Sexta fila -->
-                                <div class="form-group">
-                                    <label for="numero_inicial">Número Inicial:</label>
-                                    <input type="number" id="numero_inicial" name="numero_inicial" 
-                                           value="<?= htmlspecialchars($empresa_info['numero_inicial'] ?? ''); ?>" required min="1">
-                                </div>
-                                <div class="form-group">
-                                    <label for="numero_final">Número Final:</label>
-                                    <input type="number" id="numero_final" name="numero_final" 
-                                           value="<?= htmlspecialchars($empresa_info['numero_final'] ?? ''); ?>" required min="1">
-                                </div>
-
-                                <!-- Séptima fila - Botones -->
-                                <div class="form-actions grid-span-2">
-                                    <button type="submit" name="save_empresa" class="btn btn-primary">
-                                        <?= $empresa_info ? 'Actualizar Empresa' : 'Crear Empresa' ?>
-                                    </button>
-                                    <?php if ($empresa_info): ?>
-                                        <button type="submit" name="delete_empresa" class="btn btn-danger" 
-                                                onclick="return confirm('¿Estás seguro de que quieres eliminar esta empresa?');">
-                                            Eliminar Empresa
-                                        </button>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                        </form>
+                <!-- Reemplazar la sección del formulario de empresa por esto -->
+                <div class="list1">
+                    <div class="row">
+                        <h4>Gestión de Empresas</h4>
+                        <a href="empresas/index.php" class="btn btn-primary">
+                            <i class="fas fa-building"></i> Administrar Empresas
+                        </a>
                     </div>
+                    <div class="content-preview">
+                        <p>Gestiona la información de tus empresas desde un módulo dedicado.</p>
+                        <ul>
+                            <li>Crear nuevas empresas</li>
+                            <li>Modificar información empresarial</li>
+                            <li>Gestionar logos y documentación</li>
+                            <li>Configurar datos de facturación</li>
+                        </ul>
+                                </div>
                 </div>
 
                 <!-- Continuar con el grid-layout existente para usuarios y zona de peligro -->
@@ -2075,6 +1846,114 @@ $usuarios = getUsuarios($user_info['empresa_id']);
         }
 
         return false;
+    }
+
+    // Previsualización de imagen antes de subir
+    document.getElementById('logo').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            // Verificar el tamaño del archivo (2MB máximo)
+            if (file.size > 2 * 1024 * 1024) {
+                alert('El archivo es demasiado grande. El tamaño máximo es 2MB.');
+                this.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                let preview = document.getElementById('logo-preview');
+                if (!preview) {
+                    preview = document.createElement('img');
+                    preview.id = 'logo-preview';
+                    document.querySelector('.form-group').appendChild(preview);
+                }
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+            }
+            reader.readAsDataURL(file);
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Funciones auxiliares
+        async function requestOTP(type) {
+            try {
+                const formData = new FormData();
+                formData.append(`request_${type}_otp`, '1');
+                
+                const response = await fetch(window.location.href, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Error en la solicitud');
+                }
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Código enviado!',
+                        text: 'Revisa tu correo electrónico'
+                    });
+                    
+                    // Mostrar campo OTP y botón de actualización
+                    document.getElementById(`${type}OtpGroup`).style.display = 'block';
+                    document.getElementById(`update${type.charAt(0).toUpperCase() + type.slice(1)}Btn`).style.display = 'block';
+                    document.getElementById(`request${type.charAt(0).toUpperCase() + type.slice(1)}Otp`).style.display = 'none';
+                } else {
+                    throw new Error(data.message || 'Error enviando el código');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: error.message || 'Error al procesar la solicitud'
+                });
+            }
+        }
+
+        // Event Listeners
+        document.getElementById('requestEmailOtp').addEventListener('click', () => requestOTP('email'));
+        document.getElementById('requestPasswordOtp').addEventListener('click', () => requestOTP('password'));
+
+        // Validación de contraseñas
+        document.getElementById('passwordForm').addEventListener('submit', function(e) {
+            const password = document.getElementById('new_password').value;
+            const confirm = document.getElementById('confirm_password').value;
+            
+            if (password !== confirm) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Las contraseñas no coinciden'
+                });
+            }
+        });
+    });
+
+    function confirmarEliminarEmpresa() {
+        Swal.fire({
+            title: '¿Estás seguro?',
+            text: "Esta acción no se puede deshacer",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                document.querySelector('form').submit();
+            }
+        });
     }
     </script>
 </body>

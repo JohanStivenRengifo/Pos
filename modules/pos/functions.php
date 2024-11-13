@@ -102,3 +102,64 @@ function generarNumeroFactura($pdo, $user_id) {
 
     return $numero_factura;
 }
+
+function verificarEstadoFacturaElectronica($factura_electronica_id) {
+    global $pdo;
+    
+    try {
+        // Obtener token de Factus
+        $token = obtenerTokenFactus();
+        
+        // Consultar estado en Factus
+        $curl = curl_init();
+        curl_setopt_array($curl, [
+            CURLOPT_URL => FACTUS_API_URL . '/api/v2/invoices/' . $factura_electronica_id,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => [
+                'Authorization: Bearer ' . $token,
+                'Accept: application/json'
+            ]
+        ]);
+
+        $response = curl_exec($curl);
+        $err = curl_error($curl);
+        curl_close($curl);
+
+        if ($err) {
+            throw new Exception("Error al consultar estado: " . $err);
+        }
+
+        $result = json_decode($response, true);
+
+        // Actualizar estado en la base de datos
+        $stmt = $pdo->prepare("
+            UPDATE ventas 
+            SET estado_factura = ? 
+            WHERE factura_electronica_id = ?
+        ");
+        $stmt->execute([$result['status'], $factura_electronica_id]);
+
+        return $result['status'];
+    } catch (Exception $e) {
+        error_log("Error al verificar estado de factura: " . $e->getMessage());
+        return false;
+    }
+}
+
+function verificarCamposVenta($pdo, $venta_id) {
+    $stmt = $pdo->prepare("
+        SELECT 
+            factura_electronica_id,
+            estado_factura,
+            fecha_envio_dian,
+            numeracion_tipo,
+            numeracion
+        FROM ventas 
+        WHERE id = ?
+    ");
+    $stmt->execute([$venta_id]);
+    $venta = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    error_log("Estado actual de la venta {$venta_id}: " . print_r($venta, true));
+    return $venta;
+}

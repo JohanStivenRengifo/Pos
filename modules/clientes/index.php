@@ -12,8 +12,10 @@ $user_id = $_SESSION['user_id'];
 $email = $_SESSION['email'];
 
 // Clase para manejar respuestas JSON
-class ApiResponse {
-    public static function send($status, $message, $data = null) {
+class ApiResponse
+{
+    public static function send($status, $message, $data = null)
+    {
         header('Content-Type: application/json');
         echo json_encode([
             'status' => $status,
@@ -25,7 +27,8 @@ class ApiResponse {
 }
 
 // Funciones para manejar clientes
-function getClientes($user_id) {
+function getClientes($user_id)
+{
     global $pdo;
     $query = "SELECT * FROM clientes WHERE user_id = ?";
     $stmt = $pdo->prepare($query);
@@ -33,7 +36,8 @@ function getClientes($user_id) {
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-function addCliente($user_id, $data) {
+function addCliente($user_id, $data)
+{
     global $pdo;
     try {
         $query = "INSERT INTO clientes (user_id, nombre, email, telefono, tipo_identificacion, identificacion, 
@@ -41,7 +45,7 @@ function addCliente($user_id, $data) {
                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         $stmt = $pdo->prepare($query);
         $result = $stmt->execute([
-            $user_id, 
+            $user_id,
             $data['nombre'],
             $data['email'],
             $data['telefono'],
@@ -53,7 +57,7 @@ function addCliente($user_id, $data) {
             $data['municipio_departamento'],
             $data['codigo_postal']
         ]);
-        
+
         if ($result) {
             return ['status' => true, 'message' => 'Cliente agregado exitosamente'];
         }
@@ -63,7 +67,8 @@ function addCliente($user_id, $data) {
     }
 }
 
-function updateCliente($user_id, $cliente_id, $data) {
+function updateCliente($user_id, $cliente_id, $data)
+{
     global $pdo;
     try {
         $query = "UPDATE clientes SET 
@@ -86,7 +91,7 @@ function updateCliente($user_id, $cliente_id, $data) {
             $cliente_id,
             $user_id
         ]);
-        
+
         if ($result) {
             return ['status' => true, 'message' => 'Cliente actualizado exitosamente'];
         }
@@ -96,7 +101,8 @@ function updateCliente($user_id, $cliente_id, $data) {
     }
 }
 
-function deleteCliente($cliente_id, $user_id) {
+function deleteCliente($cliente_id, $user_id)
+{
     global $pdo;
     try {
         // Primero verificar si el cliente tiene ventas asociadas
@@ -107,7 +113,7 @@ function deleteCliente($cliente_id, $user_id) {
 
         if ($count > 0) {
             return [
-                'status' => false, 
+                'status' => false,
                 'message' => 'No se puede eliminar el cliente porque tiene ventas asociadas',
                 'hasReferences' => true
             ];
@@ -117,22 +123,22 @@ function deleteCliente($cliente_id, $user_id) {
         $query = "DELETE FROM clientes WHERE id = ? AND user_id = ?";
         $stmt = $pdo->prepare($query);
         $result = $stmt->execute([$cliente_id, $user_id]);
-        
+
         if ($result) {
             return [
-                'status' => true, 
+                'status' => true,
                 'message' => 'Cliente eliminado exitosamente',
                 'hasReferences' => false
             ];
         }
         return [
-            'status' => false, 
+            'status' => false,
             'message' => 'Error al eliminar el cliente',
             'hasReferences' => false
         ];
     } catch (PDOException $e) {
         return [
-            'status' => false, 
+            'status' => false,
             'message' => 'Error en la base de datos: ' . $e->getMessage(),
             'hasReferences' => strpos($e->getMessage(), 'foreign key constraint') !== false
         ];
@@ -142,25 +148,25 @@ function deleteCliente($cliente_id, $user_id) {
 // Manejador de peticiones AJAX
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WITH'])) {
     $action = $_POST['action'] ?? '';
-    
+
     switch ($action) {
         case 'add':
             $result = addCliente($user_id, $_POST);
             ApiResponse::send($result['status'], $result['message']);
             break;
-            
+
         case 'update':
             $cliente_id = (int)$_POST['cliente_id'];
             $result = updateCliente($user_id, $cliente_id, $_POST);
             ApiResponse::send($result['status'], $result['message']);
             break;
-            
+
         case 'delete':
             $cliente_id = (int)$_POST['cliente_id'];
             $result = deleteCliente($cliente_id, $user_id);
             ApiResponse::send($result['status'], $result['message']);
             break;
-            
+
         default:
             ApiResponse::send(false, 'Acción no válida');
     }
@@ -171,24 +177,26 @@ $clientes = getClientes($user_id);
 
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Clientes | VendEasy</title>
-    <link rel="icon" type="image/png" href="/favicon/favicon.ico"/>
+    <link rel="icon" type="image/png" href="/favicon/favicon.ico" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
     <link rel="stylesheet" href="../../css/welcome.css">
     <link rel="stylesheet" href="../../css/modulos.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-material-ui/material-ui.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
+
 <body>
     <?php
     // Sistema de notificaciones mejorado
     if (!empty($message)) {
         $alertType = strpos($message, 'exitosamente') !== false || strpos($message, 'correctamente') !== false ? 'success' : 'error';
         $alertTitle = $alertType === 'success' ? '¡Éxito!' : '¡Atención!';
-        
+
         echo "<script>
             document.addEventListener('DOMContentLoaded', function() {
                 Swal.fire({
@@ -210,39 +218,20 @@ $clientes = getClientes($user_id);
     }
     ?>
 
-    <header class="header">
-        <div class="logo">
-            <a href="../../welcome.php">VendEasy</a>
-        </div>
-        <div class="header-icons">
-            <i class="fas fa-bell"></i>
-            <div class="account">
-                <h4><?= htmlspecialchars($email) ?></h4>
-            </div>
-        </div>
-    </header>
+<?php include '../../includes/header.php'; ?>
     <div class="container">
-        <nav>
-        <div class="side_navbar">
-                <span>Menú Principal</span>
-                <a href="/welcome.php">Dashboard</a>
-                <a href="/modules/pos/index.php">POS</a>
-                <a href="/modules/ingresos/index.php">Ingresos</a>
-                <a href="/modules/egresos/index.php">Egresos</a>
-                <a href="/modules/ventas/index.php">Ventas</a>
-                <a href="/modules/inventario/index.php">Inventario</a>
-                <a href="/modules/clientes/index.php" class="active">Clientes</a>
-                <a href="/modules/proveedores/index.php">Proveedores</a>
-                <a href="/modules/reportes/index.php">Reportes</a>
-                <a href="/modules/config/index.php">Configuración</a>
-
-                <div class="links">
-                    <span>Enlaces Rápidos</span>
-                    <a href="/ayuda.php">Ayuda</a>
-                    <a href="/contacto.php">Soporte</a>
-                </div>
-            </div>
-        </nav>
+        <?php include '../../includes/sidebar.php'; ?>
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const currentUrl = window.location.pathname;
+                const sidebarLinks = document.querySelectorAll('.side_navbar a');
+                sidebarLinks.forEach(link => {
+                    if (link.getAttribute('href') === currentUrl) {
+                        link.classList.add('active');
+                    }
+                });
+            });
+        </script>
 
         <div class="main-body">
             <h2>Gestión de Clientes</h2>
@@ -261,7 +250,7 @@ $clientes = getClientes($user_id);
                         <h3 id="modalTitle">Nuevo Cliente</h3>
                         <span class="close">&times;</span>
                     </div>
-                    
+
                     <div class="modal-body">
                         <form id="clienteForm" method="POST" action="">
                             <!-- Sección: Información Personal -->
@@ -270,26 +259,26 @@ $clientes = getClientes($user_id);
                                 <div class="form-row">
                                     <div class="form-group">
                                         <label for="primer_nombre" class="required">Primer Nombre</label>
-                                        <input type="text" id="primer_nombre" name="primer_nombre" required 
-                                               placeholder="Ingrese el primer nombre">
+                                        <input type="text" id="primer_nombre" name="primer_nombre" required
+                                            placeholder="Ingrese el primer nombre">
                                     </div>
                                     <div class="form-group">
                                         <label for="segundo_nombre">Segundo Nombre</label>
-                                        <input type="text" id="segundo_nombre" name="segundo_nombre" 
-                                               placeholder="Ingrese el segundo nombre">
+                                        <input type="text" id="segundo_nombre" name="segundo_nombre"
+                                            placeholder="Ingrese el segundo nombre">
                                     </div>
                                 </div>
 
                                 <div class="form-row">
                                     <div class="form-group">
                                         <label for="apellidos" class="required">Apellidos</label>
-                                        <input type="text" id="apellidos" name="apellidos" required 
-                                               placeholder="Ingrese los apellidos">
+                                        <input type="text" id="apellidos" name="apellidos" required
+                                            placeholder="Ingrese los apellidos">
                                     </div>
                                     <div class="form-group">
                                         <label for="nombre">Nombre Comercial</label>
-                                        <input type="text" id="nombre" name="nombre" 
-                                               placeholder="Ingrese el nombre comercial">
+                                        <input type="text" id="nombre" name="nombre"
+                                            placeholder="Ingrese el nombre comercial">
                                     </div>
                                 </div>
                             </div>
@@ -310,8 +299,8 @@ $clientes = getClientes($user_id);
                                     </div>
                                     <div class="form-group">
                                         <label for="identificacion" class="required">Número de Identificación</label>
-                                        <input type="text" id="identificacion" name="identificacion" required 
-                                               placeholder="Ingrese el número de identificación">
+                                        <input type="text" id="identificacion" name="identificacion" required
+                                            placeholder="Ingrese el número de identificación">
                                     </div>
                                 </div>
                             </div>
@@ -322,13 +311,13 @@ $clientes = getClientes($user_id);
                                 <div class="form-row">
                                     <div class="form-group">
                                         <label for="email" class="required">Correo Electrónico</label>
-                                        <input type="email" id="email" name="email" required 
-                                               placeholder="ejemplo@correo.com">
+                                        <input type="email" id="email" name="email" required
+                                            placeholder="ejemplo@correo.com">
                                     </div>
                                     <div class="form-group">
                                         <label for="telefono" class="required">Teléfono</label>
-                                        <input type="tel" id="telefono" name="telefono" required 
-                                               placeholder="Ingrese el número telefónico">
+                                        <input type="tel" id="telefono" name="telefono" required
+                                            placeholder="Ingrese el número telefónico">
                                     </div>
                                 </div>
                             </div>
@@ -377,14 +366,14 @@ $clientes = getClientes($user_id);
                                     </div>
                                     <div class="form-group">
                                         <label for="codigo_postal">Código Postal</label>
-                                        <input type="text" id="codigo_postal" name="codigo_postal" 
-                                               placeholder="Ingrese el código postal" readonly>
+                                        <input type="text" id="codigo_postal" name="codigo_postal"
+                                            placeholder="Ingrese el código postal" readonly>
                                     </div>
                                     <script>
                                         document.getElementById('departamento').addEventListener('change', function() {
                                             const departamento = this.value;
                                             let codigoPostal = '';
-                                            switch(departamento) {
+                                            switch (departamento) {
                                                 case 'Amazonas':
                                                     codigoPostal = '910001';
                                                     break;
@@ -515,7 +504,7 @@ $clientes = getClientes($user_id);
                         </button>
                     </div>
                 </div>
-                
+
                 <div class="table-responsive">
                     <table>
                         <thead>
@@ -570,622 +559,643 @@ $clientes = getClientes($user_id);
     </div>
 
     <style>
-    /* Estilos actualizados para el modal y formulario */
-    .modal-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding-bottom: 15px;
-        margin-bottom: 20px;
-        border-bottom: 2px solid #f1f1f1;
-    }
+        /* Estilos actualizados para el modal y formulario */
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #f1f1f1;
+        }
 
-    .modal-header h3 {
-        margin: 0;
-        color: #2c3e50;
-        font-size: 1.5em;
-    }
-
-    .modal-body {
-        max-height: calc(90vh - 150px);
-        overflow-y: auto;
-        padding-right: 15px;
-    }
-
-    .form-section {
-        background: #f8f9fa;
-        border-radius: 8px;
-        padding: 20px;
-        margin-bottom: 20px;
-    }
-
-    .form-section h4 {
-        color: #2c3e50;
-        margin: 0 0 15px 0;
-        font-size: 1.1em;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-
-    .form-section h4 i {
-        color: #007bff;
-    }
-
-    .form-row {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 20px;
-        margin-bottom: 15px;
-    }
-
-    .form-group {
-        margin-bottom: 0;
-    }
-
-    .form-group label {
-        display: block;
-        margin-bottom: 8px;
-        color: #2c3e50;
-        font-weight: 500;
-    }
-
-    .form-group label.required::after {
-        content: ' *';
-        color: #dc3545;
-    }
-
-    .form-group input,
-    .form-group select {
-        width: 100%;
-        padding: 10px 15px;
-        border: 1.5px solid #e0e0e0;
-        border-radius: 6px;
-        font-size: 14px;
-        transition: all 0.3s ease;
-        background-color: white;
-    }
-
-    .form-group input:focus,
-    .form-group select:focus {
-        border-color: #007bff;
-        box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
-        outline: none;
-    }
-
-    .form-group input::placeholder {
-        color: #adb5bd;
-    }
-
-    .form-actions {
-        position: sticky;
-        bottom: 0;
-        background: white;
-        padding: 15px 0;
-        margin-top: 20px;
-        border-top: 1px solid #eee;
-        display: flex;
-        justify-content: flex-end;
-        gap: 10px;
-        z-index: 1;
-    }
-
-    .btn-secondary,
-    .btn-primary {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 10px 20px;
-        border-radius: 6px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.3s ease;
-    }
-
-    .invalid {
-        border-color: #dc3545 !important;
-        background-color: #fff8f8;
-    }
-
-    .invalid + .error-message {
-        color: #dc3545;
-        font-size: 12px;
-        margin-top: 5px;
-    }
-
-    @media (max-width: 768px) {
-        .modal-content {
+        .modal-header h3 {
             margin: 0;
-            height: 100vh;
-            border-radius: 0;
-            max-height: none;
+            color: #2c3e50;
+            font-size: 1.5em;
+        }
+
+        .modal-body {
+            max-height: calc(90vh - 150px);
+            overflow-y: auto;
+            padding-right: 15px;
         }
 
         .form-section {
-            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
         }
 
-        .form-row {
-            grid-template-columns: 1fr;
-            gap: 15px;
-        }
-    }
-
-    /* Estilos mejorados */
-    .modal {
-        display: none;
-        position: fixed;
-        z-index: 1000;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0,0,0,0.5);
-        animation: fadeIn 0.3s ease;
-        overflow-y: auto; /* Permitir scroll vertical */
-    }
-
-    @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-    }
-
-    .modal-content {
-        background-color: #fff;
-        margin: 20px auto; /* Reducir el margen superior e inferior */
-        padding: 25px;
-        border-radius: 12px;
-        width: 90%;
-        max-width: 900px;
-        position: relative;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        animation: slideIn 0.3s ease;
-        max-height: 90vh; /* Altura máxima del 90% de la ventana */
-        overflow-y: auto; /* Permitir scroll dentro del modal */
-    }
-
-    @keyframes slideIn {
-        from { transform: translateY(-20px); opacity: 0; }
-        to { transform: translateY(0); opacity: 1; }
-    }
-
-    .close {
-        position: sticky;
-        top: 0;
-        right: 0;
-        float: right;
-        padding: 10px;
-        z-index: 2;
-        background: white;
-        border-radius: 50%;
-        width: 40px;
-        height: 40px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-
-    .close:hover {
-        color: #dc3545;
-    }
-
-    #modalTitle {
-        color: #2c3e50;
-        margin-bottom: 25px;
-        font-size: 1.5em;
-        border-bottom: 2px solid #f1f1f1;
-        padding-bottom: 10px;
-    }
-
-    .form-row {
-        display: flex;
-        gap: 20px;
-        margin-bottom: 15px;
-        flex-wrap: wrap; /* Permitir que los campos se ajusten en pantallas pequeñas */
-    }
-
-    .form-group {
-        flex: 1;
-        min-width: 250px; /* Ancho mínimo para evitar campos demasiado estrechos */
-    }
-
-    .form-group label {
-        display: block;
-        margin-bottom: 8px;
-        color: #2c3e50;
-        font-weight: 500;
-        font-size: 0.95em;
-    }
-
-    .form-group label.required::after {
-        content: ' *';
-        color: #dc3545;
-    }
-
-    .form-group input,
-    .form-group select {
-        width: 100%;
-        padding: 10px 15px;
-        border: 1.5px solid #e0e0e0;
-        border-radius: 6px;
-        font-size: 14px;
-        transition: all 0.3s ease;
-    }
-
-    .form-group input:focus,
-    .form-group select:focus {
-        border-color: #007bff;
-        box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
-        outline: none;
-    }
-
-    .form-group input:hover,
-    .form-group select:hover {
-        border-color: #b0b0b0;
-    }
-
-    .form-actions {
-        position: sticky;
-        bottom: 0;
-        background: white;
-        padding: 15px 0;
-        margin-top: 20px;
-        border-top: 1px solid #eee;
-        z-index: 1;
-    }
-
-    .btn-secondary,
-    .btn-primary {
-        padding: 10px 20px;
-        border-radius: 6px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        border: none;
-        font-size: 14px;
-    }
-
-    .btn-secondary {
-        background-color: #f8f9fa;
-        color: #333;
-        border: 1px solid #ddd;
-    }
-
-    .btn-secondary:hover {
-        background-color: #e2e6ea;
-    }
-
-    .btn-primary {
-        background-color: #007bff;
-        color: white;
-    }
-
-    .btn-primary:hover {
-        background-color: #0056b3;
-        transform: translateY(-1px);
-    }
-
-    /* Mejoras en la tabla */
-    .table-header {
-        background: #f8f9fa;
-        padding: 15px;
-        border-radius: 8px;
-        margin-bottom: 20px;
-    }
-
-    .search-box {
-        display: flex;
-        align-items: center;
-        background: white;
-        padding: 8px 15px;
-        border-radius: 6px;
-        width: 350px;
-        border: 1px solid #e0e0e0;
-        transition: all 0.3s ease;
-    }
-
-    .search-box:focus-within {
-        border-color: #007bff;
-        box-shadow: 0 0 0 3px rgba(0,123,255,0.1);
-    }
-
-    .search-box input {
-        border: none;
-        padding: 5px 10px;
-        font-size: 14px;
-        width: 100%;
-    }
-
-    .search-box input:focus {
-        outline: none;
-    }
-
-    .table-responsive {
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-
-    table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-
-    th {
-        background: #f8f9fa;
-        padding: 12px 15px;
-        text-align: left;
-        font-weight: 600;
-        color: #2c3e50;
-        border-bottom: 2px solid #e0e0e0;
-    }
-
-    td {
-        padding: 12px 15px;
-        border-bottom: 1px solid #e0e0e0;
-        vertical-align: middle;
-    }
-
-    tr:hover {
-        background-color: #f8f9fa;
-    }
-
-    .badge {
-        background: #e9ecef;
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-size: 12px;
-        font-weight: 500;
-        color: #2c3e50;
-    }
-
-    .btn-icon {
-        padding: 8px;
-        border-radius: 4px;
-        transition: all 0.3s ease;
-    }
-
-    .btn-icon:hover {
-        background-color: #f8f9fa;
-    }
-
-    .btn-icon.delete:hover {
-        background-color: #fee2e2;
-        color: #dc3545;
-    }
-
-    /* Mejorar el scroll del modal */
-    .modal-content::-webkit-scrollbar {
-        width: 8px;
-    }
-
-    .modal-content::-webkit-scrollbar-track {
-        background: #f1f1f1;
-        border-radius: 4px;
-    }
-
-    .modal-content::-webkit-scrollbar-thumb {
-        background: #888;
-        border-radius: 4px;
-    }
-
-    .modal-content::-webkit-scrollbar-thumb:hover {
-        background: #666;
-    }
-
-    /* Ajustar el formulario para mejor visualización */
-    #clienteForm {
-        padding-right: 15px; /* Espacio para el scrollbar */
-    }
-
-    /* Mejorar la responsividad */
-    @media (max-width: 768px) {
-        .modal-content {
-            margin: 10px;
-            width: calc(100% - 20px);
-            padding: 15px;
-        }
-
-        .form-row {
-            flex-direction: column;
+        .form-section h4 {
+            color: #2c3e50;
+            margin: 0 0 15px 0;
+            font-size: 1.1em;
+            display: flex;
+            align-items: center;
             gap: 10px;
         }
 
+        .form-section h4 i {
+            color: #007bff;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 15px;
+        }
+
         .form-group {
+            margin-bottom: 0;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #2c3e50;
+            font-weight: 500;
+        }
+
+        .form-group label.required::after {
+            content: ' *';
+            color: #dc3545;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px 15px;
+            border: 1.5px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            background-color: white;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+            outline: none;
+        }
+
+        .form-group input::placeholder {
+            color: #adb5bd;
+        }
+
+        .form-actions {
+            position: sticky;
+            bottom: 0;
+            background: white;
+            padding: 15px 0;
+            margin-top: 20px;
+            border-top: 1px solid #eee;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            z-index: 1;
+        }
+
+        .btn-secondary,
+        .btn-primary {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .invalid {
+            border-color: #dc3545 !important;
+            background-color: #fff8f8;
+        }
+
+        .invalid+.error-message {
+            color: #dc3545;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .modal-content {
+                margin: 0;
+                height: 100vh;
+                border-radius: 0;
+                max-height: none;
+            }
+
+            .form-section {
+                padding: 15px;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+        }
+
+        /* Estilos mejorados */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.3s ease;
+            overflow-y: auto;
+            /* Permitir scroll vertical */
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .modal-content {
+            background-color: #fff;
+            margin: 20px auto;
+            /* Reducir el margen superior e inferior */
+            padding: 25px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 900px;
+            position: relative;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            animation: slideIn 0.3s ease;
+            max-height: 90vh;
+            /* Altura máxima del 90% de la ventana */
+            overflow-y: auto;
+            /* Permitir scroll dentro del modal */
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .close {
+            position: sticky;
+            top: 0;
+            right: 0;
+            float: right;
+            padding: 10px;
+            z-index: 2;
+            background: white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .close:hover {
+            color: #dc3545;
+        }
+
+        #modalTitle {
+            color: #2c3e50;
+            margin-bottom: 25px;
+            font-size: 1.5em;
+            border-bottom: 2px solid #f1f1f1;
+            padding-bottom: 10px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            /* Permitir que los campos se ajusten en pantallas pequeñas */
+        }
+
+        .form-group {
+            flex: 1;
+            min-width: 250px;
+            /* Ancho mínimo para evitar campos demasiado estrechos */
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #2c3e50;
+            font-weight: 500;
+            font-size: 0.95em;
+        }
+
+        .form-group label.required::after {
+            content: ' *';
+            color: #dc3545;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px 15px;
+            border: 1.5px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+            outline: none;
+        }
+
+        .form-group input:hover,
+        .form-group select:hover {
+            border-color: #b0b0b0;
+        }
+
+        .form-actions {
+            position: sticky;
+            bottom: 0;
+            background: white;
+            padding: 15px 0;
+            margin-top: 20px;
+            border-top: 1px solid #eee;
+            z-index: 1;
+        }
+
+        .btn-secondary,
+        .btn-primary {
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+            font-size: 14px;
+        }
+
+        .btn-secondary {
+            background-color: #f8f9fa;
+            color: #333;
+            border: 1px solid #ddd;
+        }
+
+        .btn-secondary:hover {
+            background-color: #e2e6ea;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+            transform: translateY(-1px);
+        }
+
+        /* Mejoras en la tabla */
+        .table-header {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .search-box {
+            display: flex;
+            align-items: center;
+            background: white;
+            padding: 8px 15px;
+            border-radius: 6px;
+            width: 350px;
+            border: 1px solid #e0e0e0;
+            transition: all 0.3s ease;
+        }
+
+        .search-box:focus-within {
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+
+        .search-box input {
+            border: none;
+            padding: 5px 10px;
+            font-size: 14px;
             width: 100%;
         }
-    }
+
+        .search-box input:focus {
+            outline: none;
+        }
+
+        .table-responsive {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #f8f9fa;
+            padding: 12px 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #2c3e50;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e0e0e0;
+            vertical-align: middle;
+        }
+
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .badge {
+            background: #e9ecef;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            color: #2c3e50;
+        }
+
+        .btn-icon {
+            padding: 8px;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-icon:hover {
+            background-color: #f8f9fa;
+        }
+
+        .btn-icon.delete:hover {
+            background-color: #fee2e2;
+            color: #dc3545;
+        }
+
+        /* Mejorar el scroll del modal */
+        .modal-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .modal-content::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .modal-content::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+
+        .modal-content::-webkit-scrollbar-thumb:hover {
+            background: #666;
+        }
+
+        /* Ajustar el formulario para mejor visualización */
+        #clienteForm {
+            padding-right: 15px;
+            /* Espacio para el scrollbar */
+        }
+
+        /* Mejorar la responsividad */
+        @media (max-width: 768px) {
+            .modal-content {
+                margin: 10px;
+                width: calc(100% - 20px);
+                padding: 15px;
+            }
+
+            .form-row {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .form-group {
+                width: 100%;
+            }
+        }
     </style>
 
     <script>
-    // JavaScript mejorado
-    document.addEventListener('DOMContentLoaded', function() {
-        initializeFormValidation();
-        initializeModalHandling();
-        initializeSearchFunctionality();
-    });
+        // JavaScript mejorado
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeFormValidation();
+            initializeModalHandling();
+            initializeSearchFunctionality();
+        });
 
-    function initializeFormValidation() {
-        const form = document.getElementById('clienteForm');
-        
-        form.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            if (!validateForm()) {
-                showError('Validación', 'Por favor complete todos los campos requeridos correctamente.');
-                return;
-            }
+        function initializeFormValidation() {
+            const form = document.getElementById('clienteForm');
 
-            try {
-                const formData = new FormData(this);
-                formData.append('action', 'add');
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
 
-                const response = await fetch('', {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                });
-
-                const data = await response.json();
-                
-                if (data.status) {
-                    showNotification('success', data.message);
-                    closeModal();
-                    setTimeout(() => location.reload(), 1500);
-                } else {
-                    showError('Error', data.message);
+                if (!validateForm()) {
+                    showError('Validación', 'Por favor complete todos los campos requeridos correctamente.');
+                    return;
                 }
-            } catch (error) {
-                showError('Error', 'Ocurrió un error al procesar la solicitud');
-            }
-        });
-    }
 
-    function validateForm() {
-        const requiredFields = document.querySelectorAll('[required]');
-        let isValid = true;
+                try {
+                    const formData = new FormData(this);
+                    formData.append('action', 'add');
 
-        requiredFields.forEach(field => {
-            if (!field.value.trim()) {
-                field.classList.add('invalid');
-                isValid = false;
-            } else {
-                field.classList.remove('invalid');
-            }
-        });
+                    const response = await fetch('', {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
 
-        return isValid;
-    }
+                    const data = await response.json();
 
-    function initializeModalHandling() {
-        const modal = document.getElementById('clienteModal');
-        const modalContent = modal.querySelector('.modal-content');
-        const closeBtn = document.querySelector('.close');
-
-        closeBtn.addEventListener('click', closeModal);
-
-        // Cerrar modal al hacer clic fuera
-        modal.addEventListener('click', (event) => {
-            if (event.target === modal) {
-                closeModal();
-            }
-        });
-
-        // Prevenir que el click dentro del modal lo cierre
-        modalContent.addEventListener('click', (e) => {
-            e.stopPropagation();
-        });
-
-        // Manejar el scroll del modal
-        modalContent.addEventListener('scroll', () => {
-            const isAtTop = modalContent.scrollTop === 0;
-            closeBtn.style.boxShadow = isAtTop ? 'none' : '0 2px 4px rgba(0,0,0,0.1)';
-        });
-    }
-
-    function showAddClienteForm() {
-        const modal = document.getElementById('clienteModal');
-        const modalContent = modal.querySelector('.modal-content');
-        
-        document.getElementById('modalTitle').textContent = 'Nuevo Cliente';
-        document.getElementById('clienteForm').reset();
-        modal.style.display = 'block';
-        
-        // Scroll al inicio del modal
-        modalContent.scrollTop = 0;
-        
-        // Prevenir scroll del body pero mantener la posición
-        const scrollY = window.scrollY;
-        document.body.style.position = 'fixed';
-        document.body.style.top = `-${scrollY}px`;
-        document.body.style.width = '100%';
-    }
-
-    function closeModal() {
-        const modal = document.getElementById('clienteModal');
-        modal.style.display = 'none';
-        
-        // Restaurar el scroll del body
-        const scrollY = document.body.style.top;
-        document.body.style.position = '';
-        document.body.style.top = '';
-        document.body.style.width = '';
-        window.scrollTo(0, parseInt(scrollY || '0') * -1);
-    }
-
-    function initializeSearchFunctionality() {
-        const searchInput = document.getElementById('searchCliente');
-        let searchTimeout;
-
-        searchInput.addEventListener('input', function(e) {
-            clearTimeout(searchTimeout);
-            
-            searchTimeout = setTimeout(() => {
-                const searchTerm = e.target.value.toLowerCase();
-                const rows = document.querySelectorAll('tbody tr');
-                
-                rows.forEach(row => {
-                    const text = row.textContent.toLowerCase();
-                    row.style.display = text.includes(searchTerm) ? '' : 'none';
-                });
-            }, 300); // Debounce de 300ms
-        });
-    }
-
-    // Configuración global de notificaciones
-    const Toast = Swal.mixin({
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 3000,
-        timerProgressBar: true,
-        didOpen: (toast) => {
-            toast.addEventListener('mouseenter', Swal.stopTimer)
-            toast.addEventListener('mouseleave', Swal.resumeTimer)
+                    if (data.status) {
+                        showNotification('success', data.message);
+                        closeModal();
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        showError('Error', data.message);
+                    }
+                } catch (error) {
+                    showError('Error', 'Ocurrió un error al procesar la solicitud');
+                }
+            });
         }
-    });
 
-    // Función para mostrar notificaciones
-    function showNotification(type, message) {
-        Toast.fire({
-            icon: type,
-            title: message
+        function validateForm() {
+            const requiredFields = document.querySelectorAll('[required]');
+            let isValid = true;
+
+            requiredFields.forEach(field => {
+                if (!field.value.trim()) {
+                    field.classList.add('invalid');
+                    isValid = false;
+                } else {
+                    field.classList.remove('invalid');
+                }
+            });
+
+            return isValid;
+        }
+
+        function initializeModalHandling() {
+            const modal = document.getElementById('clienteModal');
+            const modalContent = modal.querySelector('.modal-content');
+            const closeBtn = document.querySelector('.close');
+
+            closeBtn.addEventListener('click', closeModal);
+
+            // Cerrar modal al hacer clic fuera
+            modal.addEventListener('click', (event) => {
+                if (event.target === modal) {
+                    closeModal();
+                }
+            });
+
+            // Prevenir que el click dentro del modal lo cierre
+            modalContent.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+
+            // Manejar el scroll del modal
+            modalContent.addEventListener('scroll', () => {
+                const isAtTop = modalContent.scrollTop === 0;
+                closeBtn.style.boxShadow = isAtTop ? 'none' : '0 2px 4px rgba(0,0,0,0.1)';
+            });
+        }
+
+        function showAddClienteForm() {
+            const modal = document.getElementById('clienteModal');
+            const modalContent = modal.querySelector('.modal-content');
+
+            document.getElementById('modalTitle').textContent = 'Nuevo Cliente';
+            document.getElementById('clienteForm').reset();
+            modal.style.display = 'block';
+
+            // Scroll al inicio del modal
+            modalContent.scrollTop = 0;
+
+            // Prevenir scroll del body pero mantener la posición
+            const scrollY = window.scrollY;
+            document.body.style.position = 'fixed';
+            document.body.style.top = `-${scrollY}px`;
+            document.body.style.width = '100%';
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('clienteModal');
+            modal.style.display = 'none';
+
+            // Restaurar el scroll del body
+            const scrollY = document.body.style.top;
+            document.body.style.position = '';
+            document.body.style.top = '';
+            document.body.style.width = '';
+            window.scrollTo(0, parseInt(scrollY || '0') * -1);
+        }
+
+        function initializeSearchFunctionality() {
+            const searchInput = document.getElementById('searchCliente');
+            let searchTimeout;
+
+            searchInput.addEventListener('input', function(e) {
+                clearTimeout(searchTimeout);
+
+                searchTimeout = setTimeout(() => {
+                    const searchTerm = e.target.value.toLowerCase();
+                    const rows = document.querySelectorAll('tbody tr');
+
+                    rows.forEach(row => {
+                        const text = row.textContent.toLowerCase();
+                        row.style.display = text.includes(searchTerm) ? '' : 'none';
+                    });
+                }, 300); // Debounce de 300ms
+            });
+        }
+
+        // Configuración global de notificaciones
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true,
+            didOpen: (toast) => {
+                toast.addEventListener('mouseenter', Swal.stopTimer)
+                toast.addEventListener('mouseleave', Swal.resumeTimer)
+            }
         });
-    }
 
-    // Función para mostrar errores
-    function showError(title, message) {
-        Swal.fire({
-            icon: 'error',
-            title: title,
-            text: message,
-            confirmButtonText: 'Entendido'
-        });
-    }
+        // Función para mostrar notificaciones
+        function showNotification(type, message) {
+            Toast.fire({
+                icon: type,
+                title: message
+            });
+        }
 
-    // Función para confirmar acciones
-    async function confirmAction(title, text, icon = 'warning') {
-        const result = await Swal.fire({
-            title: title,
-            text: text,
-            icon: icon,
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Sí, continuar',
-            cancelButtonText: 'Cancelar'
-        });
-        return result.isConfirmed;
-    }
+        // Función para mostrar errores
+        function showError(title, message) {
+            Swal.fire({
+                icon: 'error',
+                title: title,
+                text: message,
+                confirmButtonText: 'Entendido'
+            });
+        }
 
-    // Función para mostrar formulario de edición
-    async function showEditForm(cliente) {
-        const { value: formValues } = await Swal.fire({
-            title: 'Editar Cliente',
-            html: `
+        // Función para confirmar acciones
+        async function confirmAction(title, text, icon = 'warning') {
+            const result = await Swal.fire({
+                title: title,
+                text: text,
+                icon: icon,
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Sí, continuar',
+                cancelButtonText: 'Cancelar'
+            });
+            return result.isConfirmed;
+        }
+
+        // Función para mostrar formulario de edición
+        async function showEditForm(cliente) {
+            const {
+                value: formValues
+            } = await Swal.fire({
+                title: 'Editar Cliente',
+                html: `
                 <form id="editForm">
                     <div class="form-group">
                         <label for="nombre">Nombre</label>
@@ -1194,83 +1204,84 @@ $clientes = getClientes($user_id);
                     <!-- Agregar más campos según necesidad -->
                 </form>
             `,
-            focusConfirm: false,
-            showCancelButton: true,
-            confirmButtonText: 'Guardar',
-            cancelButtonText: 'Cancelar',
-            preConfirm: () => {
-                return {
-                    nombre: document.getElementById('nombre').value,
-                    // Recoger más valores según necesidad
-                }
-            }
-        });
-        return formValues;
-    }
-
-    // Función para eliminar cliente
-    async function deleteCliente(id) {
-        if (await confirmAction('¿Eliminar cliente?', 'Esta acción no se puede deshacer')) {
-            try {
-                const formData = new FormData();
-                formData.append('action', 'delete');
-                formData.append('cliente_id', id);
-
-                const response = await fetch('', {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
+                focusConfirm: false,
+                showCancelButton: true,
+                confirmButtonText: 'Guardar',
+                cancelButtonText: 'Cancelar',
+                preConfirm: () => {
+                    return {
+                        nombre: document.getElementById('nombre').value,
+                        // Recoger más valores según necesidad
                     }
-                });
-
-                const data = await response.json();
-                
-                if (data.status) {
-                    showNotification('success', data.message);
-                    setTimeout(() => location.reload(), 1500);
-                } else {
-                    showError('Error', data.message);
                 }
-            } catch (error) {
-                showError('Error', 'Ocurrió un error al eliminar el cliente');
+            });
+            return formValues;
+        }
+
+        // Función para eliminar cliente
+        async function deleteCliente(id) {
+            if (await confirmAction('¿Eliminar cliente?', 'Esta acción no se puede deshacer')) {
+                try {
+                    const formData = new FormData();
+                    formData.append('action', 'delete');
+                    formData.append('cliente_id', id);
+
+                    const response = await fetch('', {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+
+                    const data = await response.json();
+
+                    if (data.status) {
+                        showNotification('success', data.message);
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        showError('Error', data.message);
+                    }
+                } catch (error) {
+                    showError('Error', 'Ocurrió un error al eliminar el cliente');
+                }
             }
         }
-    }
 
-    // Función para editar cliente
-    async function editCliente(cliente) {
-        const formValues = await showEditForm(cliente);
-        if (formValues) {
-            try {
-                const formData = new FormData();
-                formData.append('action', 'update');
-                formData.append('cliente_id', cliente.id);
-                Object.keys(formValues).forEach(key => {
-                    formData.append(key, formValues[key]);
-                });
+        // Función para editar cliente
+        async function editCliente(cliente) {
+            const formValues = await showEditForm(cliente);
+            if (formValues) {
+                try {
+                    const formData = new FormData();
+                    formData.append('action', 'update');
+                    formData.append('cliente_id', cliente.id);
+                    Object.keys(formValues).forEach(key => {
+                        formData.append(key, formValues[key]);
+                    });
 
-                const response = await fetch('', {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
+                    const response = await fetch('', {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+
+                    const data = await response.json();
+
+                    if (data.status) {
+                        showNotification('success', data.message);
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        showError('Error', data.message);
                     }
-                });
-
-                const data = await response.json();
-                
-                if (data.status) {
-                    showNotification('success', data.message);
-                    setTimeout(() => location.reload(), 1500);
-                } else {
-                    showError('Error', data.message);
+                } catch (error) {
+                    showError('Error', 'Ocurrió un error al actualizar el cliente');
                 }
-            } catch (error) {
-                showError('Error', 'Ocurrió un error al actualizar el cliente');
             }
         }
-    }
     </script>
 </body>
+
 </html>

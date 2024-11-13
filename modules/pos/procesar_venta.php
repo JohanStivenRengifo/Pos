@@ -70,8 +70,28 @@ try {
 
     $numero_factura = $empresa['prefijo_factura'] . str_pad($siguiente_numero, 8, '0', STR_PAD_LEFT);
 
-    // Insertar venta con manejo de errores mejorado
+    // Agregar en la sección donde se procesa la venta
+    $numeracion = $datos['numeracion'] ?? 'principal';
+
+    // Calcular subtotal primero (total antes del descuento)
+    $subtotal = $datos['total'] / (1 - ($datos['descuento'] ?? 0) / 100);
+
+    // Dentro del bloque try donde se inserta la venta
     try {
+        // Log de datos recibidos
+        error_log("Datos recibidos para inserción: " . print_r([
+            'user_id' => $user_id,
+            'cliente_id' => $datos['cliente_id'],
+            'total' => $datos['total'],
+            'subtotal' => $subtotal,
+            'descuento' => $datos['descuento'] ?? 0,
+            'metodo_pago' => $datos['metodo_pago'],
+            'tipo_documento' => $datos['tipo_documento'],
+            'numero_factura' => $numero_factura,
+            'numeracion_tipo' => $numeracion,
+            'numeracion' => $datos['numeracion'] ?? 'principal'
+        ], true));
+
         $sql = "INSERT INTO ventas (
             user_id,
             cliente_id, 
@@ -79,12 +99,16 @@ try {
             subtotal,
             descuento, 
             metodo_pago, 
-            tipo_documento, 
-            fecha, 
+            tipo_documento,
+            fecha,
             numero_factura,
             numeracion_tipo,
+            numeracion,
             turno_id,
-            anulada
+            anulada,
+            factura_electronica_id,
+            estado_factura,
+            fecha_envio_dian
         ) VALUES (
             :user_id,
             :cliente_id, 
@@ -92,16 +116,17 @@ try {
             :subtotal,
             :descuento, 
             :metodo_pago, 
-            :tipo_documento, 
-            NOW(), 
+            :tipo_documento,
+            NOW(),
             :numero_factura,
             :numeracion_tipo,
+            :numeracion,
             :turno_id,
-            0
+            0,
+            :factura_electronica_id,
+            :estado_factura,
+            :fecha_envio_dian
         )";
-        
-        // Calcular subtotal (total antes del descuento)
-        $subtotal = $datos['total'] / (1 - ($datos['descuento'] ?? 0) / 100);
         
         $stmt = $pdo->prepare($sql);
         $result = $stmt->execute([
@@ -113,20 +138,24 @@ try {
             ':metodo_pago' => $datos['metodo_pago'],
             ':tipo_documento' => $datos['tipo_documento'],
             ':numero_factura' => $numero_factura,
-            ':numeracion_tipo' => 'principal',
-            ':turno_id' => $turno_id
+            ':numeracion_tipo' => $numeracion,
+            ':numeracion' => $datos['numeracion'] ?? 'principal',
+            ':turno_id' => $turno_id,
+            ':factura_electronica_id' => null,
+            ':estado_factura' => ($numeracion === 'electronica' ? 'PENDIENTE' : null),
+            ':fecha_envio_dian' => null
         ]);
 
         if (!$result) {
+            error_log("Error en la inserción: " . print_r($stmt->errorInfo(), true));
             throw new Exception('Error al insertar la venta: ' . implode(', ', $stmt->errorInfo()));
         }
 
         $venta_id = $pdo->lastInsertId();
-        
-        // Log de venta creada
-        error_log("Venta creada con ID: " . $venta_id . " para el turno: " . $turno_id);
+        error_log("Venta creada exitosamente con ID: " . $venta_id);
 
     } catch (PDOException $e) {
+        error_log("Error PDO: " . $e->getMessage());
         throw new Exception('Error en la base de datos al crear la venta: ' . $e->getMessage());
     }
 

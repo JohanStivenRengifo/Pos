@@ -999,4 +999,143 @@ $(document).ready(function () {
             }
         });
     }
+
+    // Agregar después de la declaración de variables existentes
+    let numeracionTipo = 'principal';
+
+    // Agregar el listener para el cambio de numeración
+    $('#numeracion').on('change', function() {
+        numeracionTipo = $(this).val();
+    });
+
+    // Modificar la función de procesar venta
+    async function procesarVenta() {
+        if (!validarCarrito()) return;
+
+        const clienteId = $('#cliente-select').val();
+        const tipoDocumento = $('#tipo-documento').val();
+        const descuento = parseFloat($('#descuento').val()) || 0;
+        const metodoPago = $('#metodo-pago').val();
+        const numeracionTipo = $('#numeracion').val();
+        
+        const ventaData = {
+            tipo_documento: tipoDocumento,
+            cliente_id: clienteId,
+            productos: carrito.map(item => ({
+                id: item.id,
+                cantidad: item.cantidad,
+                precio: item.precio
+            })),
+            total: calcularTotal(),
+            descuento: descuento,
+            metodo_pago: metodoPago,
+            numeracion_tipo: numeracionTipo,
+            numeracion: numeracionTipo
+        };
+
+        try {
+            const response = await fetch('procesar_venta.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(ventaData)
+            });
+
+            let result;
+            const responseText = await response.text();
+            
+            try {
+                result = JSON.parse(responseText);
+            } catch (e) {
+                console.error('Respuesta del servidor:', responseText);
+                throw new Error('Error al procesar la respuesta del servidor');
+            }
+
+            if (!result.status) {
+                throw new Error(result.message || 'Error desconocido al procesar la venta');
+            }
+
+            // Si es factura electrónica, enviar a Factus
+            if (numeracionTipo === 'electronica') {
+                try {
+                    await enviarFacturaElectronica(result.venta_id);
+                } catch (error) {
+                    console.error('Error al enviar factura electrónica:', error);
+                    // Mostrar error pero continuar con el proceso
+                    Swal.fire({
+                        title: 'Advertencia',
+                        text: 'La venta se procesó correctamente pero hubo un error al generar la factura electrónica. Se intentará nuevamente más tarde.',
+                        icon: 'warning'
+                    });
+                }
+            }
+
+            // Mostrar mensaje de éxito
+            await Swal.fire({
+                title: 'Éxito',
+                text: 'Venta procesada correctamente',
+                icon: 'success'
+            });
+
+            // Limpiar carrito y formulario
+            limpiarVenta();
+            
+            return result;
+
+        } catch (error) {
+            console.error('Error:', error);
+            Swal.fire({
+                title: 'Error',
+                text: error.message,
+                icon: 'error'
+            });
+            throw error;
+        }
+    }
+
+    // Función para enviar factura electrónica
+    async function enviarFacturaElectronica(ventaId) {
+        try {
+            console.log('Enviando factura electrónica para venta:', ventaId);
+            
+            const response = await fetch('enviar_factura_electronica.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ venta_id: ventaId })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            console.log('Respuesta de factura electrónica:', result);
+            
+            if (!result.success) {
+                throw new Error(result.message || 'Error al enviar factura electrónica');
+            }
+            
+            // Verificar el estado después del envío
+            await verificarEstadoFactura(ventaId);
+            
+            return result;
+        } catch (error) {
+            console.error('Error al enviar factura electrónica:', error);
+            throw error;
+        }
+    }
+
+    async function verificarEstadoFactura(ventaId) {
+        try {
+            const response = await fetch(`consultar_estado_factura.php?venta_id=${ventaId}`);
+            const result = await response.json();
+            console.log('Estado de la factura:', result);
+            return result;
+        } catch (error) {
+            console.error('Error al verificar estado:', error);
+        }
+    }
 });

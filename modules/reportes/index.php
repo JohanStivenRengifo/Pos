@@ -222,54 +222,106 @@ function getTendenciasVentas($user_id) {
 function getKPIs($user_id) {
     global $pdo;
     try {
+        // Primero obtenemos el total de días con ventas
+        $queryDiasVenta = "SELECT COUNT(DISTINCT DATE(fecha)) as total_dias 
+                          FROM ventas 
+                          WHERE user_id = ? 
+                          AND fecha >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
+        
+        $stmtDias = $pdo->prepare($queryDiasVenta);
+        $stmtDias->execute([$user_id]);
+        $totalDias = $stmtDias->fetch(PDO::FETCH_ASSOC)['total_dias'];
+        
+        // Si no hay días con ventas, usamos 1 para evitar división por cero
+        $totalDias = max(1, $totalDias);
+        
+        // Ahora obtenemos las estadísticas principales
         $query = "SELECT 
-                    AVG(total) as ticket_promedio,
-                    COUNT(*)/30 as ventas_diarias,
-                    SUM(total)/30 as ingreso_diario,
-                    COUNT(DISTINCT cliente_id) as clientes_unicos
+                    COALESCE(AVG(total), 0) as ticket_promedio,
+                    COUNT(*) as total_ventas,
+                    COALESCE(SUM(total), 0) as total_ingresos,
+                    COUNT(DISTINCT cliente_id) as clientes_unicos,
+                    COUNT(*) / ? as ventas_diarias,
+                    COALESCE(SUM(total), 0) / ? as ingreso_diario
                   FROM ventas 
                   WHERE user_id = ? 
                   AND fecha >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
         
         $stmt = $pdo->prepare($query);
-        $stmt->execute([$user_id]);
-        return ['status' => true, 'data' => $stmt->fetch(PDO::FETCH_ASSOC)];
+        $stmt->execute([$totalDias, $totalDias, $user_id]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        // Log para debugging
+        error_log("KPIs calculados: " . json_encode($result));
+        error_log("Total días con ventas: " . $totalDias);
+        
+        return ['status' => true, 'data' => $result];
     } catch (PDOException $e) {
+        error_log("Error en getKPIs: " . $e->getMessage());
         return ['status' => false, 'message' => 'Error al obtener KPIs: ' . $e->getMessage()];
     }
 }
 
-// Nueva función para obtener flujo de caja
+// Función para obtener flujo de caja
 function getFlujoCaja($user_id) {
     global $pdo;
     try {
+        // Primero verificamos si hay datos
+        $queryCheck = "SELECT COUNT(*) as total FROM turnos t 
+                      WHERE t.user_id = ? AND t.estado = 'cerrado'";
+        $stmtCheck = $pdo->prepare($queryCheck);
+        $stmtCheck->execute([$user_id]);
+        $totalTurnos = $stmtCheck->fetch(PDO::FETCH_ASSOC)['total'];
+        
+        error_log("Total de turnos encontrados: " . $totalTurnos);
+        
+        // Query principal modificada para asegurar que obtengamos datos
         $query = "SELECT 
-                    DATE_FORMAT(fecha, '%Y-%m') as mes,
-                    SUM(CASE 
-                        WHEN tipo = 'ingreso' THEN monto 
-                        ELSE -monto 
-                    END) as flujo
-                  FROM (
-                    SELECT fecha, total as monto, 'ingreso' as tipo 
-                    FROM ventas 
-                    WHERE user_id = ?
-                    UNION ALL
-                    SELECT fecha, monto, 'ingreso' as tipo 
-                    FROM ingresos 
-                    WHERE user_id = ?
-                    UNION ALL
-                    SELECT fecha, monto, 'egreso' as tipo 
-                    FROM egresos 
-                    WHERE user_id = ?
-                  ) as movimientos
-                  GROUP BY DATE_FORMAT(fecha, '%Y-%m')
-                  ORDER BY mes DESC
-                  LIMIT 12";
+                    DATE_FORMAT(t.fecha_apertura, '%Y-%m') as mes,
+                    COALESCE(SUM(v.total), 0) as total_ventas,
+                    COUNT(DISTINCT t.id) as total_turnos
+                  FROM turnos t
+                  LEFT JOIN ventas v ON v.turno_id = t.id AND v.estado = 'completada'
+                  WHERE t.user_id = ?
+                  AND t.estado = 'cerrado'
+                  AND t.fecha_apertura >= DATE_SUB(CURRENT_DATE(), INTERVAL 12 MONTH)
+                  GROUP BY DATE_FORMAT(t.fecha_apertura, '%Y-%m')
+                  ORDER BY mes DESC";
         
         $stmt = $pdo->prepare($query);
-        $stmt->execute([$user_id, $user_id, $user_id]);
-        return ['status' => true, 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)];
+        $stmt->execute([$user_id]);
+        
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Log para debugging
+        error_log("Query Flujo de caja: " . $query);
+        error_log("User ID: " . $user_id);
+        error_log("Resultados encontrados: " . count($result));
+        error_log("Datos de flujo de caja: " . json_encode($result));
+        
+        // Si no hay resultados, intentamos obtener al menos los turnos
+        if (empty($result)) {
+            $queryBasic = "SELECT 
+                            DATE_FORMAT(fecha_apertura, '%Y-%m') as mes,
+                            0 as total_ventas,
+                            COUNT(*) as total_turnos
+                          FROM turnos 
+                          WHERE user_id = ?
+                          AND estado = 'cerrado'
+                          AND fecha_apertura >= DATE_SUB(CURRENT_DATE(), INTERVAL 12 MONTH)
+                          GROUP BY DATE_FORMAT(fecha_apertura, '%Y-%m')
+                          ORDER BY mes DESC";
+            
+            $stmtBasic = $pdo->prepare($queryBasic);
+            $stmtBasic->execute([$user_id]);
+            $result = $stmtBasic->fetchAll(PDO::FETCH_ASSOC);
+            
+            error_log("Resultados básicos encontrados: " . count($result));
+        }
+        
+        return ['status' => true, 'data' => $result];
     } catch (PDOException $e) {
+        error_log("Error en getFlujoCaja: " . $e->getMessage());
         return ['status' => false, 'message' => 'Error al obtener flujo de caja: ' . $e->getMessage()];
     }
 }
@@ -319,6 +371,68 @@ function getComparativaMensual($user_id) {
     }
 }
 
+// Nueva función para obtener ventas por turno
+function getVentasPorTurno($user_id) {
+    global $pdo;
+    try {
+        $query = "SELECT 
+                    t.id as turno_id,
+                    DATE_FORMAT(t.fecha_apertura, '%d/%m/%Y') as fecha,
+                    t.fecha_apertura,
+                    t.fecha_cierre,
+                    t.monto_inicial,
+                    t.monto_final,
+                    COALESCE(SUM(v.total), 0) as total_ventas,
+                    COUNT(DISTINCT v.id) as numero_ventas
+                  FROM turnos t
+                  LEFT JOIN ventas v ON v.turno_id = t.id 
+                  WHERE t.user_id = ? 
+                  AND t.fecha_cierre IS NOT NULL
+                  GROUP BY t.id, t.fecha_apertura, t.fecha_cierre, t.monto_inicial, t.monto_final
+                  ORDER BY t.fecha_apertura DESC
+                  LIMIT 10";
+        
+        $stmt = $pdo->prepare($query);
+        $stmt->execute([$user_id]);
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Log para debugging
+        error_log("Query Ventas por Turno: " . $query);
+        error_log("User ID: " . $user_id);
+        error_log("Resultados encontrados: " . count($result));
+        error_log("Datos de ventas por turno: " . json_encode($result));
+        
+        // Si no hay resultados, intentamos obtener al menos los turnos básicos
+        if (empty($result)) {
+            $queryBasic = "SELECT 
+                            id as turno_id,
+                            DATE_FORMAT(fecha_apertura, '%d/%m/%Y') as fecha,
+                            fecha_apertura,
+                            fecha_cierre,
+                            monto_inicial,
+                            monto_final,
+                            0 as total_ventas,
+                            0 as numero_ventas
+                          FROM turnos 
+                          WHERE user_id = ?
+                          AND fecha_cierre IS NOT NULL
+                          ORDER BY fecha_apertura DESC
+                          LIMIT 10";
+            
+            $stmtBasic = $pdo->prepare($queryBasic);
+            $stmtBasic->execute([$user_id]);
+            $result = $stmtBasic->fetchAll(PDO::FETCH_ASSOC);
+            
+            error_log("Resultados básicos encontrados: " . count($result));
+        }
+        
+        return ['status' => true, 'data' => $result];
+    } catch (PDOException $e) {
+        error_log("Error en getVentasPorTurno: " . $e->getMessage());
+        return ['status' => false, 'message' => 'Error al obtener ventas por turno: ' . $e->getMessage()];
+    }
+}
+
 // Obtener datos para gráficos y tablas con manejo de errores
 $ventasNetasResult = getVentasNetasPorMes($user_id);
 $ventasPorMetodoPagoResult = getVentasPorMetodoPago($user_id);
@@ -348,6 +462,14 @@ $kpisResult = getKPIs($user_id);
 
 // Obtener datos adicionales
 $flujoCajaResult = getFlujoCaja($user_id);
+
+// Debug temporal - Mostrar en el HTML como comentario
+echo "<!-- Debug Flujo Caja\n";
+echo "Status: " . ($flujoCajaResult['status'] ? 'true' : 'false') . "\n";
+echo "Cantidad de registros: " . (isset($flujoCajaResult['data']) ? count($flujoCajaResult['data']) : 0) . "\n";
+echo "Datos:\n";
+print_r($flujoCajaResult);
+echo "\n-->";
 $gastosPorCategoriaResult = getGastosPorCategoria($user_id);
 $comparativaMensualResult = getComparativaMensual($user_id);
 ?>
@@ -367,39 +489,20 @@ $comparativaMensualResult = getComparativaMensual($user_id);
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
-    <header class="header">
-        <div class="logo">
-            <a href="../../welcome.php">VendEasy</a>
-        </div>
-        <div class="header-icons">
-            <i class="fas fa-bell"></i>
-            <div class="account">
-                <h4><?= htmlspecialchars($email) ?></h4>
-            </div>
-        </div>
-    </header>
+<?php include '../../includes/header.php'; ?>
     <div class="container">
-        <nav>
-        <div class="side_navbar">
-                <span>Menú Principal</span>
-                <a href="/welcome.php">Dashboard</a>
-                <a href="/modules/pos/index.php">POS</a>
-                <a href="/modules/ingresos/index.php">Ingresos</a>
-                <a href="/modules/egresos/index.php">Egresos</a>
-                <a href="/modules/ventas/index.php">Ventas</a>
-                <a href="/modules/inventario/index.php">Inventario</a>
-                <a href="/modules/clientes/index.php">Clientes</a>
-                <a href="/modules/proveedores/index.php">Proveedores</a>
-                <a href="/modules/reportes/index.php" class="active">Reportes</a>
-                <a href="/modules/config/index.php">Configuración</a>
-
-                <div class="links">
-                    <span>Enlaces Rápidos</span>
-                    <a href="/ayuda.php">Ayuda</a>
-                    <a href="/contacto.php">Soporte</a>
-                </div>
-            </div>
-        </nav>
+        <?php include '../../includes/sidebar.php'; ?>
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const currentUrl = window.location.pathname;
+                const sidebarLinks = document.querySelectorAll('.side_navbar a');
+                sidebarLinks.forEach(link => {
+                    if (link.getAttribute('href') === currentUrl) {
+                        link.classList.add('active');
+                    }
+                });
+            });
+        </script>
 
         <div class="main-body">
             <h2>Panel de Reportes</h2>
@@ -496,13 +599,12 @@ $comparativaMensualResult = getComparativaMensual($user_id);
                 </div>
             </div>
 
-            <!-- Después de la sección de tendencias -->
-            <!-- Flujo de Caja -->
+            <!-- Ventas por Turno -->
             <div class="chart-section">
                 <div class="chart-card">
-                    <h4>Flujo de Caja (Últimos 12 meses)</h4>
-                    <div class="chart-wrapper">
-                        <canvas id="flujoCajaChart"></canvas>
+                    <h4>Ventas por Turno (Últimos 10 turnos)</h4>
+                    <div class="chart-wrapper" style="height: 400px;">
+                        <canvas id="ventasPorTurnoChart"></canvas>
                     </div>
                 </div>
             </div>
@@ -983,45 +1085,115 @@ $comparativaMensualResult = getComparativaMensual($user_id);
             });
         }
 
-        // Gráfica de Flujo de Caja
-        const flujoCajaData = <?= json_encode($flujoCajaResult['data'] ?? []) ?>;
-        const ctxFlujo = document.getElementById('flujoCajaChart');
-        
-        if (ctxFlujo && flujoCajaData.length > 0) {
-            new Chart(ctxFlujo, {
+        // Obtener los datos de ventas por turno
+        const ventasPorTurnoData = <?= json_encode(getVentasPorTurno($user_id)['data'] ?? []) ?>;
+        const ctxVentasTurno = document.getElementById('ventasPorTurnoChart');
+
+        if (ctxVentasTurno && ventasPorTurnoData.length > 0) {
+            new Chart(ctxVentasTurno, {
                 type: 'bar',
                 data: {
-                    labels: flujoCajaData.map(item => {
-                        const fecha = new Date(item.mes + '-01');
-                        return fecha.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' });
+                    labels: ventasPorTurnoData.map(item => {
+                        const fechaApertura = new Date(item.fecha_apertura);
+                        const fechaCierre = item.fecha_cierre ? new Date(item.fecha_cierre) : null;
+                        const horaApertura = fechaApertura.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+                        const horaCierre = fechaCierre ? fechaCierre.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : 'En curso';
+                        return `${item.fecha} (${horaApertura} - ${horaCierre})`;
                     }),
                     datasets: [{
-                        label: 'Flujo de Caja',
-                        data: flujoCajaData.map(item => parseFloat(item.flujo)),
-                        backgroundColor: flujoCajaData.map(item => 
-                            parseFloat(item.flujo) >= 0 ? 
-                            'rgba(76, 175, 80, 0.6)' : 
-                            'rgba(244, 67, 54, 0.6)'
-                        )
+                        label: 'Total Ventas ($)',
+                        data: ventasPorTurnoData.map(item => parseFloat(item.total_ventas)),
+                        backgroundColor: 'rgba(76, 175, 80, 0.6)',
+                        borderColor: 'rgb(76, 175, 80)',
+                        borderWidth: 1,
+                        yAxisID: 'y'
+                    }, {
+                        label: 'Número de Ventas',
+                        data: ventasPorTurnoData.map(item => parseInt(item.numero_ventas)),
+                        backgroundColor: 'rgba(33, 150, 243, 0.6)',
+                        borderColor: 'rgb(33, 150, 243)',
+                        borderWidth: 1,
+                        yAxisID: 'y1'
                     }]
                 },
                 options: {
                     responsive: true,
+                    maintainAspectRatio: false,
                     plugins: {
                         legend: {
-                            display: false
+                            display: true,
+                            position: 'top'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    if (context.dataset.yAxisID === 'y') {
+                                        return 'Total: $' + context.raw.toLocaleString('es-ES', {
+                                            minimumFractionDigits: 2,
+                                            maximumFractionDigits: 2
+                                        });
+                                    } else {
+                                        return 'Ventas: ' + context.raw;
+                                    }
+                                },
+                                afterBody: function(context) {
+                                    const idx = context[0].dataIndex;
+                                    const turno = ventasPorTurnoData[idx];
+                                    return [
+                                        `Monto Inicial: $${parseFloat(turno.monto_inicial).toLocaleString('es-ES', {minimumFractionDigits: 2})}`,
+                                        `Monto Final: $${parseFloat(turno.monto_final || 0).toLocaleString('es-ES', {minimumFractionDigits: 2})}`
+                                    ];
+                                }
+                            }
                         }
                     },
                     scales: {
-                        y: {
-                            beginAtZero: true,
+                        x: {
                             ticks: {
-                                callback: value => '$' + value.toLocaleString('es-ES')
+                                maxRotation: 45,
+                                minRotation: 45
+                            }
+                        },
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Total Ventas ($)'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString('es-ES', {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2
+                                    });
+                                }
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'Número de Ventas'
+                            },
+                            grid: {
+                                drawOnChartArea: false
                             }
                         }
                     }
                 }
             });
+        } else {
+            if (ctxVentasTurno) {
+                const ctx = ctxVentasTurno.getContext('2d');
+                ctx.font = '14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#666';
+                ctx.fillText('No hay datos disponibles para mostrar', ctxVentasTurno.width / 2, ctxVentasTurno.height / 2);
+            }
         }
 
         // Gráfica de Gastos por Categoría

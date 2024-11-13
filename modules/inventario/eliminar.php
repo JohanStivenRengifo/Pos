@@ -234,9 +234,19 @@ if ($codigo_barras) {
             <a href="../../welcome.php">VendEasy</a>
         </div>
         <div class="header-icons">
-            <i class="fas fa-bell"></i>
-            <div class="account">
-                <h4><?= htmlspecialchars($email) ?></h4>
+            <div class="user-info">
+                <?php if (!empty($empresa_info['logo'])): ?>
+                    <div class="company-logo">
+                        <img src="/<?= htmlspecialchars($empresa_info['logo']); ?>" alt="Logo empresa">
+                    </div>
+                <?php else: ?>
+                    <div class="company-logo default-logo">
+                        <i class="fas fa-building"></i>
+                    </div>
+                <?php endif; ?>
+                <div class="account">
+                    <h4><?= htmlspecialchars($email) ?></h4>
+                </div>
             </div>
         </div>
     </header>

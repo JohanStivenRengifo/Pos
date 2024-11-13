@@ -7,21 +7,18 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-// Incluir la configuración de la base de datos
 require_once 'config/db.php';
 
-// Obtener datos del usuario
 $user_id = $_SESSION['user_id'];
 $email = $_SESSION['email'];
 ?>
 
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ayuda - VendEasy</title>
+    <title>Centro de Ayuda - Sistema Contable</title>
     <link rel="icon" type="image/png" href="favicon/favicon.ico"/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
     <link rel="stylesheet" href="css/welcome.css">
@@ -101,135 +98,140 @@ $email = $_SESSION['email'];
         .contact-support a:hover {
             background: #1565c0;
         }
+
+        /* Nuevos estilos para secciones contables */
+        .accounting-tips {
+            background: #f8f9fa;
+            padding: 15px;
+            border-left: 4px solid #2962ff;
+            margin: 10px 0;
+        }
+        
+        .important-note {
+            background: #fff3e0;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        
+        .video-tutorial {
+            border-left: 4px solid #4caf50;
+        }
     </style>
 </head>
 
 <body>
-    <header class="header">
-        <div class="logo">
-            <a href="welcome.php">VendEasy</a>
-        </div>
-        <div class="header-icons">
-            <i class="fas fa-bell"></i>
-            <div class="account">
-                <h4><?= htmlspecialchars($email) ?></h4>
-            </div>
-        </div>
-    </header>
-
+<?php include 'includes/header.php'; ?>
     <div class="container">
-        <nav>
-            <div class="side_navbar">
-                <span>Menú Principal</span>
-                <a href="welcome.php">Dashboard</a>
-                <a href="/modules/pos/index.php">Punto de Venta</a>
-                <a href="/modules/ingresos/index.php">Ingresos</a>
-                <a href="/modules/egresos/index.php">Egresos</a>
-                <a href="/modules/ventas/index.php">Ventas</a>
-                <a href="/modules/inventario/index.php">Inventario</a>
-                <a href="/modules/clientes/index.php">Clientes</a>
-                <a href="/modules/proveedores/index.php">Proveedores</a>
-                <a href="/modules/reportes/index.php">Reportes</a>
-                <a href="/modules/config/index.php">Configuración</a>
-
-                <div class="links">
-                    <span>Enlaces Rápidos</span>
-                    <a href="#" class="active">Ayuda</a>
-                    <a href="./contacto.php">Soporte</a>
-                </div>
-            </div>
-        </nav>
-
+        <?php include 'includes/sidebar.php'; ?>
+        
         <div class="main-body">
             <div class="help-container">
-                <h2>Centro de Ayuda</h2>
+                <h2>Centro de Ayuda - Sistema Contable</h2>
 
                 <div class="help-section">
-                    <h3>Preguntas Frecuentes</h3>
+                    <h3>Preguntas Frecuentes sobre Contabilidad</h3>
+                    
                     <div class="faq-item">
                         <div class="faq-question">
-                            ¿Cómo realizar una venta? <i class="fas fa-chevron-down"></i>
+                            ¿Cómo registrar asientos contables? <i class="fas fa-chevron-down"></i>
                         </div>
                         <div class="faq-answer">
-                            Para realizar una venta, sigue estos pasos:
+                            Para registrar asientos contables:
                             <ol>
-                                <li>Accede al módulo "Punto de Venta"</li>
-                                <li>Selecciona los productos del catálogo</li>
-                                <li>Añade la cantidad deseada</li>
-                                <li>Selecciona el método de pago</li>
-                                <li>Confirma la venta</li>
+                                <li>Accede al módulo "Libro Diario"</li>
+                                <li>Selecciona "Nuevo Asiento"</li>
+                                <li>Ingresa la fecha y descripción</li>
+                                <li>Añade las cuentas deudoras y acreedoras</li>
+                                <li>Verifica que el asiento esté cuadrado</li>
+                                <li>Guarda el asiento</li>
                             </ol>
                         </div>
                     </div>
 
                     <div class="faq-item">
                         <div class="faq-question">
-                            ¿Cómo gestionar el inventario? <i class="fas fa-chevron-down"></i>
+                            ¿Cómo generar estados financieros? <i class="fas fa-chevron-down"></i>
                         </div>
                         <div class="faq-answer">
-                            El módulo de inventario te permite:
+                            Para generar estados financieros:
                             <ul>
-                                <li>Agregar nuevos productos</li>
-                                <li>Actualizar existencias</li>
-                                <li>Configurar alertas de stock bajo</li>
-                                <li>Generar reportes de inventario</li>
+                                <li>Accede a "Reportes Financieros"</li>
+                                <li>Selecciona el tipo de estado (Balance General, Estado de Resultados, etc.)</li>
+                                <li>Define el período</li>
+                                <li>Configura los filtros necesarios</li>
+                                <li>Genera el reporte en PDF o Excel</li>
                             </ul>
                         </div>
                     </div>
 
                     <div class="faq-item">
                         <div class="faq-question">
-                            ¿Cómo generar reportes? <i class="fas fa-chevron-down"></i>
+                            ¿Cómo realizar el cierre contable? <i class="fas fa-chevron-down"></i>
                         </div>
                         <div class="faq-answer">
-                            Accede al módulo de Reportes donde podrás:
+                            El proceso de cierre contable incluye:
                             <ul>
-                                <li>Seleccionar el tipo de reporte</li>
-                                <li>Establecer el rango de fechas</li>
-                                <li>Filtrar por categorías específicas</li>
-                                <li>Exportar en diferentes formatos</li>
+                                <li>Verificar todos los asientos del período</li>
+                                <li>Realizar ajustes necesarios</li>
+                                <li>Generar asientos de cierre</li>
+                                <li>Verificar balances finales</li>
+                                <li>Generar reportes de cierre</li>
                             </ul>
                         </div>
                     </div>
                 </div>
 
                 <div class="help-section">
-                    <h3>Guías Rápidas</h3>
-                    <div class="video-tutorial">
-                        <h4>Tutorial: Primeros pasos en VendEasy</h4>
-                        <p>Aprende lo básico para comenzar a usar el sistema.</p>
-                        <!-- Aquí puedes agregar un enlace a un video tutorial -->
+                    <h3>Guías y Tutoriales Contables</h3>
+                    
+                    <div class="accounting-tips">
+                        <h4>Consejos para una Contabilidad Eficiente</h4>
+                        <ul>
+                            <li>Mantén al día los registros contables</li>
+                            <li>Realiza conciliaciones bancarias mensualmente</li>
+                            <li>Verifica los saldos de las cuentas regularmente</li>
+                            <li>Mantén respaldo de todos los documentos importantes</li>
+                        </ul>
                     </div>
+
                     <div class="video-tutorial">
-                        <h4>Tutorial: Gestión de Ventas</h4>
-                        <p>Aprende a gestionar ventas de manera eficiente.</p>
-                        <!-- Aquí puedes agregar un enlace a un video tutorial -->
+                        <h4>Tutorial: Proceso Contable Completo</h4>
+                        <p>Aprende el ciclo contable paso a paso.</p>
+                    </div>
+
+                    <div class="video-tutorial">
+                        <h4>Tutorial: Reportes Financieros</h4>
+                        <p>Genera e interpreta estados financieros.</p>
                     </div>
                 </div>
 
+                <div class="important-note">
+                    <h4><i class="fas fa-exclamation-circle"></i> Nota Importante</h4>
+                    <p>Recuerda realizar respaldos periódicos de tu información contable y verificar la normativa contable vigente en tu región.</p>
+                </div>
+
                 <div class="contact-support">
-                    <h3>¿Necesitas más ayuda?</h3>
-                    <p>Nuestro equipo de soporte está disponible para ayudarte</p>
-                    <a href="./contacto.php">Contactar Soporte</a>
+                    <h3>¿Necesitas Soporte Contable?</h3>
+                    <p>Nuestro equipo de contadores está disponible para resolver tus dudas</p>
+                    <a href="./contacto.php">Contactar Soporte Contable</a>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Script para manejar el acordeón de las FAQs
+        // Script del acordeón (mantener el mismo)
         document.querySelectorAll('.faq-question').forEach(question => {
             question.addEventListener('click', () => {
                 const answer = question.nextElementSibling;
                 const isActive = question.classList.contains('active');
                 
-                // Cerrar todas las respuestas
                 document.querySelectorAll('.faq-question').forEach(q => {
                     q.classList.remove('active');
                     q.nextElementSibling.style.display = 'none';
                 });
 
-                // Abrir/cerrar la respuesta actual
                 if (!isActive) {
                     question.classList.add('active');
                     answer.style.display = 'block';
@@ -238,5 +240,4 @@ $email = $_SESSION['email'];
         });
     </script>
 </body>
-
 </html> 

@@ -224,12 +224,12 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 
             <div class="form-group">
                 <label for="password">Contraseña</label>
-                <div class="password-container">
+                <div class="input-container password-container">
                     <i class="fas fa-lock input-icon"></i>
                     <input type="password" id="password" name="password" required 
                            minlength="8"
                            placeholder="Mínimo 8 caracteres">
-                    <button type="button" class="toggle-password" aria-label="Toggle password visibility">
+                    <button type="button" class="toggle-password">
                         <i class="fas fa-eye"></i>
                     </button>
                 </div>
@@ -249,12 +249,12 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 
             <div class="form-group">
                 <label for="confirm_password">Confirmar Contraseña</label>
-                <div class="password-container">
+                <div class="input-container password-container">
                     <i class="fas fa-lock input-icon"></i>
                     <input type="password" id="confirm_password" name="confirm_password" 
                            required minlength="8"
                            placeholder="Repite tu contraseña">
-                    <button type="button" class="toggle-password" aria-label="Toggle password visibility">
+                    <button type="button" class="toggle-password">
                         <i class="fas fa-eye"></i>
                     </button>
                 </div>

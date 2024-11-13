@@ -519,30 +519,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['archivo_excel'])) {
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.all.min.js"></script>
 </head>
 <body>
-    <header class="header">
-        <div class="logo">
-            <a href="../../welcome.php">VendEasy</a>
-        </div>
-        <div class="header-icons">
-            <i class="fas fa-bell"></i>
-            <div class="account">
-                <h4><?= htmlspecialchars($email) ?></h4>
-            </div>
-        </div>
-    </header>
+<?php include '../../includes/header.php'; ?>
     <div class="container">
-        <nav>
-            <div class="side_navbar">
-                <span>Menú Principal</span>
-                <a href="../../welcome.php">Dashboard</a>
-                <a href="../pos/index.php">POS</a>
-                <a href="../ventas/index.php">Ventas</a>
-                <a href="../inventario/index.php" class="active">Inventario</a>
-                <a href="../clientes/index.php">Clientes</a>
-                <a href="../reportes/index.php">Reportes</a>
-                <a href="../config/index.php">Configuración</a>
-            </div>
-        </nav>
+        <?php include '../../includes/sidebar.php'; ?>
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const currentUrl = window.location.pathname;
+                const sidebarLinks = document.querySelectorAll('.side_navbar a');
+                sidebarLinks.forEach(link => {
+                    if (link.getAttribute('href') === currentUrl) {
+                        link.classList.add('active');
+                    }
+                });
+            });
+        </script>
 
         <div class="main-body">
             <h2>Importar Productos</h2>

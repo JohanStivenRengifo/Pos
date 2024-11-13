@@ -206,30 +206,20 @@ if (isset($_GET['id'])) {
     </style>
 </head>
 <body>
-    <header class="header">
-        <div class="logo">
-            <a href="../../welcome.php">VendEasy</a>
-        </div>
-        <div class="header-icons">
-            <i class="fas fa-bell"></i>
-            <div class="account">
-                <h4><?= htmlspecialchars($email) ?></h4>
-            </div>
-        </div>
-    </header>
-
+<?php include '../../includes/header.php'; ?>
     <div class="container">
-        <nav>
-            <div class="side_navbar">
-                <span>Menú Principal</span>
-                <a href="/welcome.php">Dashboard</a>
-                <a href="/modules/pos/index.php">POS</a>
-                <a href="/modules/ventas/index.php" class="active">Ventas</a>
-                <a href="/modules/inventario/index.php">Inventario</a>
-                <a href="/modules/clientes/index.php">Clientes</a>
-                <a href="/modules/config/index.php">Configuración</a>
-            </div>
-        </nav>
+        <?php include '../../includes/sidebar.php'; ?>
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const currentUrl = window.location.pathname;
+                const sidebarLinks = document.querySelectorAll('.side_navbar a');
+                sidebarLinks.forEach(link => {
+                    if (link.getAttribute('href') === currentUrl) {
+                        link.classList.add('active');
+                    }
+                });
+            });
+        </script>
 
         <div class="main-body">
             <div class="main-content">

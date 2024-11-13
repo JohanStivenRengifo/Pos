@@ -83,43 +83,79 @@ if (isset($_POST['logout'])) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
     <link rel="stylesheet" href="css/welcome.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .header-icons {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .company-logo {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8f9fa;
+        }
+
+        .company-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .default-logo {
+            background: #e9ecef;
+            color: #6c757d;
+            font-size: 1.2rem;
+        }
+
+        .account {
+            display: flex;
+            align-items: center;
+        }
+
+        .account h4 {
+            margin: 0;
+            font-size: 0.9rem;
+            color: #333;
+        }
+
+        /* Efecto hover para el logo */
+        .company-logo:hover {
+            transform: scale(1.05);
+            transition: transform 0.2s ease;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+        }
+    </style>
 </head>
 
 <body>
-    <header class="header">
-        <div class="logo">
-            <a href="#">VendEasy</a>
-        </div>
-
-        <div class="header-icons">
-            <i class="fas fa-bell"></i>
-            <div class="account">
-                <h4><?= htmlspecialchars($email) ?></h4>
-            </div>
-        </div>
-    </header>
+<?php include 'includes/header.php'; ?>
     <div class="container">
-        <nav>
-            <div class="side_navbar">
-                <span>Menú Principal</span>
-                <a href="#" class="active">Dashboard</a>
-                <a href="/modules/pos/index.php">Punto de Venta</a>
-                <a href="/modules/ingresos/index.php">Ingresos</a>
-                <a href="/modules/egresos/index.php">Egresos</a>
-                <a href="/modules/ventas/index.php">Ventas</a>
-                <a href="/modules/inventario/index.php">Inventario</a>
-                <a href="/modules/clientes/index.php">Clientes</a>
-                <a href="/modules/proveedores/index.php">Proveedores</a>
-                <a href="/modules/reportes/index.php">Reportes</a>
-                <a href="/modules/config/index.php">Configuración</a>
-
-                <div class="links">
-                    <span>Enlaces Rápidos</span>
-                    <a href="/ayuda.php">Ayuda</a>
-                    <a href="/contacto.php">Soporte</a>
-                </div>
-            </div>
-        </nav>
+        <?php include 'includes/sidebar.php'; ?>
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                const currentUrl = window.location.pathname;
+                const sidebarLinks = document.querySelectorAll('.side_navbar a');
+                sidebarLinks.forEach(link => {
+                    if (link.getAttribute('href') === currentUrl) {
+                        link.classList.add('active');
+                    }
+                });
+            });
+        </script>
 
         <div class="main-body">
             <h2>Dashboard</h2>
