@@ -127,193 +127,220 @@ error_log("Datos del turno: " . print_r($turno, true));
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cierre de Turno | VendEasy</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
-    <style>
-        .resumen-card {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 1rem;
-            border: 1px solid rgba(0,0,0,0.1);
-        }
-        .metodo-pago-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 0.5rem 0;
-            border-bottom: 1px solid rgba(0,0,0,0.1);
-        }
-        .metodo-pago-item:last-child {
-            border-bottom: none;
-        }
-        .total-general {
-            font-size: 1.2rem;
-            font-weight: bold;
-            color: #2c3e50;
-            padding-top: 1rem;
-            margin-top: 1rem;
-            border-top: 2px solid rgba(0,0,0,0.1);
-        }
-    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="icon" type="image/x-icon" href="../../../favicon/favicon.ico">
 </head>
-<body>
-    <div class="container mt-5">
-        <div class="row justify-content-center">
-            <div class="col-md-10">
-                <div class="card">
-                    <div class="card-header bg-danger text-white">
-                        <h5 class="mb-0"><i class="fas fa-clock mr-2"></i>Cierre de Turno</h5>
+<body class="bg-gray-50">
+    <div class="min-h-screen py-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4">
+                    <div class="flex items-center">
+                        <i class="fas fa-clock text-white text-2xl mr-3"></i>
+                        <div>
+                            <h1 class="text-xl font-bold text-white">Cierre de Turno</h1>
+                            <p class="text-red-100 text-sm mt-1">Resumen y cierre de operaciones</p>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        <?php if (isset($error)): ?>
-                            <div class="alert alert-danger"><?= $error ?></div>
-                        <?php endif; ?>
+                </div>
 
-                        <div class="row">
-                            <!-- Información general del turno -->
-                            <div class="col-md-6">
-                                <div class="resumen-card">
-                                    <h6 class="mb-3"><i class="fas fa-info-circle mr-2"></i>Información General</h6>
-                                    <div class="metodo-pago-item">
-                                        <span>Inicio del turno:</span>
-                                        <strong><?= date('d/m/Y H:i', strtotime($turno['fecha_apertura'])) ?></strong>
-                                    </div>
-                                    <div class="metodo-pago-item">
-                                        <span>Monto inicial:</span>
-                                        <strong>$<?= number_format($turno['monto_inicial'], 2, ',', '.') ?></strong>
-                                    </div>
-                                    <div class="metodo-pago-item">
-                                        <span>Total ventas:</span>
-                                        <strong>$<?= number_format($turno['total_ventas'], 2, ',', '.') ?></strong>
-                                    </div>
-                                    <div class="metodo-pago-item">
-                                        <span>Cantidad de ventas:</span>
-                                        <strong><?= $turno['cantidad_ventas'] ?></strong>
-                                    </div>
-                                </div>
+                <div class="p-6">
+                    <?php if (isset($error)): ?>
+                        <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-md">
+                            <div class="flex items-center">
+                                <i class="fas fa-exclamation-circle text-red-500 mr-2"></i>
+                                <p class="text-red-700"><?= $error ?></p>
                             </div>
+                        </div>
+                    <?php endif; ?>
 
-                            <!-- Resumen por método de pago -->
-                            <div class="col-md-6">
-                                <div class="resumen-card">
-                                    <h6 class="mb-3"><i class="fas fa-money-bill-wave mr-2"></i>Ventas por Método de Pago</h6>
-                                    <div class="metodo-pago-item">
-                                        <span>Efectivo (<?= $turno['ventas_efectivo'] ?>):</span>
-                                        <strong>$<?= number_format($turno['total_efectivo'], 2, ',', '.') ?></strong>
-                                    </div>
-                                    <div class="metodo-pago-item">
-                                        <span>Tarjeta (<?= $turno['ventas_tarjeta'] ?>):</span>
-                                        <strong>$<?= number_format($turno['total_tarjeta'], 2, ',', '.') ?></strong>
-                                    </div>
-                                    <div class="metodo-pago-item">
-                                        <span>Transferencia (<?= $turno['ventas_transferencia'] ?>):</span>
-                                        <strong>$<?= number_format($turno['total_transferencia'], 2, ',', '.') ?></strong>
-                                    </div>
-                                    <div class="metodo-pago-item">
-                                        <span>Crédito (<?= $turno['ventas_credito'] ?>):</span>
-                                        <strong>$<?= number_format($turno['total_credito'], 2, ',', '.') ?></strong>
-                                    </div>
-                                    <div class="total-general">
-                                        <span>Total:</span>
-                                        <strong>$<?= number_format($turno['total_ventas'], 2, ',', '.') ?></strong>
-                                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <!-- Información General -->
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <h2 class="text-lg font-semibold text-gray-700 mb-4 flex items-center">
+                                <i class="fas fa-info-circle mr-2 text-gray-500"></i>
+                                Información General
+                            </h2>
+                            <div class="space-y-3">
+                                <div class="flex justify-between items-center border-b border-gray-200 pb-2">
+                                    <span class="text-gray-600">Inicio del turno</span>
+                                    <span class="font-medium"><?= date('d/m/Y H:i', strtotime($turno['fecha_apertura'])) ?></span>
+                                </div>
+                                <div class="flex justify-between items-center border-b border-gray-200 pb-2">
+                                    <span class="text-gray-600">Monto inicial</span>
+                                    <span class="font-medium">$<?= number_format($turno['monto_inicial'], 2, ',', '.') ?></span>
+                                </div>
+                                <div class="flex justify-between items-center border-b border-gray-200 pb-2">
+                                    <span class="text-gray-600">Total ventas</span>
+                                    <span class="font-medium">$<?= number_format($turno['total_ventas'], 2, ',', '.') ?></span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-gray-600">Cantidad de ventas</span>
+                                    <span class="font-medium"><?= $turno['cantidad_ventas'] ?></span>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Últimas ventas -->
-                        <div class="row mt-4">
-                            <div class="col-12">
-                                <div class="resumen-card">
-                                    <h6 class="mb-3"><i class="fas fa-receipt mr-2"></i>Últimas Ventas</h6>
-                                    <div class="table-responsive">
-                                        <table class="table table-sm">
-                                            <thead>
-                                                <tr>
-                                                    <th>Hora</th>
-                                                    <th>Cliente</th>
-                                                    <th>Método</th>
-                                                    <th class="text-right">Total</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <?php foreach ($ultimas_ventas as $venta): ?>
-                                                    <tr>
-                                                        <td><?= date('H:i', strtotime($venta['fecha'])) ?></td>
-                                                        <td><?= htmlspecialchars($venta['cliente_nombre']) ?></td>
-                                                        <td><?= ucfirst($venta['metodo_pago']) ?></td>
-                                                        <td class="text-right">$<?= number_format($venta['total'], 2, ',', '.') ?></td>
-                                                    </tr>
-                                                <?php endforeach; ?>
-                                            </tbody>
-                                        </table>
-                                    </div>
+                        <!-- Resumen por método de pago -->
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <h2 class="text-lg font-semibold text-gray-700 mb-4 flex items-center">
+                                <i class="fas fa-money-bill-wave mr-2 text-gray-500"></i>
+                                Ventas por Método de Pago
+                            </h2>
+                            <div class="space-y-3">
+                                <div class="flex justify-between items-center border-b border-gray-200 pb-2">
+                                    <span class="text-gray-600">Efectivo (<?= $turno['ventas_efectivo'] ?>)</span>
+                                    <span class="font-medium">$<?= number_format($turno['total_efectivo'], 2, ',', '.') ?></span>
+                                </div>
+                                <div class="flex justify-between items-center border-b border-gray-200 pb-2">
+                                    <span class="text-gray-600">Tarjeta (<?= $turno['ventas_tarjeta'] ?>)</span>
+                                    <span class="font-medium">$<?= number_format($turno['total_tarjeta'], 2, ',', '.') ?></span>
+                                </div>
+                                <div class="flex justify-between items-center border-b border-gray-200 pb-2">
+                                    <span class="text-gray-600">Transferencia (<?= $turno['ventas_transferencia'] ?>)</span>
+                                    <span class="font-medium">$<?= number_format($turno['total_transferencia'], 2, ',', '.') ?></span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-gray-600">Crédito (<?= $turno['ventas_credito'] ?>)</span>
+                                    <span class="font-medium">$<?= number_format($turno['total_credito'], 2, ',', '.') ?></span>
+                                </div>
+                            </div>
+                            <div class="mt-4 pt-3 border-t border-gray-200">
+                                <div class="flex justify-between items-center text-lg font-semibold">
+                                    <span>Total</span>
+                                    <span>$<?= number_format($turno['total_ventas'], 2, ',', '.') ?></span>
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Formulario de cierre -->
-                        <form method="POST" action="" class="mt-4">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label for="monto_final">Monto Final en Caja</label>
-                                        <div class="input-group">
-                                            <div class="input-group-prepend">
-                                                <span class="input-group-text">$</span>
-                                            </div>
-                                            <input type="number" 
-                                                   class="form-control" 
-                                                   id="monto_final" 
-                                                   name="monto_final" 
-                                                   step="0.01" 
-                                                   required>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label for="observaciones">Observaciones</label>
-                                        <textarea class="form-control" 
-                                                  id="observaciones" 
-                                                  name="observaciones" 
-                                                  rows="3"></textarea>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="text-right mt-3">
-                                <a href="../index.php" class="btn btn-secondary mr-2">
-                                    <i class="fas fa-arrow-left mr-1"></i>Cancelar
-                                </a>
-                                <button type="submit" class="btn btn-danger">
-                                    <i class="fas fa-stop mr-2"></i>Cerrar Turno
-                                </button>
-                            </div>
-                        </form>
                     </div>
+
+                    <!-- Últimas ventas -->
+                    <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                        <h2 class="text-lg font-semibold text-gray-700 mb-4 flex items-center">
+                            <i class="fas fa-receipt mr-2 text-gray-500"></i>
+                            Últimas Ventas
+                        </h2>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-100">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hora</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Método</th>
+                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    <?php foreach ($ultimas_ventas as $venta): ?>
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <?= date('H:i', strtotime($venta['fecha'])) ?>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                <?= htmlspecialchars($venta['cliente_nombre']) ?>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                <?= ucfirst($venta['metodo_pago']) ?>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                                                $<?= number_format($venta['total'], 2, ',', '.') ?>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Formulario de cierre -->
+                    <form method="POST" action="" class="bg-gray-50 rounded-lg p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label for="monto_final" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Monto Final en Caja
+                                    <span class="text-sm text-gray-500">
+                                        (Esperado: $<?= number_format($turno['monto_inicial'] + $turno['total_efectivo'], 2, ',', '.') ?>)
+                                    </span>
+                                </label>
+                                <div class="mt-1 relative rounded-md shadow-sm">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <span class="text-gray-500 sm:text-sm">$</span>
+                                    </div>
+                                    <input type="number" 
+                                           id="monto_final" 
+                                           name="monto_final" 
+                                           step="0.01"
+                                           required
+                                           class="block w-full pl-7 pr-12 py-3 border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500"
+                                           value="<?= $turno['monto_inicial'] + $turno['total_efectivo'] ?>">
+                                    <div id="diferencia" class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-sm">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label for="observaciones" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Observaciones
+                                </label>
+                                <textarea id="observaciones" 
+                                          name="observaciones" 
+                                          rows="3"
+                                          class="block w-full border-gray-300 rounded-lg shadow-sm focus:ring-red-500 focus:border-red-500"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-between items-center mt-6">
+                            <a href="../index.php" 
+                               class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                <i class="fas fa-arrow-left mr-2"></i>
+                                Cancelar
+                            </a>
+                            <button type="submit" 
+                                    class="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                <i class="fas fa-stop mr-2"></i>
+                                Cerrar Turno
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
     <script>
-        // Calcular diferencia al ingresar monto final
-        document.getElementById('monto_final').addEventListener('input', function() {
+        document.addEventListener('DOMContentLoaded', function() {
+            const montoFinalInput = document.getElementById('monto_final');
+            const diferenciaDiv = document.getElementById('diferencia');
             const montoInicial = <?= $turno['monto_inicial'] ?>;
             const totalEfectivo = <?= $turno['total_efectivo'] ?>;
-            const montoFinal = parseFloat(this.value) || 0;
-            const diferenciaEsperada = (montoInicial + totalEfectivo) - montoFinal;
-            
-            // Aquí puedes agregar lógica para mostrar la diferencia
-            // Por ejemplo, cambiar el color del input según si hay faltante o sobrante
-            if (Math.abs(diferenciaEsperada) > 0.01) {
-                this.classList.add('is-invalid');
-            } else {
-                this.classList.remove('is-invalid');
+            const montoEsperado = montoInicial + totalEfectivo;
+
+            function actualizarDiferencia() {
+                const montoFinal = parseFloat(montoFinalInput.value) || 0;
+                const diferencia = montoFinal - montoEsperado;
+                
+                if (Math.abs(diferencia) > 0.01) {
+                    montoFinalInput.classList.add('border-red-500', 'ring-red-500');
+                    diferenciaDiv.classList.remove('text-green-600');
+                    diferenciaDiv.classList.add('text-red-600');
+                    if (diferencia > 0) {
+                        diferenciaDiv.textContent = `Sobrante: $${Math.abs(diferencia).toFixed(2)}`;
+                    } else {
+                        diferenciaDiv.textContent = `Faltante: $${Math.abs(diferencia).toFixed(2)}`;
+                    }
+                } else {
+                    montoFinalInput.classList.remove('border-red-500', 'ring-red-500');
+                    diferenciaDiv.classList.remove('text-red-600');
+                    diferenciaDiv.classList.add('text-green-600');
+                    diferenciaDiv.textContent = '✓ Correcto';
+                }
             }
+
+            montoFinalInput.addEventListener('input', actualizarDiferencia);
+            // Ejecutar al cargar para mostrar el estado inicial
+            actualizarDiferencia();
         });
     </script>
 </body>

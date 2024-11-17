@@ -11,12 +11,12 @@ if (!isset($_SESSION['user_id']) || !isset($_GET['id'])) {
 $user_id = $_SESSION['user_id'];
 $venta_id = $_GET['id'];
 
-// Configuración para impresora térmica de 80mm
-$ancho_papel = 80; // mm 
-$caracteres_por_linea = 42; // Ajustado para 80mm (aproximadamente 42 caracteres)
-$ticket = "";
+// Ajustar configuración para impresora térmica de 80mm
+$ancho_papel = 80; // mm
+$caracteres_por_linea = 48; // Ajustado para 80mm con márgenes
+$margen_izquierdo = 2; // Espacios para margen izquierdo
 
-// Mejora en la función de centrado para manejar caracteres especiales
+// Función mejorada para centrar texto
 function centrar_texto($texto, $ancho) {
     $texto = trim($texto);
     $longitud = mb_strlen($texto, 'UTF-8');
@@ -24,6 +24,11 @@ function centrar_texto($texto, $ancho) {
     if ($espacios < 0) return $texto;
     $espacios_izquierda = floor($espacios / 2);
     return str_repeat(' ', $espacios_izquierda) . $texto;
+}
+
+// Nueva función para aplicar margen izquierdo
+function aplicar_margen($texto, $margen) {
+    return str_repeat(' ', $margen) . $texto;
 }
 
 function alinear_derecha($texto, $ancho) {
@@ -102,114 +107,85 @@ $stmt = $pdo->prepare("
 $stmt->execute([$venta_id]);
 $detalles = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Generar contenido del ticket
-$ticket = "";
+// Generar contenido del ticket con formato mejorado
+$ticket = "\x1B\x40"; // Inicializar impresora
+$ticket .= "\x1B\x61\x01"; // Alineación centrada
 
-// Verificar si la empresa está configurada
-if ($empresa['nombre_empresa'] === 'Empresa no configurada') {
-    $ticket .= str_repeat('*', $caracteres_por_linea) . "\n";
-    $ticket .= centrar_texto("IMPORTANTE: CONFIGURACIÓN PENDIENTE", $caracteres_por_linea) . "\n";
-    $ticket .= "Por favor, configure los datos de su empresa en el módulo de Configuración\n";
-    $ticket .= "para que aparezcan correctamente en sus facturas.\n";
-    $ticket .= str_repeat('*', $caracteres_por_linea) . "\n\n";
-}
-
-// Encabezado con información de la empresa
-$ticket .= str_repeat('=', $caracteres_por_linea) . "\n";
+// Encabezado con formato mejorado
+$ticket .= "\x1B\x21\x08"; // Texto en negrita
 $ticket .= centrar_texto(mb_strtoupper($empresa['nombre_empresa']), $caracteres_por_linea) . "\n";
+$ticket .= "\x1B\x21\x00"; // Texto normal
 $ticket .= centrar_texto(formatearDatoFaltante($empresa['nit'], 'nit'), $caracteres_por_linea) . "\n";
 $ticket .= centrar_texto(formatearDatoFaltante($empresa['direccion'], 'dirección'), $caracteres_por_linea) . "\n";
-$ticket .= centrar_texto("Tel: " . formatearDatoFaltante($empresa['telefono'], 'teléfono'), $caracteres_por_linea) . "\n";
-$ticket .= centrar_texto(formatearDatoFaltante($empresa['correo_contacto'], 'correo'), $caracteres_por_linea) . "\n";
-$ticket .= centrar_texto(formatearDatoFaltante($empresa['regimen_fiscal'], 'régimen'), $caracteres_por_linea) . "\n";
-$ticket .= str_repeat('=', $caracteres_por_linea) . "\n\n";
+$ticket .= centrar_texto("Tel: " . formatearDatoFaltante($empresa['telefono'], 'teléfono'), $caracteres_por_linea) . "\n\n";
 
-// Información de la venta
-$ticket .= "FACTURA DE VENTA N°: " . $empresa['prefijo_factura'] . "-" . 
-           str_pad($venta['numero_factura'], 8, '0', STR_PAD_LEFT) . "\n";
-$ticket .= "Fecha: " . date('d/m/Y H:i', strtotime($venta['fecha'])) . "\n";
-$ticket .= str_repeat('-', $caracteres_por_linea) . "\n";
-
-// Información del cliente
-$ticket .= "Cliente: " . truncar_texto($venta['cliente_nombre'], 35) . "\n";
-$ticket .= "NIT/CC: " . $venta['cliente_identificacion'] . "\n";
-$ticket .= "Vendedor: " . truncar_texto($venta['vendedor_nombre'], 35) . "\n";
-$ticket .= str_repeat('-', $caracteres_por_linea) . "\n\n";
+// Información de factura con alineación izquierda
+$ticket .= "\x1B\x61\x00"; // Alineación izquierda
+$ticket .= aplicar_margen("FACTURA: " . $empresa['prefijo_factura'] . "-" . 
+           str_pad($venta['numero_factura'], 8, '0', STR_PAD_LEFT), $margen_izquierdo) . "\n";
+$ticket .= aplicar_margen("FECHA: " . date('d/m/Y H:i', strtotime($venta['fecha'])), $margen_izquierdo) . "\n";
+$ticket .= aplicar_margen("CLIENTE: " . truncar_texto($venta['cliente_nombre'], 35), $margen_izquierdo) . "\n";
+$ticket .= aplicar_margen("ID: " . $venta['cliente_identificacion'], $margen_izquierdo) . "\n";
+$ticket .= aplicar_margen("VENDEDOR: " . truncar_texto($venta['vendedor_nombre'], 35), $margen_izquierdo) . "\n\n";
 
 // Encabezados de productos
-$ticket .= sprintf("%-18s %6s %8s %8s\n", 
-    "PRODUCTO", "CANT", "PRECIO", "TOTAL");
-$ticket .= str_repeat('-', $caracteres_por_linea) . "\n";
+$ticket .= aplicar_margen(str_repeat('-', $caracteres_por_linea - ($margen_izquierdo * 2)), $margen_izquierdo) . "\n";
+$ticket .= aplicar_margen(sprintf("%-30s %6s %10s", "PRODUCTO", "CANT", "TOTAL"), $margen_izquierdo) . "\n";
+$ticket .= aplicar_margen(str_repeat('-', $caracteres_por_linea - ($margen_izquierdo * 2)), $margen_izquierdo) . "\n";
 
 // Detalles de productos
 $subtotal = 0;
 foreach ($detalles as $detalle) {
-    $nombre_producto = truncar_texto($detalle['producto_nombre'], 18);
-    $cantidad = formatear_numero($detalle['cantidad']);
-    $precio = formatear_numero($detalle['precio_unitario']);
+    $nombre_producto = truncar_texto($detalle['producto_nombre'], 30);
+    $cantidad = number_format($detalle['cantidad'], 0);
     $total_linea = $detalle['cantidad'] * $detalle['precio_unitario'];
     $total = formatear_numero($total_linea);
     $subtotal += $total_linea;
     
-    $ticket .= sprintf("%-18s %6s %8s %8s\n",
-        $nombre_producto, $cantidad, $precio, $total);
+    $ticket .= aplicar_margen(sprintf("%-30s %6s %10s",
+        $nombre_producto, $cantidad, $total), $margen_izquierdo) . "\n";
     
-    // Si el nombre es más largo que 18 caracteres, mostrar en siguiente línea
-    if (mb_strlen($detalle['producto_nombre']) > 18) {
-        $ticket .= "  " . mb_substr($detalle['producto_nombre'], 18, 40) . "\n";
-    }
-    
-    // Código de barras en línea separada si existe
-    if ($detalle['codigo_barras'] !== 'Sin código') {
-        $ticket .= "  Cod: " . $detalle['codigo_barras'] . "\n";
-    }
+    // Mostrar precio unitario en línea separada
+    $ticket .= aplicar_margen(sprintf("  Precio unit: $%s", 
+        formatear_numero($detalle['precio_unitario'])), $margen_izquierdo) . "\n";
 }
 
-// Totales
-$ticket .= str_repeat('-', $caracteres_por_linea) . "\n";
-$ticket .= sprintf("%31s %10s\n", "SUBTOTAL:", "$" . formatear_numero($subtotal));
+// Totales con formato mejorado
+$ticket .= "\n";
+$ticket .= aplicar_margen(str_repeat('-', $caracteres_por_linea - ($margen_izquierdo * 2)), $margen_izquierdo) . "\n";
+$ticket .= aplicar_margen(sprintf("%38s %8s", "SUBTOTAL:", "$" . formatear_numero($subtotal)), $margen_izquierdo) . "\n";
 
 if ($venta['descuento'] > 0) {
-    $ticket .= sprintf("%31s %10s\n", "DESCUENTO:", "$" . formatear_numero($venta['descuento']));
+    $ticket .= aplicar_margen(sprintf("%38s %8s", "DESCUENTO:", "$" . formatear_numero($venta['descuento'])), $margen_izquierdo) . "\n";
 }
 
-$ticket .= str_repeat('=', $caracteres_por_linea) . "\n";
-$ticket .= sprintf("%31s %10s\n", "TOTAL A PAGAR:", "$" . formatear_numero($venta['total']));
-
-// Agregar códigos de control para impresora térmica
-$ticket = "\x1B\x40" . // Inicializar impresora
-          "\x1B\x21\x00" . // Modo normal
-          $ticket .
-          "\n\n\n\n\n" . // Espacios para el corte
-          "\x1B\x69"; // Cortar papel
+$ticket .= aplicar_margen(str_repeat('=', $caracteres_por_linea - ($margen_izquierdo * 2)), $margen_izquierdo) . "\n";
+$ticket .= "\x1B\x21\x08"; // Texto en negrita
+$ticket .= aplicar_margen(sprintf("%38s %8s", "TOTAL:", "$" . formatear_numero($venta['total'])), $margen_izquierdo) . "\n";
+$ticket .= "\x1B\x21\x00"; // Texto normal
 
 // Método de pago
-$ticket .= "Método de pago: " . mb_strtoupper($venta['metodo_pago']) . "\n";
+$ticket .= "\n";
+$ticket .= aplicar_margen("MÉTODO DE PAGO: " . mb_strtoupper($venta['metodo_pago']), $margen_izquierdo) . "\n";
 if ($venta['metodo_pago'] === 'credito') {
-    $ticket .= "Plazo: " . $venta['credito_plazo'] . " meses\n";
-    $ticket .= "Interés: " . $venta['credito_interes'] . "%\n";
+    $ticket .= aplicar_margen(sprintf("Plazo: %d meses - Interés: %.2f%%", 
+        $venta['credito_plazo'], $venta['credito_interes']), $margen_izquierdo) . "\n";
 }
 
-// Antes del pie de página
-if (strpos($empresa['nombre_empresa'], 'no configurada') !== false || 
-    strpos($empresa['nit'], 'pendiente') !== false) {
-    $ticket .= "\n" . str_repeat('-', $caracteres_por_linea) . "\n";
-    $ticket .= "NOTA: Algunos datos de la empresa están pendientes de configurar.\n";
-    $ticket .= "Para una facturación completa, por favor configure los datos\n";
-    $ticket .= "faltantes en el módulo de Configuración.\n";
-}
-
-// Pie de página
-$ticket .= "\n" . str_repeat('=', $caracteres_por_linea) . "\n";
+// Pie de página centrado
+$ticket .= "\n";
+$ticket .= "\x1B\x61\x01"; // Alineación centrada
 $ticket .= centrar_texto("¡GRACIAS POR SU COMPRA!", $caracteres_por_linea) . "\n";
-$ticket .= centrar_texto("Lo esperamos pronto", $caracteres_por_linea) . "\n";
-$ticket .= str_repeat('=', $caracteres_por_linea) . "\n\n";
+$ticket .= centrar_texto(date('d/m/Y H:i:s'), $caracteres_por_linea) . "\n\n";
 
-// Información legal y adicional
-$ticket .= "Fecha de impresión: " . date('d/m/Y H:i:s') . "\n";
-$ticket .= "Esta factura se asimila en todos sus efectos \n a una letra de cambio de conformidad con el \n Art. 774 del código de comercio. Autorizo que \n en caso de incumplimiento de esta obligación \n sea reportado a las centrales de riesgo, se \n cobraran intereses por mora.\n";
-$ticket .= "Con esta factura de venta el comprador declara\n haber recibido de forma real y materialmente \nlas mercancías y/o servicios descritos en \n este titulo valor.\n";
-$ticket .= "Representación impresa de la factura electrónica\n";
+// Información legal
+$ticket .= "\x1B\x61\x00"; // Alineación izquierda
+$ticket .= aplicar_margen("Esta factura se asimila a letra de cambio", $margen_izquierdo) . "\n";
+$ticket .= aplicar_margen("según Art.774 código de comercio.", $margen_izquierdo) . "\n";
+$ticket .= aplicar_margen("Representación impresa factura electrónica", $margen_izquierdo) . "\n";
+
+// Espacios finales y corte
+$ticket .= "\n\n\n\x1B\x69"; // Comando de corte
 
 // Imprimir el ticket
 header("Content-Type: text/plain; charset=UTF-8");

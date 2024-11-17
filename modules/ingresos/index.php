@@ -12,8 +12,10 @@ $user_id = $_SESSION['user_id'];
 $email = $_SESSION['email'];
 
 // Clase para manejar respuestas JSON
-class ApiResponse {
-    public static function send($status, $message, $data = null) {
+class ApiResponse
+{
+    public static function send($status, $message, $data = null)
+    {
         header('Content-Type: application/json');
         echo json_encode([
             'status' => $status,
@@ -24,7 +26,8 @@ class ApiResponse {
     }
 }
 
-function getMetodoPagoIcon($metodo_pago) {
+function getMetodoPagoIcon($metodo_pago)
+{
     switch (strtolower($metodo_pago)) {
         case 'efectivo':
             return 'money-bill-wave';
@@ -56,7 +59,8 @@ function getUserIngresos($user_id, $limit = 10, $offset = 0)
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-function addIngreso($user_id, $data) {
+function addIngreso($user_id, $data)
+{
     global $pdo;
     try {
         $query = "INSERT INTO ingresos (user_id, descripcion, monto, categoria, metodo_pago, notas) 
@@ -70,7 +74,7 @@ function addIngreso($user_id, $data) {
             ':metodo_pago' => $data['metodo_pago'],
             ':notas' => $data['notas']
         ]);
-        
+
         if ($result) {
             return ['status' => true, 'message' => 'Ingreso registrado exitosamente'];
         }
@@ -97,10 +101,83 @@ $ingresos = getUserIngresos($user_id, $limit, $offset);
 $total_ingresos = getTotalIngresos($user_id);
 $total_pages = ceil($total_ingresos / $limit);
 
+// Agregar estas funciones después de las funciones existentes y antes del HTML
+
+function getTotalIngresosMes($user_id)
+{
+    global $pdo;
+    $query = "SELECT COALESCE(SUM(monto), 0) as total 
+              FROM ingresos 
+              WHERE user_id = ? 
+              AND MONTH(created_at) = MONTH(CURRENT_DATE())
+              AND YEAR(created_at) = YEAR(CURRENT_DATE())";
+    $stmt = $pdo->prepare($query);
+    $stmt->execute([$user_id]);
+    return $stmt->fetch(PDO::FETCH_ASSOC)['total'];
+}
+
+function getComparacionMesAnterior($user_id)
+{
+    global $pdo;
+    $query = "SELECT 
+                (SELECT COALESCE(SUM(monto), 0)
+                 FROM ingresos 
+                 WHERE user_id = ? 
+                 AND MONTH(created_at) = MONTH(CURRENT_DATE())
+                 AND YEAR(created_at) = YEAR(CURRENT_DATE())) as mes_actual,
+                (SELECT COALESCE(SUM(monto), 0)
+                 FROM ingresos 
+                 WHERE user_id = ? 
+                 AND MONTH(created_at) = MONTH(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH))
+                 AND YEAR(created_at) = YEAR(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH))) as mes_anterior";
+    $stmt = $pdo->prepare($query);
+    $stmt->execute([$user_id, $user_id]);
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($result['mes_anterior'] == 0) return 100;
+    return (($result['mes_actual'] - $result['mes_anterior']) / $result['mes_anterior']) * 100;
+}
+
+function getPromedioIngreso($user_id)
+{
+    global $pdo;
+    $query = "SELECT COALESCE(AVG(monto), 0) as promedio 
+              FROM ingresos 
+              WHERE user_id = ? 
+              AND MONTH(created_at) = MONTH(CURRENT_DATE())
+              AND YEAR(created_at) = YEAR(CURRENT_DATE())";
+    $stmt = $pdo->prepare($query);
+    $stmt->execute([$user_id]);
+    return $stmt->fetch(PDO::FETCH_ASSOC)['promedio'];
+}
+
+function getCategoriaFrecuente($user_id)
+{
+    global $pdo;
+    $query = "SELECT categoria, COUNT(*) as total
+              FROM ingresos 
+              WHERE user_id = ? 
+              AND MONTH(created_at) = MONTH(CURRENT_DATE())
+              AND YEAR(created_at) = YEAR(CURRENT_DATE())
+              GROUP BY categoria
+              ORDER BY total DESC
+              LIMIT 1";
+    $stmt = $pdo->prepare($query);
+    $stmt->execute([$user_id]);
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $result ? $result['categoria'] : 'Sin datos';
+}
+
+// Obtener los datos para las tarjetas
+$total_mes = getTotalIngresosMes($user_id);
+$comparacion = getComparacionMesAnterior($user_id);
+$promedio = getPromedioIngreso($user_id);
+$categoria_frecuente = getCategoriaFrecuente($user_id);
+
 // Procesar solicitudes AJAX
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WITH'])) {
     $action = $_POST['action'] ?? '';
-    
+
     switch ($action) {
         case 'add_ingreso':
             $data = [
@@ -118,18 +195,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
             $result = addIngreso($user_id, $data);
             ApiResponse::send($result['status'], $result['message']);
             break;
-            
+
         case 'delete_ingreso':
             $id = (int)$_POST['id'];
             if (!$id) {
                 ApiResponse::send(false, 'ID de ingreso no válido');
             }
-            
+
             try {
                 $query = "DELETE FROM ingresos WHERE id = :id AND user_id = :user_id";
                 $stmt = $pdo->prepare($query);
                 $result = $stmt->execute([':id' => $id, ':user_id' => $user_id]);
-                
+
                 if ($result) {
                     ApiResponse::send(true, 'Ingreso eliminado correctamente');
                 } else {
@@ -139,7 +216,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
                 ApiResponse::send(false, 'Error al eliminar el ingreso');
             }
             break;
-            
+
         default:
             ApiResponse::send(false, 'Acción no válida');
     }
@@ -149,513 +226,356 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
 
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ingresos | VendEasy</title>
-    <link rel="icon" type="image/png" href="/favicon/favicon.ico"/>
+    <link rel="icon" type="image/png" href="/favicon/favicon.ico" />
+    <!-- Tailwind CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
-    <link rel="stylesheet" href="../../css/welcome.css">
-    <link rel="stylesheet" href="../../css/modulos.css">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.all.min.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-material-ui/material-ui.css">
+    <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- XLSX -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <style>
-    /* Estilos base */
-    body {
-        font-family: 'Poppins', sans-serif;
-    }
-
-    /* Mejoras en el formulario */
-    .modern-form {
-        background: #fff;
-        padding: 25px;
-        border-radius: 15px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-        margin-bottom: 30px;
-    }
-
-    .form-group label {
-        font-size: 0.9rem;
-        margin-bottom: 8px;
-        color: #344767;
-        font-weight: 500;
-    }
-
-    .form-group input,
-    .form-group select,
-    .form-group textarea {
-        width: 100%;
-        padding: 10px 15px;
-        border: 1.5px solid #e9ecef;
-        border-radius: 8px;
-        font-size: 0.95rem;
-        transition: all 0.3s ease;
-        background-color: #f8f9fa;
-    }
-
-    .form-group input:focus,
-    .form-group select:focus,
-    .form-group textarea:focus {
-        border-color: #007bff;
-        background-color: #fff;
-        box-shadow: 0 0 0 3px rgba(0,123,255,0.15);
-        outline: none;
-    }
-
-    /* Mejoras en la tabla */
-    .table-responsive {
-        background: #fff;
-        padding: 20px;
-        border-radius: 15px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.08);
-        margin-bottom: 30px;
-    }
-
-    .modern-table {
-        width: 100%;
-        border-collapse: separate;
-        border-spacing: 0;
-        margin-bottom: 1rem;
-    }
-
-    .modern-table th {
-        background: #f8f9fa;
-        padding: 15px;
-        font-weight: 600;
-        color: #344767;
-        border-bottom: 2px solid #e9ecef;
-        text-transform: uppercase;
-        font-size: 0.85rem;
-    }
-
-    .modern-table td {
-        padding: 15px;
-        border-bottom: 1px solid #e9ecef;
-        color: #495057;
-        vertical-align: middle;
-    }
-
-    .modern-table tr:hover {
-        background-color: #f8f9fa;
-    }
-
-    /* Mejoras en los badges */
-    .badge {
-        padding: 6px 12px;
-        border-radius: 20px;
-        font-size: 0.8rem;
-        font-weight: 500;
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-    }
-
-    /* Mejoras en los botones */
-    .btn {
-        padding: 10px 20px;
-        border-radius: 8px;
-        font-weight: 500;
-        transition: all 0.3s ease;
-        border: none;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .btn-primary {
-        background: linear-gradient(145deg, #007bff, #0056b3);
-        color: white;
-    }
-
-    .btn-success {
-        background: linear-gradient(145deg, #28a745, #1e7e34);
-        color: white;
-    }
-
-    .btn:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    }
-
-    /* Mejoras en la búsqueda */
-    .search-box {
-        position: relative;
-        min-width: 250px;
-    }
-
-    .search-box input {
-        width: 100%;
-        padding: 10px 35px 10px 15px;
-        border: 1.5px solid #e9ecef;
-        border-radius: 8px;
-        font-size: 0.95rem;
-        transition: all 0.3s ease;
-    }
-
-    .search-box input:focus {
-        border-color: #007bff;
-        box-shadow: 0 0 0 3px rgba(0,123,255,0.15);
-    }
-
-    /* Mejoras en la paginación */
-    .pagination-container {
-        margin-top: 30px;
-        margin-bottom: 20px;
-    }
-
-    .modern-pagination {
-        background: #fff;
-        padding: 10px;
-        border-radius: 10px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-
-    .page-link {
-        padding: 8px 16px;
-        margin: 0 3px;
-        border-radius: 6px;
-        font-weight: 500;
-    }
-
-    /* Animaciones */
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-
-    .modern-form, .table-responsive {
-        animation: fadeIn 0.5s ease-out;
-    }
-
-    /* Mejoras en el layout del formulario */
-    .form-container {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 20px;
-        margin-bottom: 20px;
-    }
-
-    .form-group {
-        margin-bottom: 15px;
-    }
-
-    .form-group.full-width {
-        grid-column: 1 / -1;
-    }
-
-    /* Mejoras en los campos de moneda */
-    .currency-input {
-        position: relative;
-    }
-
-    .currency-input input {
-        padding-left: 30px;
-    }
-
-    .currency-input::before {
-        content: '$';
-        position: absolute;
-        left: 12px;
-        top: 50%;
-        transform: translateY(-50%);
-        color: #495057;
-        font-weight: 500;
-    }
-
-    /* Mejoras en la tabla */
-    .monto-column {
-        font-weight: 500;
-        color: #28a745;
-    }
-
-    /* Estilos para el modal de exportación */
-    .export-options {
-        padding: 20px;
-    }
-
-    .export-options label {
-        display: block;
-        margin-bottom: 10px;
-    }
-
-    .export-options select {
-        width: 100%;
-        padding: 8px;
-        margin-bottom: 15px;
-        border-radius: 6px;
-        border: 1px solid #ddd;
-    }
-
-    /* Mejoras en los badges de categoría */
-    .badge-ventas { background: #e8f5e9; color: #2e7d32; }
-    .badge-servicios { background: #e3f2fd; color: #1565c0; }
-    .badge-comisiones { background: #fff3e0; color: #f57c00; }
-    .badge-otros { background: #f5f5f5; color: #616161; }
-
-    /* En la sección de estilos, agregar: */
-    .action-buttons {
-        display: flex;
-        gap: 8px;
-        justify-content: center;
-    }
-
-    .btn-icon {
-        padding: 6px;
-        border: none;
-        background: none;
-        cursor: pointer;
-        border-radius: 4px;
-        transition: all 0.3s ease;
-    }
-
-    .btn-icon:hover {
-        transform: translateY(-2px);
-    }
-
-    .btn-icon.view {
-        color: #0056b3;
-    }
-
-    .btn-icon.edit {
-        color: #28a745;
-    }
-
-    .btn-icon.delete {
-        color: #dc3545;
-    }
-
-    .btn-icon:hover.view {
-        background-color: rgba(0, 86, 179, 0.1);
-    }
-
-    .btn-icon:hover.edit {
-        background-color: rgba(40, 167, 69, 0.1);
-    }
-
-    .btn-icon:hover.delete {
-        background-color: rgba(220, 53, 69, 0.1);
-    }
-
-    /* En la sección de estilos, agregar: */
-    .detail-modal {
-        font-family: 'Poppins', sans-serif;
-    }
-
-    .detail-content {
-        padding: 20px;
-    }
-
-    .ingreso-detalles {
-        text-align: left;
-    }
-
-    .detail-row {
-        margin-bottom: 15px;
-        padding-bottom: 10px;
-        border-bottom: 1px solid #eee;
-    }
-
-    .detail-row:last-child {
-        border-bottom: none;
-    }
-
-    .detail-row strong {
-        display: block;
-        margin-bottom: 5px;
-        color: #344767;
-    }
-
-    .detail-row p {
-        margin: 0;
-        color: #495057;
-    }
-
-    .monto-destacado {
-        font-size: 1.2em;
-        color: #28a745;
-        font-weight: 500;
-    }
-    </style>
 </head>
-<body>
-<?php include '../../includes/header.php'; ?>
-    <div class="container">
-        <?php include '../../includes/sidebar.php'; ?>
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                const currentUrl = window.location.pathname;
-                const sidebarLinks = document.querySelectorAll('.side_navbar a');
-                sidebarLinks.forEach(link => {
-                    if (link.getAttribute('href') === currentUrl) {
-                        link.classList.add('active');
-                    }
-                });
-            });
-        </script>
 
-        <div class="main-body">
-            <h2>Gestionar Ingresos</h2>
-            <div class="promo_card">
-                <h1>Registro de Ingresos</h1>
-                <span>Aquí puedes agregar y visualizar tus ingresos.</span>
+<body class="bg-gray-50 font-[Poppins]">
+    <?php
+    $rutaBase = "../../";  // Ruta base para los assets
+    include '../../includes/header.php';
+    ?>
+
+    <div class="container mx-auto px-4">
+        <?php
+        // Definir la ruta activa para el sidebar
+        $moduloActual = "ingresos";
+        include '../../includes/sidebar.php';
+        ?>
+
+        <div class="main-content p-4 sm:ml-64">
+            <!-- Header Section -->
+            <div class="mb-8">
+                <h1 class="text-3xl font-semibold text-gray-800">Gestión de Ingresos</h1>
+                <p class="text-gray-600 mt-2">Administra y registra todos tus ingresos de forma eficiente</p>
             </div>
 
-            <div class="history_lists">
-                <div class="list1">
-                    <div class="row">
-                        <h4>Agregar Nuevo Ingreso</h4>
+            <!-- Tarjetas de Resumen -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <!-- Total Ingresos Mes -->
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-sm font-medium text-gray-500">Total Ingresos Mes</h3>
+                        <span class="p-2 bg-green-100 rounded-lg">
+                            <i class="fas fa-dollar-sign text-green-600"></i>
+                        </span>
                     </div>
-                    <form id="ingresoForm" class="modern-form">
-                        <div class="form-container">
-                            <div class="form-group">
-                                <label for="descripcion">
-                                    <i class="fas fa-file-alt"></i> Descripción
-                                </label>
-                                <input type="text" id="descripcion" name="descripcion" 
-                                       placeholder="Ej: Venta de productos" required>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="categoria">
-                                    <i class="fas fa-tags"></i> Categoría
-                                </label>
-                                <select id="categoria" name="categoria" required>
-                                    <option value="">Seleccione una categoría</option>
-                                    <option value="Ventas">Ventas</option>
-                                    <option value="Servicios">Servicios</option>
-                                    <option value="Comisiones">Comisiones</option>
-                                    <option value="Otros">Otros</option>
-                                </select>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="monto">
-                                    <i class="fas fa-dollar-sign"></i> Monto (COP)
-                                </label>
-                                <div class="currency-input">
-                                    <input type="number" step="1" id="monto" name="monto" 
-                                           placeholder="0" required>
-                                </div>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="metodo_pago">
-                                    <i class="fas fa-credit-card"></i> Método de Pago
-                                </label>
-                                <select id="metodo_pago" name="metodo_pago" required>
-                                    <option value="">Seleccione método de pago</option>
-                                    <option value="Efectivo">Efectivo</option>
-                                    <option value="Transferencia">Transferencia</option>
-                                    <option value="Tarjeta">Tarjeta</option>
-                                    <option value="Otro">Otro</option>
-                                </select>
-                            </div>
-
-                            <div class="form-group full-width">
-                                <label for="notas">
-                                    <i class="fas fa-sticky-note"></i> Notas Adicionales
-                                </label>
-                                <textarea id="notas" name="notas" rows="3" 
-                                          placeholder="Agregar notas o detalles adicionales"></textarea>
-                            </div>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h4 class="text-2xl font-semibold text-gray-800">
+                                $<?= number_format($total_mes, 2, ',', '.') ?>
+                            </h4>
+                            <p class="text-sm mt-1 <?= $comparacion >= 0 ? 'text-green-600' : 'text-red-600' ?>">
+                                <i class="fas fa-<?= $comparacion >= 0 ? 'arrow-up' : 'arrow-down' ?> mr-1"></i>
+                                <?= abs(round($comparacion, 1)) ?>% vs mes anterior
+                            </p>
                         </div>
-
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-plus-circle"></i> Agregar Ingreso
-                        </button>
-                    </form>
+                    </div>
                 </div>
 
-                <div class="list2">
-                    <div class="row header-actions">
-                        <h4>Listado de Ingresos</h4>
-                        <div class="actions">
-                            <button id="exportExcel" class="btn btn-success">
-                                <i class="fas fa-file-excel"></i> Exportar
+                <!-- Promedio por Ingreso -->
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-sm font-medium text-gray-500">Promedio por Ingreso</h3>
+                        <span class="p-2 bg-blue-100 rounded-lg">
+                            <i class="fas fa-chart-line text-blue-600"></i>
+                        </span>
+                    </div>
+                    <div>
+                        <h4 class="text-2xl font-semibold text-gray-800">
+                            $<?= number_format($promedio, 2, ',', '.') ?>
+                        </h4>
+                        <p class="text-sm text-gray-500 mt-1">
+                            Este mes
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Categoría más frecuente -->
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-sm font-medium text-gray-500">Categoría más frecuente</h3>
+                        <span class="p-2 bg-purple-100 rounded-lg">
+                            <i class="fas fa-tags text-purple-600"></i>
+                        </span>
+                    </div>
+                    <div>
+                        <h4 class="text-2xl font-semibold text-gray-800">
+                            <?= htmlspecialchars($categoria_frecuente) ?>
+                        </h4>
+                        <p class="text-sm text-gray-500 mt-1">
+                            Este mes
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Total Transacciones -->
+                <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-sm font-medium text-gray-500">Total Transacciones</h3>
+                        <span class="p-2 bg-yellow-100 rounded-lg">
+                            <i class="fas fa-receipt text-yellow-600"></i>
+                        </span>
+                    </div>
+                    <div>
+                        <h4 class="text-2xl font-semibold text-gray-800">
+                            <?= $total_ingresos ?>
+                        </h4>
+                        <p class="text-sm text-gray-500 mt-1">
+                            Registros totales
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form Section -->
+            <div class="bg-white rounded-xl shadow-sm p-6 mb-8 border border-gray-100">
+                <h2 class="text-xl font-semibold text-gray-800 mb-6">
+                    <i class="fas fa-plus-circle mr-2 text-blue-600"></i>
+                    Agregar Nuevo Ingreso
+                </h2>
+
+                <form id="ingresoForm" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <input type="hidden" name="action" value="add_ingreso">
+
+                    <!-- Descripción y Monto en la primera fila -->
+                    <div class="form-group">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-file-alt mr-2 text-blue-500"></i>Descripción
+                        </label>
+                        <input type="text"
+                            name="descripcion"
+                            class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                            placeholder="Ej: Venta de productos"
+                            autocomplete="off"
+                            required>
+                    </div>
+
+                    <!-- Monto con formato de moneda -->
+                    <div class="form-group">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-dollar-sign mr-2 text-green-500"></i>Monto (COP)
+                        </label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">$</span>
+                            <input type="text"
+                                name="monto"
+                                id="montoInput"
+                                class="w-full pl-8 pr-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                                placeholder="0"
+                                required>
+                        </div>
+                    </div>
+
+                    <!-- Categoría y Método de Pago en la segunda fila -->
+                    <div class="form-group">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-tags mr-2 text-yellow-500"></i>Categoría
+                        </label>
+                        <select name="categoria"
+                            class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                            required>
+                            <option value="">Seleccione una categoría</option>
+                            <option value="Ventas">Ventas</option>
+                            <option value="Servicios">Servicios</option>
+                            <option value="Comisiones">Comisiones</option>
+                            <option value="Otros">Otros</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-credit-card mr-2 text-purple-500"></i>Método de Pago
+                        </label>
+                        <select name="metodo_pago"
+                            class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                            required>
+                            <option value="">Seleccione método de pago</option>
+                            <option value="Efectivo">Efectivo</option>
+                            <option value="Transferencia">Transferencia</option>
+                            <option value="Tarjeta">Tarjeta</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                    </div>
+
+                    <!-- Notas en una fila completa -->
+                    <div class="col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            <i class="fas fa-sticky-note mr-2 text-orange-500"></i>Notas Adicionales
+                        </label>
+                        <textarea name="notas"
+                            class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                            rows="3"
+                            placeholder="Agregar notas o detalles adicionales"></textarea>
+                    </div>
+
+                    <!-- Botones de acción -->
+                    <div class="col-span-2 flex gap-4">
+                        <button type="submit"
+                            class="flex-1 sm:flex-none px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200">
+                            <i class="fas fa-plus-circle mr-2"></i>
+                            Registrar Ingreso
+                        </button>
+                        <button type="reset"
+                            class="flex-1 sm:flex-none px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 transition-all duration-200">
+                            <i class="fas fa-undo mr-2"></i>
+                            Limpiar
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Table Section -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+                <div class="p-6 border-b border-gray-100">
+                    <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+                        <h2 class="text-xl font-semibold text-gray-800">Listado de Ingresos</h2>
+
+                        <div class="flex items-center gap-4">
+                            <button id="exportExcel"
+                                class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                                <i class="fas fa-file-excel mr-2"></i>
+                                Exportar
                             </button>
-                            <div class="search-box">
-                                <input type="text" id="searchInput" placeholder="Buscar...">
-                                <i class="fas fa-search"></i>
+
+                            <div class="relative">
+                                <input type="text"
+                                    id="searchInput"
+                                    class="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    placeholder="Buscar...">
+                                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
                             </div>
                         </div>
                     </div>
-                    
-                    <div class="table-responsive">
-                        <table class="modern-table">
-                            <thead>
-                                <tr>
-                                    <th>Descripción</th>
-                                    <th>Categoría</th>
-                                    <th>Monto</th>
-                                    <th>Método</th>
-                                    <th>Fecha</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($ingresos as $ingreso): ?>
-                                    <tr>
-                                        <td><?= htmlspecialchars($ingreso['descripcion']); ?></td>
-                                        <td>
-                                            <span class="badge badge-<?= strtolower($ingreso['categoria']); ?>">
-                                                <?= htmlspecialchars($ingreso['categoria']); ?>
-                                            </span>
-                                        </td>
-                                        <td class="monto">$<?= $ingreso['monto_formateado']; ?></td>
-                                        <td>
-                                            <i class="fas fa-<?= getMetodoPagoIcon($ingreso['metodo_pago']); ?>"></i>
-                                            <?= htmlspecialchars($ingreso['metodo_pago']); ?>
-                                        </td>
-                                        <td><?= $ingreso['fecha_formateada']; ?></td>
-                                        <td class="actions">
-                                            <div class="action-buttons">
-                                                <button class="btn-icon view" onclick="verDetalles(<?= $ingreso['id']; ?>)" title="Ver detalles">
-                                                    <i class="fas fa-eye"></i>
-                                                </button>
-                                                <button class="btn-icon edit" onclick="editarIngreso(<?= $ingreso['id']; ?>)" title="Editar">
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
-                                                <button class="btn-icon delete" onclick="eliminarIngreso(<?= $ingreso['id']; ?>)" title="Eliminar">
-                                                    <i class="fas fa-trash-alt"></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
+                </div>
 
-                    <!-- Paginación mejorada -->
-                    <div class="pagination-container">
-                        <div class="pagination modern-pagination">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Descripción
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Categoría
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Monto
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Método
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Fecha
+                                </th>
+                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Acciones
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            <?php foreach ($ingresos as $ingreso): ?>
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm text-gray-900">
+                                            <?= htmlspecialchars($ingreso['descripcion']) ?>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                        <?php
+                                        switch (strtolower($ingreso['categoria'])) {
+                                            case 'ventas':
+                                                echo 'bg-green-100 text-green-800';
+                                                break;
+                                            case 'servicios':
+                                                echo 'bg-blue-100 text-blue-800';
+                                                break;
+                                            case 'comisiones':
+                                                echo 'bg-yellow-100 text-yellow-800';
+                                                break;
+                                            default:
+                                                echo 'bg-gray-100 text-gray-800';
+                                        }
+                                        ?>">
+                                            <?= htmlspecialchars($ingreso['categoria']) ?>
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm font-medium text-green-600">
+                                            $<?= number_format($ingreso['monto'], 0, ',', '.') ?>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm text-gray-900">
+                                            <i class="fas fa-<?= getMetodoPagoIcon($ingreso['metodo_pago']) ?> mr-2"></i>
+                                            <?= htmlspecialchars($ingreso['metodo_pago']) ?>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm text-gray-900">
+                                            <?= $ingreso['fecha_formateada'] ?>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-center">
+                                        <div class="flex justify-center space-x-2">
+                                            <button onclick="verDetalles(<?= $ingreso['id'] ?>)"
+                                                class="text-blue-600 hover:text-blue-900 p-1">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            <button onclick="editarIngreso(<?= $ingreso['id'] ?>)"
+                                                class="text-green-600 hover:text-green-900 p-1">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button onclick="eliminarIngreso(<?= $ingreso['id'] ?>)"
+                                                class="text-red-600 hover:text-red-900 p-1">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div class="px-6 py-4 border-t border-gray-100">
+                    <div class="flex justify-between items-center">
+                        <p class="text-sm text-gray-700">
+                            Mostrando <span class="font-medium"><?= $offset + 1 ?></span> a
+                            <span class="font-medium"><?= min($offset + $limit, $total_ingresos) ?></span> de
+                            <span class="font-medium"><?= $total_ingresos ?></span> resultados
+                        </p>
+
+                        <div class="flex gap-2">
                             <?php if ($page > 1): ?>
-                                <a href="?page=1" class="page-link">
-                                    <i class="fas fa-angle-double-left"></i>
-                                </a>
-                                <a href="?page=<?= $page-1; ?>" class="page-link">
-                                    <i class="fas fa-angle-left"></i>
+                                <a href="?page=<?= $page - 1 ?>"
+                                    class="px-3 py-1 rounded-md bg-white border border-gray-300 text-gray-700 hover:bg-gray-50">
+                                    Anterior
                                 </a>
                             <?php endif; ?>
 
-                            <?php for ($i = max(1, $page - 2); $i <= min($total_pages, $page + 2); $i++): ?>
-                                <a href="?page=<?= $i; ?>" 
-                                   class="page-link <?= ($page === $i) ? 'active' : ''; ?>">
-                                    <?= $i; ?>
-                                </a>
-                            <?php endfor; ?>
-
                             <?php if ($page < $total_pages): ?>
-                                <a href="?page=<?= $page+1; ?>" class="page-link">
-                                    <i class="fas fa-angle-right"></i>
-                                </a>
-                                <a href="?page=<?= $total_pages; ?>" class="page-link">
-                                    <i class="fas fa-angle-double-right"></i>
+                                <a href="?page=<?= $page + 1 ?>"
+                                    class="px-3 py-1 rounded-md bg-white border border-gray-300 text-gray-700 hover:bg-gray-50">
+                                    Siguiente
                                 </a>
                             <?php endif; ?>
                         </div>
@@ -666,410 +586,325 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
     </div>
 
     <script>
-    // Configuración global de notificaciones
-    const Toast = Swal.mixin({
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 3000,
-        timerProgressBar: true,
-        didOpen: (toast) => {
-            toast.addEventListener('mouseenter', Swal.stopTimer)
-            toast.addEventListener('mouseleave', Swal.resumeTimer)
-        }
-    });
-
-    // Función para mostrar notificaciones
-    function showNotification(type, message) {
-        Toast.fire({
-            icon: type,
-            title: message
-        });
-    }
-
-    // Función para mostrar errores
-    function showError(title, message) {
-        Swal.fire({
-            icon: 'error',
-            title: title,
-            text: message,
-            confirmButtonText: 'Entendido'
-        });
-    }
-
-    // Función para validar el formulario
-    function validateForm(formData) {
-        const monto = parseFloat(formData.get('monto'));
-        const descripcion = formData.get('descripcion').trim();
-        
-        if (descripcion.length < 3) {
-            showError('Error de validación', 'La descripción debe tener al menos 3 caracteres');
-            return false;
-        }
-        
-        if (monto <= 0) {
-            showError('Error de validación', 'El monto debe ser mayor que cero');
-            return false;
-        }
-        
-        return true;
-    }
-
-    // Manejador del formulario de ingreso
-    document.getElementById('ingresoForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        const formData = new FormData(this);
-        formData.append('action', 'add_ingreso');
-
-        if (!validateForm(formData)) {
-            return;
-        }
-
-        try {
-            const response = await fetch('', {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            });
-
-            const data = await response.json();
-            
-            if (data.status) {
-                showNotification('success', data.message);
-                // Limpiar formulario
-                this.reset();
-                // Recargar tabla después de un breve delay
-                setTimeout(() => location.reload(), 1500);
-            } else {
-                showError('Error', data.message);
+        // Configuración de notificaciones
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true,
+            customClass: {
+                popup: 'bg-white rounded-lg shadow-xl border border-gray-100',
+                title: 'text-gray-800 font-medium'
             }
-        } catch (error) {
-            showError('Error', 'Ocurrió un error al procesar la solicitud');
-        }
-    });
-
-    // Estilo personalizado para SweetAlert2
-    const style = document.createElement('style');
-    style.textContent = `
-        .swal2-popup {
-            font-family: 'Poppins', sans-serif;
-            border-radius: 12px;
-        }
-        .swal2-title {
-            color: #344767;
-        }
-        .swal2-html-container {
-            color: #495057;
-        }
-        .swal2-confirm {
-            background: linear-gradient(145deg, #007bff, #0056b3) !important;
-        }
-        .swal2-cancel {
-            background: linear-gradient(145deg, #6c757d, #495057) !important;
-        }
-    `;
-    document.head.appendChild(style);
-
-    // Función para filtrar la tabla
-    document.getElementById('searchInput').addEventListener('keyup', function() {
-        const searchText = this.value.toLowerCase();
-        const table = document.querySelector('.modern-table tbody');
-        const rows = table.getElementsByTagName('tr');
-
-        Array.from(rows).forEach(row => {
-            const text = row.textContent.toLowerCase();
-            row.style.display = text.includes(searchText) ? '' : 'none';
         });
-    });
 
-    // Función para formatear moneda colombiana
-    function formatCOP(value) {
-        return new Intl.NumberFormat('es-CO', {
-            style: 'currency',
-            currency: 'COP',
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        }).format(value);
-    }
-
-    // Función mejorada para exportar a Excel
-    function exportarExcel() {
-        Swal.fire({
-            title: 'Exportar a Excel',
-            html: `
-                <div class="export-options">
-                    <label for="dateRange">Rango de fechas:</label>
-                    <select id="dateRange">
-                        <option value="all">Todos los registros</option>
-                        <option value="today">Hoy</option>
-                        <option value="week">Esta semana</option>
-                        <option value="month">Este mes</option>
-                        <option value="custom">Personalizado</option>
-                    </select>
-                    
-                    <div id="customDates" style="display: none;">
-                        <label>Desde:</label>
-                        <input type="date" id="startDate">
-                        <label>Hasta:</label>
-                        <input type="date" id="endDate">
+        // Función para exportar a Excel
+        document.getElementById('exportExcel').addEventListener('click', function() {
+            Swal.fire({
+                title: 'Exportar Ingresos',
+                html: `
+                <div class="p-4">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Rango de fechas</label>
+                        <select id="dateRange" class="w-full px-3 py-2 border rounded-lg">
+                            <option value="all">Todos los registros</option>
+                            <option value="today">Hoy</option>
+                            <option value="week">Esta semana</option>
+                            <option value="month">Este mes</option>
+                        </select>
                     </div>
                 </div>
             `,
-            showCancelButton: true,
-            confirmButtonText: 'Exportar',
-            cancelButtonText: 'Cancelar',
-            preConfirm: () => {
-                const range = document.getElementById('dateRange').value;
-                const startDate = document.getElementById('startDate')?.value;
-                const endDate = document.getElementById('endDate')?.value;
-                
-                return { range, startDate, endDate };
-            }
-        }).then((result) => {
-            if (result.isConfirmed) {
-                const table = document.querySelector('.modern-table');
-                const ws = XLSX.utils.table_to_sheet(table);
-                
-                // Dar formato a las columnas
-                const range = XLSX.utils.decode_range(ws['!ref']);
-                for(let C = range.s.c; C <= range.e.c; C++) {
-                    const address = XLSX.utils.encode_col(C) + "1";
-                    if(!ws[address]) continue;
-                    ws[address].s = {
-                        font: { bold: true },
-                        fill: { fgColor: { rgb: "E9ECEF" } }
-                    };
+                showCancelButton: true,
+                confirmButtonText: 'Exportar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#10B981',
+                cancelButtonColor: '#6B7280',
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Obtener la tabla y convertirla a Excel
+                    const table = document.querySelector('.modern-table');
+                    const ws = XLSX.utils.table_to_sheet(table);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, "Ingresos");
+
+                    // Generar el archivo
+                    const fileName = `Ingresos_${new Date().toISOString().split('T')[0]}.xlsx`;
+                    XLSX.writeFile(wb, fileName);
+
+                    Toast.fire({
+                        icon: 'success',
+                        title: 'Archivo exportado correctamente'
+                    });
                 }
-
-                // Ajustar anchos de columna
-                const wscols = [
-                    {wch: 30}, // Descripción
-                    {wch: 15}, // Categoría
-                    {wch: 15}, // Monto
-                    {wch: 15}, // Método
-                    {wch: 20}  // Fecha
-                ];
-                ws['!cols'] = wscols;
-
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, "Ingresos");
-                
-                // Generar nombre de archivo con fecha
-                const fecha = new Date().toISOString().split('T')[0];
-                XLSX.writeFile(wb, `Ingresos_${fecha}.xlsx`);
-            }
+            });
         });
-    }
 
-    // Actualizar el evento del botón de exportar
-    document.getElementById('exportExcel').addEventListener('click', exportarExcel);
-
-    // Agregar evento para mostrar/ocultar fechas personalizadas
-    document.getElementById('dateRange')?.addEventListener('change', function() {
-        const customDates = document.getElementById('customDates');
-        if (this.value === 'custom') {
-            customDates.style.display = 'block';
-        } else {
-            customDates.style.display = 'none';
-        }
-    });
-
-    // Formatear montos en la tabla al cargar
-    document.addEventListener('DOMContentLoaded', function() {
-        const montos = document.querySelectorAll('.monto');
-        montos.forEach(monto => {
-            const valor = parseFloat(monto.textContent.replace(/[^\d.-]/g, ''));
-            monto.textContent = formatCOP(valor);
-        });
-    });
-
-    // Función para ver detalles
-    async function verDetalles(id) {
-        try {
-            const response = await fetch(`get_ingreso.php?id=${id}`);
-            if (!response.ok) {
-                throw new Error('Error en la respuesta del servidor');
-            }
-            
-            const data = await response.json();
-            
-            if (data.status && data.data) {
-                const ingreso = data.data;
-                Swal.fire({
-                    title: 'Detalles del Ingreso',
-                    html: `
-                        <div class="ingreso-detalles">
-                            <div class="detail-row">
-                                <strong><i class="fas fa-file-alt"></i> Descripción:</strong>
-                                <p>${ingreso.descripcion}</p>
-                            </div>
-                            <div class="detail-row">
-                                <strong><i class="fas fa-dollar-sign"></i> Monto:</strong>
-                                <p class="monto-destacado">${formatCOP(ingreso.monto)}</p>
-                            </div>
-                            <div class="detail-row">
-                                <strong><i class="fas fa-tags"></i> Categoría:</strong>
-                                <p><span class="badge badge-${ingreso.categoria.toLowerCase()}">${ingreso.categoria}</span></p>
-                            </div>
-                            <div class="detail-row">
-                                <strong><i class="fas fa-credit-card"></i> Método de Pago:</strong>
-                                <p><i class="fas fa-${getMetodoPagoIcon(ingreso.metodo_pago)}"></i> ${ingreso.metodo_pago}</p>
-                            </div>
-                            <div class="detail-row">
-                                <strong><i class="fas fa-calendar"></i> Fecha:</strong>
-                                <p>${ingreso.fecha_formateada}</p>
-                            </div>
-                            <div class="detail-row">
-                                <strong><i class="fas fa-sticky-note"></i> Notas:</strong>
-                                <p>${ingreso.notas || '<em>Sin notas adicionales</em>'}</p>
-                            </div>
-                        </div>
-                    `,
-                    width: '600px',
-                    showCloseButton: true,
-                    showConfirmButton: false,
-                    customClass: {
-                        popup: 'detail-modal',
-                        content: 'detail-content'
-                    }
-                });
-            } else {
-                throw new Error(data.message || 'No se pudieron cargar los detalles');
-            }
-        } catch (error) {
-            console.error('Error:', error);
-            showError('Error', 'No se pudieron cargar los detalles del ingreso');
-        }
-    }
-
-    // Función para editar ingreso
-    async function editarIngreso(id) {
-        try {
-            const response = await fetch(`get_ingreso.php?id=${id}`);
-            const data = await response.json();
-            
-            if (data.status) {
-                const ingreso = data.data;
-                Swal.fire({
-                    title: 'Editar Ingreso',
-                    html: `
-                        <form id="editForm" class="edit-form">
-                            <input type="hidden" name="id" value="${ingreso.id}">
-                            <div class="form-group">
-                                <label>Descripción</label>
-                                <input type="text" name="descripcion" value="${ingreso.descripcion}" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Monto</label>
-                                <input type="number" step="0.01" name="monto" value="${ingreso.monto}" required>
-                            </div>
-                            <div class="form-group">
-                                <label>Categoría</label>
-                                <select name="categoria" required>
-                                    ${getCategoriaOptions(ingreso.categoria)}
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Método de Pago</label>
-                                <select name="metodo_pago" required>
-                                    ${getMetodoPagoOptions(ingreso.metodo_pago)}
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Notas</label>
-                                <textarea name="notas">${ingreso.notas || ''}</textarea>
-                            </div>
-                        </form>
-                    `,
-                    showCancelButton: true,
-                    confirmButtonText: 'Guardar',
-                    cancelButtonText: 'Cancelar',
-                    preConfirm: () => {
-                        const form = document.getElementById('editForm');
-                        const formData = new FormData(form);
-                        formData.append('action', 'edit_ingreso');
-                        
-                        return fetch('update_ingreso.php', {
-                            method: 'POST',
-                            body: formData
-                        })
-                        .then(response => response.json())
-                        .then(result => {
-                            if (!result.status) {
-                                throw new Error(result.message);
-                            }
-                            return result;
-                        });
-                    }
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        showNotification('success', 'Ingreso actualizado correctamente');
-                        setTimeout(() => location.reload(), 1500);
-                    }
-                });
-            }
-        } catch (error) {
-            showError('Error', 'Error al cargar el ingreso para editar');
-        }
-    }
-
-    // Funciones auxiliares
-    function getCategoriaOptions(selectedCategoria) {
-        const categorias = ['Ventas', 'Servicios', 'Comisiones', 'Otros'];
-        return categorias.map(cat => 
-            `<option value="${cat}" ${cat === selectedCategoria ? 'selected' : ''}>${cat}</option>`
-        ).join('');
-    }
-
-    function getMetodoPagoOptions(selectedMetodo) {
-        const metodos = ['Efectivo', 'Transferencia', 'Tarjeta', 'Otro'];
-        return metodos.map(met => 
-            `<option value="${met}" ${met === selectedMetodo ? 'selected' : ''}>${met}</option>`
-        ).join('');
-    }
-
-    // Función para eliminar ingreso
-    function eliminarIngreso(id) {
-        Swal.fire({
-            title: '¿Estás seguro?',
-            text: "Esta acción no se puede deshacer",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: 'Sí, eliminar',
-            cancelButtonText: 'Cancelar',
-            confirmButtonColor: '#dc3545',
-            cancelButtonColor: '#6c757d'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                const formData = new FormData();
-                formData.append('action', 'delete_ingreso');
-                formData.append('id', id);
-
-                fetch('', {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                })
+        // Función para ver detalles
+        function verDetalles(id) {
+            fetch(`get_ingreso.php?id=${id}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.status) {
-                        showNotification('success', data.message);
-                        setTimeout(() => location.reload(), 1500);
+                        const ingreso = data.data;
+                        Swal.fire({
+                            title: 'Detalles del Ingreso',
+                            html: `
+                            <div class="text-left p-4">
+                                <div class="mb-3">
+                                    <strong class="text-gray-700">Descripción:</strong>
+                                    <p class="mt-1">${ingreso.descripcion}</p>
+                                </div>
+                                <div class="mb-3">
+                                    <strong class="text-gray-700">Monto:</strong>
+                                    <p class="mt-1 text-green-600 font-semibold">$${new Intl.NumberFormat('es-CO').format(ingreso.monto)}</p>
+                                </div>
+                                <div class="mb-3">
+                                    <strong class="text-gray-700">Categoría:</strong>
+                                    <p class="mt-1">${ingreso.categoria}</p>
+                                </div>
+                                <div class="mb-3">
+                                    <strong class="text-gray-700">Método de Pago:</strong>
+                                    <p class="mt-1">${ingreso.metodo_pago}</p>
+                                </div>
+                                <div class="mb-3">
+                                    <strong class="text-gray-700">Fecha:</strong>
+                                    <p class="mt-1">${ingreso.fecha_formateada}</p>
+                                </div>
+                                <div class="mb-3">
+                                    <strong class="text-gray-700">Notas:</strong>
+                                    <p class="mt-1">${ingreso.notas || 'Sin notas adicionales'}</p>
+                                </div>
+                            </div>
+                        `,
+                            showCloseButton: true,
+                            showConfirmButton: false,
+                            width: '32rem',
+                        });
                     } else {
-                        showError('Error', data.message);
+                        Toast.fire({
+                            icon: 'error',
+                            title: 'Error al cargar los detalles'
+                        });
                     }
                 })
                 .catch(error => {
-                    showError('Error', 'Error al procesar la solicitud');
+                    Toast.fire({
+                        icon: 'error',
+                        title: 'Error al cargar los detalles'
+                    });
                 });
-            }
+        }
+
+        // Función para editar ingreso
+        function editarIngreso(id) {
+            fetch(`get_ingreso.php?id=${id}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status) {
+                        const ingreso = data.data;
+                        Swal.fire({
+                            title: 'Editar Ingreso',
+                            html: `
+                            <form id="editForm" class="p-4">
+                                <input type="hidden" name="id" value="${ingreso.id}">
+                                <div class="mb-4">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Descripción</label>
+                                    <input type="text" name="descripcion" value="${ingreso.descripcion}" 
+                                           class="w-full px-3 py-2 border rounded-lg" required>
+                                </div>
+                                <div class="mb-4">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Monto</label>
+                                    <input type="number" name="monto" value="${ingreso.monto}" 
+                                           class="w-full px-3 py-2 border rounded-lg" required>
+                                </div>
+                                <div class="mb-4">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Categoría</label>
+                                    <select name="categoria" class="w-full px-3 py-2 border rounded-lg" required>
+                                        ${getCategoriaOptions(ingreso.categoria)}
+                                    </select>
+                                </div>
+                                <div class="mb-4">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Método de Pago</label>
+                                    <select name="metodo_pago" class="w-full px-3 py-2 border rounded-lg" required>
+                                        ${getMetodoPagoOptions(ingreso.metodo_pago)}
+                                    </select>
+                                </div>
+                                <div class="mb-4">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Notas</label>
+                                    <textarea name="notas" class="w-full px-3 py-2 border rounded-lg" rows="3">${ingreso.notas || ''}</textarea>
+                                </div>
+                            </form>
+                        `,
+                            showCancelButton: true,
+                            confirmButtonText: 'Guardar',
+                            cancelButtonText: 'Cancelar',
+                            confirmButtonColor: '#10B981',
+                            cancelButtonColor: '#6B7280',
+                            preConfirm: () => {
+                                const form = document.getElementById('editForm');
+                                const formData = new FormData(form);
+                                formData.append('action', 'edit_ingreso');
+
+                                return fetch('update_ingreso.php', {
+                                        method: 'POST',
+                                        body: formData
+                                    })
+                                    .then(response => response.json())
+                                    .then(result => {
+                                        if (!result.status) throw new Error(result.message);
+                                        return result;
+                                    });
+                            }
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                Toast.fire({
+                                    icon: 'success',
+                                    title: 'Ingreso actualizado correctamente'
+                                });
+                                setTimeout(() => location.reload(), 1500);
+                            }
+                        });
+                    }
+                });
+        }
+
+        // Función para eliminar ingreso
+        function eliminarIngreso(id) {
+            Swal.fire({
+                title: '¿Estás seguro?',
+                text: "Esta acción no se puede deshacer",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#EF4444',
+                cancelButtonColor: '#6B7280',
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const formData = new FormData();
+                    formData.append('action', 'delete_ingreso');
+                    formData.append('id', id);
+
+                    fetch('', {
+                            method: 'POST',
+                            body: formData,
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest'
+                            }
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status) {
+                                Toast.fire({
+                                    icon: 'success',
+                                    title: 'Ingreso eliminado correctamente'
+                                });
+                                setTimeout(() => location.reload(), 1500);
+                            } else {
+                                throw new Error(data.message);
+                            }
+                        })
+                        .catch(error => {
+                            Toast.fire({
+                                icon: 'error',
+                                title: error.message || 'Error al eliminar el ingreso'
+                            });
+                        });
+                }
+            });
+        }
+
+        // Funciones auxiliares
+        function getCategoriaOptions(selectedCategoria) {
+            const categorias = ['Ventas', 'Servicios', 'Comisiones', 'Otros'];
+            return categorias.map(cat =>
+                `<option value="${cat}" ${cat === selectedCategoria ? 'selected' : ''}>${cat}</option>`
+            ).join('');
+        }
+
+        function getMetodoPagoOptions(selectedMetodo) {
+            const metodos = ['Efectivo', 'Transferencia', 'Tarjeta', 'Otro'];
+            return metodos.map(met =>
+                `<option value="${met}" ${met === selectedMetodo ? 'selected' : ''}>${met}</option>`
+            ).join('');
+        }
+
+        // Agregar al inicio del script existente
+        document.addEventListener('DOMContentLoaded', function() {
+            // Formateo de moneda para el campo monto
+            const montoInput = document.getElementById('montoInput');
+
+            montoInput.addEventListener('input', function(e) {
+                // Eliminar todo excepto números
+                let value = this.value.replace(/[^\d]/g, '');
+
+                // Formatear con separadores de miles
+                if (value.length > 0) {
+                    value = new Intl.NumberFormat('es-CO').format(value);
+                }
+
+                this.value = value;
+            });
+
+            // Antes de enviar el formulario, eliminar el formato de moneda
+            document.getElementById('ingresoForm').addEventListener('submit', function(e) {
+                const montoValue = montoInput.value.replace(/\D/g, '');
+                montoInput.value = montoValue;
+            });
+
+            // Animación de carga al enviar el formulario
+            document.getElementById('ingresoForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+
+                const submitBtn = this.querySelector('button[type="submit"]');
+                const originalText = submitBtn.innerHTML;
+
+                // Cambiar el botón a estado de carga
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Procesando...';
+
+                const formData = new FormData(this);
+
+                try {
+                    const response = await fetch('', {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+
+                    const data = await response.json();
+
+                    if (data.status) {
+                        Toast.fire({
+                            icon: 'success',
+                            title: data.message
+                        });
+                        this.reset();
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        Toast.fire({
+                            icon: 'error',
+                            title: data.message || 'Error al registrar el ingreso'
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    Toast.fire({
+                        icon: 'error',
+                        title: 'Error al procesar la solicitud'
+                    });
+                } finally {
+                    // Restaurar el botón
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            });
         });
-    }
     </script>
 </body>
+
 </html>

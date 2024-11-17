@@ -58,165 +58,110 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Apertura de Turno | VendEasy</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
-    <style>
-        body {
-            background-color: #f8f9fa;
-        }
-        .card {
-            border: none;
-            border-radius: 15px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        .card-header {
-            background-color: #4a90e2;
-            color: white;
-            border-radius: 15px 15px 0 0 !important;
-            padding: 1.5rem;
-        }
-        .card-body {
-            padding: 2rem;
-        }
-        .form-control {
-            border-radius: 10px;
-            padding: 0.75rem 1rem;
-            border: 1px solid #ced4da;
-        }
-        .form-control:focus {
-            border-color: #4a90e2;
-            box-shadow: 0 0 0 0.2rem rgba(74, 144, 226, 0.25);
-        }
-        .btn {
-            border-radius: 10px;
-            padding: 0.75rem 1.5rem;
-            font-weight: 500;
-        }
-        .btn-primary {
-            background-color: #4a90e2;
-            border-color: #4a90e2;
-        }
-        .btn-primary:hover {
-            background-color: #357abd;
-            border-color: #357abd;
-            transform: translateY(-1px);
-        }
-        .info-box {
-            background-color: #e9ecef;
-            border-radius: 10px;
-            padding: 1rem;
-            margin-bottom: 1.5rem;
-        }
-        .info-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 0.5rem 0;
-            border-bottom: 1px solid rgba(0,0,0,0.1);
-        }
-        .info-item:last-child {
-            border-bottom: none;
-        }
-        .input-group-text {
-            border-radius: 10px 0 0 10px;
-            background-color: #f8f9fa;
-        }
-        .input-group .form-control {
-            border-radius: 0 10px 10px 0;
-        }
-        .alert {
-            border-radius: 10px;
-        }
-    </style>
+    <link rel="icon" type="image/x-icon" href="../../../favicon/favicon.ico">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
-<body>
-    <div class="container mt-5">
-        <div class="row justify-content-center">
-            <div class="col-md-8">
-                <div class="card">
-                    <div class="card-header">
-                        <h4 class="mb-0">
-                            <i class="fas fa-cash-register mr-2"></i>Apertura de Turno
-                        </h4>
-                        <p class="mb-0 mt-2 text-white-50">
-                            Complete la información para iniciar un nuevo turno
-                        </p>
+<body class="bg-gray-50">
+    <div class="min-h-screen py-8">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <!-- Card principal -->
+            <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4">
+                    <div class="flex items-center">
+                        <i class="fas fa-cash-register text-white text-2xl mr-3"></i>
+                        <div>
+                            <h1 class="text-xl font-bold text-white">Apertura de Turno</h1>
+                            <p class="text-blue-100 text-sm mt-1">Complete la información para iniciar un nuevo turno</p>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        <?php if (isset($error)): ?>
-                            <div class="alert alert-danger">
-                                <i class="fas fa-exclamation-circle mr-2"></i><?= $error ?>
-                            </div>
-                        <?php endif; ?>
+                </div>
 
-                        <?php if ($ultimo_turno): ?>
-                            <div class="info-box">
-                                <h6 class="mb-3">
-                                    <i class="fas fa-history mr-2"></i>Información del Último Turno
-                                </h6>
-                                <div class="info-item">
-                                    <span>Fecha de cierre:</span>
-                                    <strong><?= date('d/m/Y H:i', strtotime($ultimo_turno['fecha_cierre'])) ?></strong>
-                                </div>
-                                <div class="info-item">
-                                    <span>Monto final:</span>
-                                    <strong>$<?= number_format($ultimo_turno['monto_final'], 2, ',', '.') ?></strong>
-                                </div>
+                <div class="p-6">
+                    <?php if (isset($error)): ?>
+                        <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-md">
+                            <div class="flex items-center">
+                                <i class="fas fa-exclamation-circle text-red-500 mr-2"></i>
+                                <p class="text-red-700"><?= $error ?></p>
                             </div>
-                        <?php endif; ?>
-                        
-                        <form method="POST" action="" id="aperturaTurnoForm">
-                            <div class="form-group">
-                                <label for="monto_inicial">
-                                    <i class="fas fa-money-bill-wave mr-2"></i>Monto Inicial en Caja
-                                </label>
-                                <div class="input-group">
-                                    <div class="input-group-prepend">
-                                        <span class="input-group-text">$</span>
-                                    </div>
-                                    <input type="number" 
-                                           class="form-control" 
-                                           id="monto_inicial" 
-                                           name="monto_inicial" 
-                                           step="0.01" 
-                                           required
-                                           <?php if ($ultimo_turno): ?>
-                                           value="<?= $ultimo_turno['monto_final'] ?>"
-                                           <?php endif; ?>>
-                                </div>
-                                <small class="form-text text-muted">
-                                    Ingrese el monto con el que inicia el turno
-                                </small>
-                            </div>
+                        </div>
+                    <?php endif; ?>
 
-                            <div class="form-group">
-                                <label for="observaciones">
-                                    <i class="fas fa-comment-alt mr-2"></i>Observaciones
-                                </label>
-                                <textarea class="form-control" 
-                                          id="observaciones" 
-                                          name="observaciones" 
-                                          rows="3"
-                                          placeholder="Ingrese cualquier observación relevante para la apertura del turno"></textarea>
+                    <?php if ($ultimo_turno): ?>
+                        <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                            <h2 class="text-gray-700 font-semibold mb-3 flex items-center">
+                                <i class="fas fa-history mr-2 text-gray-500"></i>
+                                Último Turno Cerrado
+                            </h2>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="bg-white p-3 rounded-lg shadow-sm">
+                                    <span class="text-sm text-gray-500">Fecha de cierre</span>
+                                    <p class="font-medium text-gray-800 mt-1">
+                                        <?= date('d/m/Y H:i', strtotime($ultimo_turno['fecha_cierre'])) ?>
+                                    </p>
+                                </div>
+                                <div class="bg-white p-3 rounded-lg shadow-sm">
+                                    <span class="text-sm text-gray-500">Monto final</span>
+                                    <p class="font-medium text-gray-800 mt-1">
+                                        $<?= number_format($ultimo_turno['monto_final'], 2, ',', '.') ?>
+                                    </p>
+                                </div>
                             </div>
+                        </div>
+                    <?php endif; ?>
 
-                            <div class="d-flex justify-content-between align-items-center mt-4">
-                                <a href="../index.php" class="btn btn-secondary">
-                                    <i class="fas fa-arrow-left mr-2"></i>Cancelar
-                                </a>
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-play mr-2"></i>Iniciar Turno
-                                </button>
+                    <form method="POST" action="" id="aperturaTurnoForm" class="space-y-6">
+                        <div>
+                            <label for="monto_inicial" class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-money-bill-wave mr-2 text-gray-500"></i>
+                                Monto Inicial en Caja
+                            </label>
+                            <div class="mt-1 relative rounded-md shadow-sm">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <span class="text-gray-500 sm:text-sm">$</span>
+                                </div>
+                                <input type="number" 
+                                       id="monto_inicial" 
+                                       name="monto_inicial" 
+                                       step="0.01"
+                                       required
+                                       class="block w-full pl-7 pr-12 py-3 border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                                       value="<?= $ultimo_turno ? $ultimo_turno['monto_final'] : '' ?>">
                             </div>
-                        </form>
-                    </div>
+                            <p class="mt-2 text-sm text-gray-500">Ingrese el monto con el que inicia el turno</p>
+                        </div>
+
+                        <div>
+                            <label for="observaciones" class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-comment-alt mr-2 text-gray-500"></i>
+                                Observaciones
+                            </label>
+                            <textarea id="observaciones" 
+                                      name="observaciones" 
+                                      rows="3"
+                                      class="block w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                      placeholder="Ingrese cualquier observación relevante..."></textarea>
+                        </div>
+
+                        <div class="flex justify-between items-center pt-4">
+                            <a href="../index.php" 
+                               class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                <i class="fas fa-arrow-left mr-2"></i>
+                                Cancelar
+                            </a>
+                            <button type="submit" 
+                                    class="inline-flex items-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                <i class="fas fa-play mr-2"></i>
+                                Iniciar Turno
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('aperturaTurnoForm');
@@ -230,7 +175,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             });
 
-            // Formatear el monto mientras se escribe
             montoInput.addEventListener('input', function() {
                 if (this.value < 0) {
                     this.value = 0;

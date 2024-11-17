@@ -8,12 +8,13 @@ if (isset($_SESSION['user_id'])) {
 ?>
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VendEasy - Sistema Contable Inteligente</title>
     <meta name="description" content="Sistema contable inteligente para pequeñas y medianas empresas. Gestiona tus finanzas de manera fácil y eficiente.">
-    <link rel="icon" type="image/png" href="/favicon/favicon.ico"/>
+    <link rel="icon" type="image/png" href="/favicon/favicon.ico" />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
@@ -40,7 +41,7 @@ if (isset($_SESSION['user_id'])) {
 
         .header {
             background-color: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             padding: 1rem 2rem;
             position: fixed;
             width: 100%;
@@ -160,7 +161,7 @@ if (isset($_SESSION['user_id'])) {
             background: white;
             padding: 2rem;
             border-radius: 1rem;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
             transition: transform 0.3s ease;
             text-align: left;
         }
@@ -248,7 +249,7 @@ if (isset($_SESSION['user_id'])) {
             background: white;
             padding: 2rem;
             border-radius: 1rem;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
         }
 
         .feature-block-icon {
@@ -289,7 +290,7 @@ if (isset($_SESSION['user_id'])) {
             background: white;
             padding: 2rem;
             border-radius: 1rem;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
             position: relative;
             text-align: center;
         }
@@ -355,8 +356,101 @@ if (isset($_SESSION['user_id'])) {
                 transform: none;
             }
         }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem;
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            transition: transform 0.3s ease;
+        }
+
+        .stat-item:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-icon {
+            font-size: 2.5rem;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+
+        .stat-detail {
+            font-size: 0.875rem;
+            color: #666;
+            margin-top: 0.5rem;
+            text-align: center;
+        }
+
+        .demo-section {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            padding: 4rem 0;
+        }
+
+        .demo-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            align-items: center;
+        }
+
+        .demo-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .demo-img {
+            width: 100%;
+            height: auto;
+            border-radius: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            margin-bottom: 1.5rem;
+        }
+
+        .demo-metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .metric {
+            background: white;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .metric i {
+            color: var(--primary-color);
+        }
+
+        @media (max-width: 768px) {
+            .demo-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .demo-metrics {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
+
 <body>
     <header class="header">
         <nav class="nav">
@@ -386,16 +480,25 @@ if (isset($_SESSION['user_id'])) {
         </div>
 
         <div class="hero-container">
-            <h1 class="hero-title">Contabilidad inteligente para darle poder a tu negocio</h1>
+            <h1 class="hero-title">Contabilidad inteligente</h1>
             <p class="hero-subtitle">La forma más inteligente de gestionar tu contabilidad, facturación e inventario. Todo en un solo lugar. Ahora en versión BETA completamente gratuita.</p>
-            
+
             <a href="modules/auth/register.php" class="btn btn-primary">
                 Comienza Gratis
                 <i class="fas fa-arrow-right"></i>
             </a>
-            
             <p style="margin-top: 1rem; font-size: 0.875rem; color: #4b5563;">
                 Al registrarte aceptas nuestros <a href="terminos-y-condiciones.php" style="color: var(--primary-color); text-decoration: underline;">Términos y Condiciones</a>
+            </p>
+
+            <p style="margin-top: 0.5rem; font-size: 0.875rem; color: #4b5563;">
+                Desarrollado con <i class="fas fa-heart" style="color: #e11d48;"></i> por
+                <a href="https://github.com/JR-Solutions-Col"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style="color: var(--primary-color); text-decoration: none; font-weight: 500;">
+                    JR-Solutions
+                </a>
             </p>
 
             <div class="features-grid">
@@ -421,20 +524,64 @@ if (isset($_SESSION['user_id'])) {
     <section class="stats-section">
         <div class="stats-grid">
             <div class="stat-item">
+                <div class="stat-icon">
+                    <i class="fas fa-rocket"></i>
+                </div>
                 <h3>Beta</h3>
                 <p>Versión de lanzamiento</p>
+                <div class="stat-detail">Acceso anticipado a todas las funciones</div>
             </div>
             <div class="stat-item">
+                <div class="stat-icon">
+                    <i class="fas fa-server"></i>
+                </div>
                 <h3>99.9%</h3>
                 <p>Tiempo de actividad</p>
+                <div class="stat-detail">Servidores redundantes de alta disponibilidad</div>
             </div>
             <div class="stat-item">
+                <div class="stat-icon">
+                    <i class="fas fa-headset"></i>
+                </div>
                 <h3>24/7</h3>
                 <p>Soporte técnico</p>
+                <div class="stat-detail">Asistencia personalizada vía chat y email</div>
             </div>
             <div class="stat-item">
+                <div class="stat-icon">
+                    <i class="fas fa-infinity"></i>
+                </div>
                 <h3>Ilimitado</h3>
-                <p>Disfruta de todas las características sin restricciones</p>
+                <p>Sin restricciones</p>
+                <div class="stat-detail">Usuarios, productos y transacciones sin límite</div>
+            </div>
+        </div>
+    </section>
+
+    <section class="demo-section">
+        <div class="section-container">
+            <h2 class="section-title">Conoce la plataforma en acción</h2>
+            <div class="demo-grid">
+                <div class="demo-card">
+                    <img src="assets/img/dashboard-preview.png" alt="Dashboard" class="demo-img">
+                    <h3>Dashboard Intuitivo</h3>
+                    <p>Visualiza tus métricas clave en tiempo real</p>
+                </div>
+                <div class="demo-stats">
+                    <div class="chart-container">
+                        <canvas id="ventasChart"></canvas>
+                    </div>
+                    <div class="demo-metrics">
+                        <div class="metric">
+                            <i class="fas fa-chart-line"></i>
+                            <span>Análisis de ventas</span>
+                        </div>
+                        <div class="metric">
+                            <i class="fas fa-database"></i>
+                            <span>Backup automático diario</span>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </section>
@@ -447,9 +594,7 @@ if (isset($_SESSION['user_id'])) {
                     <i class="fas fa-file-invoice feature-block-icon"></i>
                     <h3>Sistema de Facturación</h3>
                     <ul>
-                        <li>Facturas personalizadas</li>
-                        <li>Notas crédito y débito</li>
-                        <li>Múltiples plantillas</li>
+                        <li>Facturación sencilla</li>
                         <li>Envío por email</li>
                     </ul>
                 </div>
@@ -458,7 +603,6 @@ if (isset($_SESSION['user_id'])) {
                     <h3>Control de Inventario</h3>
                     <ul>
                         <li>Gestión de stock en tiempo real</li>
-                        <li>Alertas de inventario bajo</li>
                         <li>Múltiples bodegas</li>
                         <li>Códigos de barras</li>
                     </ul>
@@ -470,7 +614,6 @@ if (isset($_SESSION['user_id'])) {
                         <li>Balance general</li>
                         <li>Estado de resultados</li>
                         <li>Flujo de caja</li>
-                        <li>Reportes personalizados</li>
                     </ul>
                 </div>
             </div>
@@ -528,6 +671,69 @@ if (isset($_SESSION['user_id'])) {
             </div>
         </div>
     </section>
-</body>
-</html>
 
+    <footer style="background: var(--light-bg); padding: 2rem; text-align: center; margin-top: 2rem;">
+        <div style="max-width: 1200px; margin: 0 auto;">
+            <div style="margin-bottom: 1rem;">
+                <a href="terminos-y-condiciones.php"
+                    style="color: var(--text-color); text-decoration: none; font-size: 0.875rem; margin: 0 0.5rem;">
+                    Términos y Condiciones
+                </a>
+                <span style="color: #666;">|</span>
+                <a href="politica-privacidad.php"
+                    style="color: var(--text-color); text-decoration: none; font-size: 0.875rem; margin: 0 0.5rem;">
+                    Política de Privacidad
+                </a>
+            </div>
+            <p style="color: var(--text-color); font-size: 0.875rem;">
+                Desarrollado con <i class="fas fa-heart" style="color: #e11d48;"></i> por
+                <a href="https://github.com/JR-Solutions-Col"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style="color: var(--primary-color); text-decoration: none; font-weight: 500;">
+                    JR-Solutions
+                </a>
+            </p>
+            <p style="color: #666; font-size: 0.75rem; margin-top: 0.5rem;">
+                © <?php echo date('Y'); ?> VendEasy. Todos los derechos reservados.
+            </p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Configuración del gráfico de ventas
+        const ctx = document.getElementById('ventasChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
+                datasets: [{
+                    label: 'Ventas Mensuales',
+                    data: [12, 19, 15, 25, 22, 30],
+                    borderColor: '#2563eb',
+                    tension: 0.4,
+                    fill: true,
+                    backgroundColor: 'rgba(37, 99, 235, 0.1)'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    });
+    </script>
+</body>
+
+</html>

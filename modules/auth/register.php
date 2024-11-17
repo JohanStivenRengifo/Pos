@@ -114,6 +114,13 @@ function registerUser($pdo, $email, $password, $nombre = '') {
         ]);
 
         $pdo->commit();
+        
+        // Iniciar sesión automáticamente después del registro
+        $_SESSION['user_id'] = $user_id;
+        $_SESSION['email'] = $email;
+        $_SESSION['nombre'] = $nombre;
+        $_SESSION['rol'] = 'administrador';
+        
         return ['status' => true, 'message' => 'Registro exitoso'];
     } catch (Exception $e) {
         $pdo->rollBack();
@@ -151,10 +158,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         if (isAjaxRequest()) {
             ApiResponse::send($result['status'], $result['message'], 
-                $result['status'] ? ['redirect' => '../../index.php'] : null);
+                $result['status'] ? ['redirect' => '../empresa/setup.php'] : null);
         } else {
             if ($result['status']) {
-                header("Location: ../../index.php");
+                header("Location: ../empresa/setup.php");
                 exit();
             } else {
                 $error = $result['message'];

@@ -472,6 +472,42 @@ print_r($flujoCajaResult);
 echo "\n-->";
 $gastosPorCategoriaResult = getGastosPorCategoria($user_id);
 $comparativaMensualResult = getComparativaMensual($user_id);
+
+// Antes de las gráficas, agregar la función PHP para obtener datos de flujo de caja
+function getFlujoCajaMensual($user_id) {
+    global $pdo;
+    try {
+        $query = "SELECT 
+                    DATE_FORMAT(fecha, '%Y-%m') as mes,
+                    SUM(CASE WHEN tipo = 'ingreso' THEN monto ELSE 0 END) as ingresos,
+                    SUM(CASE WHEN tipo = 'egreso' THEN monto ELSE 0 END) as egresos,
+                    SUM(CASE WHEN tipo = 'ingreso' THEN monto ELSE -monto END) as flujo_neto
+                  FROM (
+                    SELECT fecha, 'ingreso' as tipo, total as monto 
+                    FROM ventas 
+                    WHERE user_id = ?
+                    UNION ALL
+                    SELECT fecha, 'ingreso' as tipo, monto 
+                    FROM ingresos 
+                    WHERE user_id = ?
+                    UNION ALL
+                    SELECT fecha, 'egreso' as tipo, monto 
+                    FROM egresos 
+                    WHERE user_id = ?
+                  ) as movimientos
+                  GROUP BY DATE_FORMAT(fecha, '%Y-%m')
+                  ORDER BY mes DESC
+                  LIMIT 12";
+        
+        $stmt = $pdo->prepare($query);
+        $stmt->execute([$user_id, $user_id, $user_id]);
+        return ['status' => true, 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)];
+    } catch (PDOException $e) {
+        return ['status' => false, 'message' => 'Error al obtener flujo de caja: ' . $e->getMessage()];
+    }
+}
+
+$flujoCajaResult = getFlujoCajaMensual($user_id);
 ?>
 
 <!DOCTYPE html>
@@ -481,203 +517,248 @@ $comparativaMensualResult = getComparativaMensual($user_id);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reportes | VendEasy</title>
     <link rel="icon" type="image/png" href="/favicon/favicon.ico"/>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
-    <link rel="stylesheet" href="../../css/welcome.css">
-    <link rel="stylesheet" href="../../css/modulos.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-material-ui/material-ui.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
-<body>
-<?php include '../../includes/header.php'; ?>
-    <div class="container">
+<body class="bg-gray-50">
+    <?php include '../../includes/header.php'; ?>
+    
+    <div class="flex">
         <?php include '../../includes/sidebar.php'; ?>
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                const currentUrl = window.location.pathname;
-                const sidebarLinks = document.querySelectorAll('.side_navbar a');
-                sidebarLinks.forEach(link => {
-                    if (link.getAttribute('href') === currentUrl) {
-                        link.classList.add('active');
-                    }
-                });
-            });
-        </script>
 
-        <div class="main-body">
-            <h2>Panel de Reportes</h2>
+        <div class="flex-1 p-8">
+            <h2 class="text-3xl font-bold text-gray-800 mb-6">Panel de Reportes</h2>
             
             <!-- KPIs Principales -->
-            <div class="kpi-container">
-                <div class="kpi-card">
-                    <i class="fas fa-receipt"></i>
-                    <div class="kpi-content">
-                        <h3>Ticket Promedio</h3>
-                        <p>$<?= number_format($kpisResult['data']['ticket_promedio'], 2) ?></p>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <!-- Ticket Promedio -->
+                <div class="bg-white rounded-xl shadow-md p-6 transition-transform hover:-translate-y-1">
+                    <div class="flex items-center space-x-4">
+                        <div class="p-3 bg-green-100 rounded-full">
+                            <i class="fas fa-receipt text-green-600 text-2xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600">Ticket Promedio</p>
+                            <p class="text-2xl font-bold text-gray-800">
+                                $<?= number_format($kpisResult['data']['ticket_promedio'], 2) ?>
+                            </p>
+                        </div>
                     </div>
                 </div>
-                <div class="kpi-card">
-                    <i class="fas fa-shopping-cart"></i>
-                    <div class="kpi-content">
-                        <h3>Ventas Diarias</h3>
-                        <p><?= round($kpisResult['data']['ventas_diarias'], 1) ?></p>
-                    </div>
-                </div>
-                <div class="kpi-card">
-                    <i class="fas fa-users"></i>
-                    <div class="kpi-content">
-                        <h3>Clientes Únicos</h3>
-                        <p><?= $kpisResult['data']['clientes_unicos'] ?></p>
-                    </div>
-                </div>
-                <div class="kpi-card">
-                    <i class="fas fa-dollar-sign"></i>
-                    <div class="kpi-content">
-                        <h3>Ingreso Diario</h3>
-                        <p>$<?= number_format($kpisResult['data']['ingreso_diario'], 2) ?></p>
-                    </div>
-                </div>
-            </div>
 
-            <!-- Balance General Mejorado -->
-            <div class="balance-section">
-                <h3>Balance General</h3>
-                <div class="balance-cards">
-                    <div class="balance-card income">
-                        <div class="balance-icon">
-                            <i class="fas fa-plus-circle"></i>
+                <!-- Ventas Diarias -->
+                <div class="bg-white rounded-xl shadow-md p-6 transition-transform hover:-translate-y-1">
+                    <div class="flex items-center space-x-4">
+                        <div class="p-3 bg-blue-100 rounded-full">
+                            <i class="fas fa-chart-line text-blue-600 text-2xl"></i>
                         </div>
-                        <div class="balance-details">
-                            <h4>Ingresos Totales</h4>
-                            <p>$<?= number_format($balanceGeneral['total_ventas'] + $balanceGeneral['total_ingresos'], 2) ?></p>
-                            <div class="balance-breakdown">
-                                <span>Ventas: $<?= number_format($balanceGeneral['total_ventas'], 2) ?></span>
-                                <span>Otros: $<?= number_format($balanceGeneral['total_ingresos'], 2) ?></span>
-                            </div>
+                        <div>
+                            <p class="text-sm text-gray-600">Ventas Diarias</p>
+                            <p class="text-2xl font-bold text-gray-800">
+                                <?= number_format($kpisResult['data']['ventas_diarias'], 1) ?>
+                            </p>
                         </div>
                     </div>
-                    <div class="balance-card expenses">
-                        <div class="balance-icon">
-                            <i class="fas fa-minus-circle"></i>
+                </div>
+
+                <!-- Clientes Únicos -->
+                <div class="bg-white rounded-xl shadow-md p-6 transition-transform hover:-translate-y-1">
+                    <div class="flex items-center space-x-4">
+                        <div class="p-3 bg-purple-100 rounded-full">
+                            <i class="fas fa-users text-purple-600 text-2xl"></i>
                         </div>
-                        <div class="balance-details">
-                            <h4>Egresos Totales</h4>
-                            <p>$<?= number_format($balanceGeneral['total_egresos'], 2) ?></p>
+                        <div>
+                            <p class="text-sm text-gray-600">Clientes Únicos</p>
+                            <p class="text-2xl font-bold text-gray-800">
+                                <?= $kpisResult['data']['clientes_unicos'] ?>
+                            </p>
                         </div>
                     </div>
-                    <div class="balance-card total">
-                        <div class="balance-icon">
-                            <i class="fas fa-equals"></i>
+                </div>
+
+                <!-- Ingreso Diario -->
+                <div class="bg-white rounded-xl shadow-md p-6 transition-transform hover:-translate-y-1">
+                    <div class="flex items-center space-x-4">
+                        <div class="p-3 bg-amber-100 rounded-full">
+                            <i class="fas fa-dollar-sign text-amber-600 text-2xl"></i>
                         </div>
-                        <div class="balance-details">
-                            <h4>Balance Final</h4>
-                            <p class="<?= $balanceGeneral['balance'] >= 0 ? 'positive' : 'negative' ?>">
-                                $<?= number_format($balanceGeneral['balance'], 2) ?>
+                        <div>
+                            <p class="text-sm text-gray-600">Ingreso Diario</p>
+                            <p class="text-2xl font-bold text-gray-800">
+                                $<?= number_format($kpisResult['data']['ingreso_diario'], 2) ?>
                             </p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Nueva sección de tendencias -->
-            <div class="trends-section">
-                <div class="chart-card">
-                    <h4>Tendencias de Ventas por Hora</h4>
-                    <div class="chart-wrapper">
+            <!-- Balance General -->
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">Balance General</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Ingresos Totales -->
+                    <div class="bg-white rounded-xl shadow-md p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="p-3 bg-green-100 rounded-full">
+                                <i class="fas fa-plus-circle text-green-600 text-xl"></i>
+                            </div>
+                            <p class="text-sm text-gray-500">Ingresos Totales</p>
+                        </div>
+                        <p class="text-2xl font-bold text-gray-800">
+                            $<?= number_format($balanceGeneral['total_ventas'] + $balanceGeneral['total_ingresos'], 2) ?>
+                        </p>
+                        <div class="mt-4 space-y-2">
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">Ventas</span>
+                                <span class="text-green-600">$<?= number_format($balanceGeneral['total_ventas'], 2) ?></span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">Otros</span>
+                                <span class="text-green-600">$<?= number_format($balanceGeneral['total_ingresos'], 2) ?></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Egresos Totales -->
+                    <div class="bg-white rounded-xl shadow-md p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="p-3 bg-red-100 rounded-full">
+                                <i class="fas fa-minus-circle text-red-600 text-xl"></i>
+                            </div>
+                            <p class="text-sm text-gray-500">Egresos Totales</p>
+                        </div>
+                        <p class="text-2xl font-bold text-gray-800">
+                            $<?= number_format($balanceGeneral['total_egresos'], 2) ?>
+                        </p>
+                    </div>
+
+                    <!-- Balance Final -->
+                    <div class="bg-white rounded-xl shadow-md p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="p-3 bg-blue-100 rounded-full">
+                                <i class="fas fa-equals text-blue-600 text-xl"></i>
+                            </div>
+                            <p class="text-sm text-gray-500">Balance Final</p>
+                        </div>
+                        <p class="text-2xl font-bold <?= $balanceGeneral['balance'] >= 0 ? 'text-green-600' : 'text-red-600' ?>">
+                            $<?= number_format($balanceGeneral['balance'], 2) ?>
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gráficas Principales -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <!-- Tendencias de Ventas -->
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <h4 class="text-lg font-semibold text-gray-800 mb-4">Tendencias de Ventas por Hora</h4>
+                    <div class="h-80">
                         <canvas id="tendenciasVentasChart"></canvas>
                     </div>
-                    <div class="chart-legend">
-                        <div class="legend-item">
-                            <span class="legend-color" style="background: #4CAF50"></span>
-                            <span>Número de Ventas</span>
-                        </div>
-                        <div class="legend-item">
-                            <span class="legend-color" style="background: #2196F3"></span>
-                            <span>Monto Total</span>
-                        </div>
+                </div>
+
+                <!-- Flujo de Caja -->
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <h4 class="text-lg font-semibold text-gray-800 mb-4">Flujo de Caja Mensual</h4>
+                    <div class="h-80">
+                        <canvas id="flujoCajaChart"></canvas>
                     </div>
                 </div>
             </div>
 
-            <!-- Ventas por Turno -->
-            <div class="chart-section">
-                <div class="chart-card">
-                    <h4>Ventas por Turno (Últimos 10 turnos)</h4>
-                    <div class="chart-wrapper" style="height: 400px;">
-                        <canvas id="ventasPorTurnoChart"></canvas>
+            <!-- Gráficas Secundarias -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <!-- Gastos por Categoría -->
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <h4 class="text-lg font-semibold text-gray-800 mb-4">Desglose de Gastos por Categoría</h4>
+                    <div class="h-80">
+                        <canvas id="gastosCategoriaChart"></canvas>
                     </div>
                 </div>
-            </div>
 
-            <!-- Desglose de Gastos y Comparativa Mensual -->
-            <div class="charts-container">
-                <div class="chart-card">
-                    <h4>Desglose de Gastos por Categoría</h4>
-                    <div class="chart-wrapper">
-                        <canvas id="gastosCategoriasChart"></canvas>
-                    </div>
-                </div>
-                <div class="chart-card">
-                    <h4>Comparativa Mensual</h4>
-                    <div class="chart-wrapper">
+                <!-- Comparativa Mensual -->
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <h4 class="text-lg font-semibold text-gray-800 mb-4">Comparativa Mensual</h4>
+                    <div class="h-80">
                         <canvas id="comparativaMensualChart"></canvas>
                     </div>
                 </div>
             </div>
 
             <!-- Resumen Contable -->
-            <div class="accounting-summary">
-                <h3>Resumen Contable</h3>
-                <div class="accounting-grid">
-                    <div class="accounting-card">
-                        <h4>Ingresos</h4>
-                        <div class="accounting-details">
-                            <div class="detail-item">
-                                <span>Ventas</span>
-                                <span class="amount positive">$<?= number_format($balanceGeneral['total_ventas'], 2) ?></span>
+            <div class="mb-8">
+                <h3 class="text-xl font-semibold text-gray-800 mb-4">Resumen Contable</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Ingresos -->
+                    <div class="bg-white rounded-xl shadow-md p-6">
+                        <h4 class="font-semibold text-gray-800 mb-4">Ingresos</h4>
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600">Ventas</span>
+                                <span class="font-medium text-green-600">
+                                    $<?= number_format($balanceGeneral['total_ventas'], 2) ?>
+                                </span>
                             </div>
-                            <div class="detail-item">
-                                <span>Otros Ingresos</span>
-                                <span class="amount positive">$<?= number_format($balanceGeneral['total_ingresos'], 2) ?></span>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600">Otros Ingresos</span>
+                                <span class="font-medium text-green-600">
+                                    $<?= number_format($balanceGeneral['total_ingresos'], 2) ?>
+                                </span>
                             </div>
-                            <div class="detail-item total">
-                                <span>Total Ingresos</span>
-                                <span class="amount positive">$<?= number_format($balanceGeneral['total_ventas'] + $balanceGeneral['total_ingresos'], 2) ?></span>
+                            <div class="pt-3 border-t">
+                                <div class="flex justify-between items-center font-semibold">
+                                    <span>Total Ingresos</span>
+                                    <span class="text-green-600">
+                                        $<?= number_format($balanceGeneral['total_ventas'] + $balanceGeneral['total_ingresos'], 2) ?>
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <div class="accounting-card">
-                        <h4>Egresos</h4>
-                        <div class="accounting-details">
+
+                    <!-- Egresos -->
+                    <div class="bg-white rounded-xl shadow-md p-6">
+                        <h4 class="font-semibold text-gray-800 mb-4">Egresos</h4>
+                        <div class="space-y-3">
                             <?php foreach ($gastosPorCategoriaResult['data'] as $gasto): ?>
-                            <div class="detail-item">
-                                <span><?= htmlspecialchars($gasto['categoria']) ?></span>
-                                <span class="amount negative">$<?= number_format($gasto['total_gastos'], 2) ?></span>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600"><?= htmlspecialchars($gasto['categoria']) ?></span>
+                                <span class="font-medium text-red-600">
+                                    $<?= number_format($gasto['total_gastos'], 2) ?>
+                                </span>
                             </div>
                             <?php endforeach; ?>
-                            <div class="detail-item total">
-                                <span>Total Egresos</span>
-                                <span class="amount negative">$<?= number_format($balanceGeneral['total_egresos'], 2) ?></span>
+                            <div class="pt-3 border-t">
+                                <div class="flex justify-between items-center font-semibold">
+                                    <span>Total Egresos</span>
+                                    <span class="text-red-600">
+                                        $<?= number_format($balanceGeneral['total_egresos'], 2) ?>
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <div class="accounting-card">
-                        <h4>Resultados</h4>
-                        <div class="accounting-details">
-                            <div class="detail-item">
-                                <span>Margen Bruto</span>
-                                <span class="amount <?= ($balanceGeneral['balance'] >= 0) ? 'positive' : 'negative' ?>">
+
+                    <!-- Resultados -->
+                    <div class="bg-white rounded-xl shadow-md p-6">
+                        <h4 class="font-semibold text-gray-800 mb-4">Resultados</h4>
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600">Margen Bruto</span>
+                                <span class="font-medium <?= $balanceGeneral['balance'] >= 0 ? 'text-green-600' : 'text-red-600' ?>">
                                     $<?= number_format($balanceGeneral['balance'], 2) ?>
                                 </span>
                             </div>
-                            <div class="detail-item">
-                                <span>Rentabilidad</span>
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600">Rentabilidad</span>
                                 <?php 
                                 $rentabilidad = ($balanceGeneral['total_ventas'] > 0) 
                                     ? ($balanceGeneral['balance'] / $balanceGeneral['total_ventas']) * 100 
                                     : 0;
                                 ?>
-                                <span class="amount <?= ($rentabilidad >= 0) ? 'positive' : 'negative' ?>">
+                                <span class="font-medium <?= $rentabilidad >= 0 ? 'text-green-600' : 'text-red-600' ?>">
                                     <?= number_format($rentabilidad, 1) ?>%
                                 </span>
                             </div>
@@ -688,518 +769,176 @@ $comparativaMensualResult = getComparativaMensual($user_id);
         </div>
     </div>
 
-    <style>
-    .summary-cards {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 1rem;
-        margin-bottom: 2rem;
-    }
-
-    .summary-card {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-    }
-
-    .summary-card i {
-        font-size: 2rem;
-        padding: 1rem;
-        border-radius: 50%;
-        background: #f8f9fa;
-    }
-
-    .summary-card.positive i {
-        color: #28a745;
-    }
-
-    .summary-card.negative i {
-        color: #dc3545;
-    }
-
-    .card-content h3 {
-        font-size: 0.9rem;
-        color: #6c757d;
-        margin: 0;
-    }
-
-    .card-content p {
-        font-size: 1.5rem;
-        font-weight: bold;
-        margin: 0.5rem 0 0;
-    }
-
-    .charts-container {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-        gap: 1.5rem;
-        margin-bottom: 2rem;
-    }
-
-    .chart-card {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        min-height: 400px;
-        display: flex;
-        flex-direction: column;
-    }
-
-    .chart-card h4 {
-        margin: 0 0 1rem 0;
-    }
-
-    .chart-wrapper {
-        flex-grow: 1;
-        position: relative;
-        min-height: 300px;
-    }
-
-    @media (max-width: 768px) {
-        .charts-container {
-            grid-template-columns: 1fr;
-        }
-        
-        .chart-card {
-            min-height: 350px;
-        }
-        
-        .chart-wrapper {
-            min-height: 250px;
-        }
-    }
-
-    .table-container {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-
-    .table-responsive {
-        overflow-x: auto;
-    }
-
-    /* Estilos para KPIs */
-    .kpi-container {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
-        margin-bottom: 2rem;
-    }
-
-    .kpi-card {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 10px;
-        box-shadow: 0 2px 15px rgba(0,0,0,0.1);
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-        transition: transform 0.3s ease;
-    }
-
-    .kpi-card:hover {
-        transform: translateY(-5px);
-    }
-
-    .kpi-card i {
-        font-size: 2rem;
-        color: #4CAF50;
-    }
-
-    .kpi-content h3 {
-        font-size: 0.9rem;
-        color: #666;
-        margin: 0;
-    }
-
-    .kpi-content p {
-        font-size: 1.5rem;
-        font-weight: bold;
-        margin: 0.5rem 0 0;
-        color: #2c3e50;
-    }
-
-    /* Estilos para Balance General */
-    .balance-section {
-        margin-bottom: 2rem;
-    }
-
-    .balance-cards {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 1.5rem;
-    }
-
-    .balance-card {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 12px;
-        box-shadow: 0 2px 15px rgba(0,0,0,0.1);
-        display: flex;
-        align-items: center;
-        gap: 1.5rem;
-    }
-
-    .balance-icon i {
-        font-size: 2.5rem;
-        padding: 1rem;
-        border-radius: 50%;
-    }
-
-    .balance-card.income .balance-icon i {
-        color: #4CAF50;
-        background: rgba(76, 175, 80, 0.1);
-    }
-
-    .balance-card.expenses .balance-icon i {
-        color: #f44336;
-        background: rgba(244, 67, 54, 0.1);
-    }
-
-    .balance-card.total .balance-icon i {
-        color: #2196F3;
-        background: rgba(33, 150, 243, 0.1);
-    }
-
-    .balance-details h4 {
-        margin: 0;
-        color: #666;
-        font-size: 1rem;
-    }
-
-    .balance-details p {
-        margin: 0.5rem 0;
-        font-size: 1.8rem;
-        font-weight: bold;
-        color: #2c3e50;
-    }
-
-    .balance-breakdown {
-        display: flex;
-        flex-direction: column;
-        font-size: 0.9rem;
-        color: #666;
-    }
-
-    .positive { color: #4CAF50; }
-    .negative { color: #f44336; }
-
-    /* Mejoras responsivas */
-    @media (max-width: 768px) {
-        .balance-cards {
-            grid-template-columns: 1fr;
-        }
-        
-        .kpi-container {
-            grid-template-columns: repeat(2, 1fr);
-        }
-    }
-
-    @media (max-width: 480px) {
-        .kpi-container {
-            grid-template-columns: 1fr;
-        }
-    }
-
-    /* Agregar a la sección de estilos */
-    .trends-section {
-        margin-bottom: 2rem;
-    }
-
-    .chart-legend {
-        display: flex;
-        justify-content: space-between;
-        margin-top: 1rem;
-    }
-
-    .legend-item {
-        display: flex;
-        align-items: center;
-    }
-
-    .legend-color {
-        width: 1rem;
-        height: 1rem;
-        border-radius: 50%;
-        margin-right: 0.5rem;
-    }
-
-    /* Estilos para el Resumen Contable */
-    .accounting-summary {
-        margin-top: 2rem;
-    }
-
-    .accounting-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 1.5rem;
-        margin-top: 1rem;
-    }
-
-    .accounting-card {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 12px;
-        box-shadow: 0 2px 15px rgba(0,0,0,0.1);
-    }
-
-    .accounting-card h4 {
-        margin: 0 0 1rem 0;
-        color: #2c3e50;
-        font-size: 1.2rem;
-    }
-
-    .accounting-details {
-        display: flex;
-        flex-direction: column;
-        gap: 0.8rem;
-    }
-
-    .detail-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 0.5rem 0;
-        border-bottom: 1px solid #eee;
-    }
-
-    .detail-item.total {
-        border-top: 2px solid #ddd;
-        border-bottom: none;
-        margin-top: 0.5rem;
-        padding-top: 1rem;
-        font-weight: bold;
-    }
-
-    .amount {
-        font-weight: 500;
-    }
-
-    .amount.positive {
-        color: #4CAF50;
-    }
-
-    .amount.negative {
-        color: #f44336;
-    }
-
-    /* Estilos para las nuevas gráficas */
-    .chart-section {
-        margin-bottom: 2rem;
-    }
-
-    .chart-section .chart-card {
-        width: 100%;
-    }
-    </style>
-
+    <!-- Scripts para las gráficas -->
     <script>
-    // Configuración global de notificaciones
-    const Toast = Swal.mixin({
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 3000,
-        timerProgressBar: true,
-        didOpen: (toast) => {
-            toast.addEventListener('mouseenter', Swal.stopTimer)
-            toast.addEventListener('mouseleave', Swal.resumeTimer)
+    // Mantener la lógica de las gráficas existente, solo actualizar las opciones de estilo
+    const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: {
+                    usePointStyle: true,
+                    padding: 20,
+                    font: {
+                        size: 12
+                    }
+                }
+            },
+            tooltip: {
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                padding: 12,
+                titleFont: {
+                    size: 14
+                },
+                bodyFont: {
+                    size: 13
+                }
+            }
         }
-    });
-
-    // Configuración global de Chart.js
-    Chart.defaults.responsive = true;
-    Chart.defaults.maintainAspectRatio = false;
-    Chart.defaults.plugins.tooltip.callbacks.label = function(context) {
-        return context.dataset.label + ': $' + new Intl.NumberFormat().format(context.raw);
     };
 
-    // Función principal para inicializar todas las gráficas
-    function initializeAllCharts() {
+    document.addEventListener('DOMContentLoaded', function() {
+        // Configuración de colores
+        const colors = {
+            green: 'rgb(76, 175, 80)',
+            blue: 'rgb(33, 150, 243)',
+            red: 'rgb(244, 67, 54)',
+            amber: 'rgb(255, 193, 7)',
+            purple: 'rgb(156, 39, 176)'
+        };
 
-        // Gráfica de Tendencias de Ventas
-        const tendenciasData = <?= json_encode($tendenciasVentasResult['data'] ?? []) ?>;
+        // Tendencias de Ventas
         const ctxTendencias = document.getElementById('tendenciasVentasChart');
-        
-        if (ctxTendencias && tendenciasData.length > 0) {
-            new Chart(ctxTendencias, {
-                type: 'line',
+        new Chart(ctxTendencias, {
+            type: 'line',
+            data: {
+                labels: <?= json_encode(array_column($tendenciasVentasResult['data'], 'hora')) ?>,
+                datasets: [{
+                    label: 'Número de Ventas',
+                    data: <?= json_encode(array_column($tendenciasVentasResult['data'], 'total_ventas')) ?>,
+                    borderColor: colors.green,
+                    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                    fill: true
+                }, {
+                    label: 'Monto Total',
+                    data: <?= json_encode(array_column($tendenciasVentasResult['data'], 'monto_total')) ?>,
+                    borderColor: colors.blue,
+                    backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                    fill: true,
+                    yAxisID: 'y1'
+                }]
+            },
+            options: {
+                ...chartOptions,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Número de Ventas'
+                        }
+                    },
+                    y1: {
+                        position: 'right',
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Monto Total ($)'
+                        },
+                        grid: {
+                            drawOnChartArea: false
+                        }
+                    }
+                }
+            }
+        });
+
+        // Flujo de Caja
+        const ctxFlujoCaja = document.getElementById('flujoCajaChart');
+        const flujoCajaData = <?= json_encode($flujoCajaResult['data'] ?? []) ?>;
+
+        if (ctxFlujoCaja && flujoCajaData.length > 0) {
+            new Chart(ctxFlujoCaja, {
+                type: 'bar',
                 data: {
-                    labels: tendenciasData.map(item => item.hora),
+                    labels: flujoCajaData.map(item => {
+                        const fecha = new Date(item.mes + '-01');
+                        return fecha.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' });
+                    }),
                     datasets: [
                         {
-                            label: 'Número de Ventas',
-                            data: tendenciasData.map(item => parseInt(item.total_ventas)),
-                            borderColor: '#4CAF50',
-                            backgroundColor: 'rgba(76, 175, 80, 0.1)',
-                            yAxisID: 'y',
-                            fill: true
+                            label: 'Ingresos',
+                            data: flujoCajaData.map(item => parseFloat(item.ingresos)),
+                            backgroundColor: 'rgba(76, 175, 80, 0.6)',
+                            borderColor: 'rgb(76, 175, 80)',
+                            borderWidth: 1,
+                            stack: 'stack0'
                         },
                         {
-                            label: 'Monto Total',
-                            data: tendenciasData.map(item => parseFloat(item.monto_total)),
-                            borderColor: '#2196F3',
+                            label: 'Egresos',
+                            data: flujoCajaData.map(item => -parseFloat(item.egresos)),
+                            backgroundColor: 'rgba(244, 67, 54, 0.6)',
+                            borderColor: 'rgb(244, 67, 54)',
+                            borderWidth: 1,
+                            stack: 'stack0'
+                        },
+                        {
+                            label: 'Flujo Neto',
+                            data: flujoCajaData.map(item => parseFloat(item.flujo_neto)),
+                            type: 'line',
+                            borderColor: 'rgb(33, 150, 243)',
                             backgroundColor: 'rgba(33, 150, 243, 0.1)',
-                            yAxisID: 'y1',
-                            fill: true
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.4
                         }
                     ]
                 },
                 options: {
-                    responsive: true,
-                    interaction: {
-                        mode: 'index',
-                        intersect: false
-                    },
-                    scales: {
-                        y: {
-                            type: 'linear',
-                            display: true,
-                            position: 'left',
-                            title: {
-                                display: true,
-                                text: 'Número de Ventas'
-                            }
-                        },
-                        y1: {
-                            type: 'linear',
-                            display: true,
-                            position: 'right',
-                            title: {
-                                display: true,
-                                text: 'Monto Total ($)'
-                            },
-                            grid: {
-                                drawOnChartArea: false
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        // Obtener los datos de ventas por turno
-        const ventasPorTurnoData = <?= json_encode(getVentasPorTurno($user_id)['data'] ?? []) ?>;
-        const ctxVentasTurno = document.getElementById('ventasPorTurnoChart');
-
-        if (ctxVentasTurno && ventasPorTurnoData.length > 0) {
-            new Chart(ctxVentasTurno, {
-                type: 'bar',
-                data: {
-                    labels: ventasPorTurnoData.map(item => {
-                        const fechaApertura = new Date(item.fecha_apertura);
-                        const fechaCierre = item.fecha_cierre ? new Date(item.fecha_cierre) : null;
-                        const horaApertura = fechaApertura.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-                        const horaCierre = fechaCierre ? fechaCierre.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }) : 'En curso';
-                        return `${item.fecha} (${horaApertura} - ${horaCierre})`;
-                    }),
-                    datasets: [{
-                        label: 'Total Ventas ($)',
-                        data: ventasPorTurnoData.map(item => parseFloat(item.total_ventas)),
-                        backgroundColor: 'rgba(76, 175, 80, 0.6)',
-                        borderColor: 'rgb(76, 175, 80)',
-                        borderWidth: 1,
-                        yAxisID: 'y'
-                    }, {
-                        label: 'Número de Ventas',
-                        data: ventasPorTurnoData.map(item => parseInt(item.numero_ventas)),
-                        backgroundColor: 'rgba(33, 150, 243, 0.6)',
-                        borderColor: 'rgb(33, 150, 243)',
-                        borderWidth: 1,
-                        yAxisID: 'y1'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: true,
-                            position: 'top'
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    if (context.dataset.yAxisID === 'y') {
-                                        return 'Total: $' + context.raw.toLocaleString('es-ES', {
-                                            minimumFractionDigits: 2,
-                                            maximumFractionDigits: 2
-                                        });
-                                    } else {
-                                        return 'Ventas: ' + context.raw;
-                                    }
-                                },
-                                afterBody: function(context) {
-                                    const idx = context[0].dataIndex;
-                                    const turno = ventasPorTurnoData[idx];
-                                    return [
-                                        `Monto Inicial: $${parseFloat(turno.monto_inicial).toLocaleString('es-ES', {minimumFractionDigits: 2})}`,
-                                        `Monto Final: $${parseFloat(turno.monto_final || 0).toLocaleString('es-ES', {minimumFractionDigits: 2})}`
-                                    ];
-                                }
-                            }
-                        }
-                    },
+                    ...chartOptions,
                     scales: {
                         x: {
-                            ticks: {
-                                maxRotation: 45,
-                                minRotation: 45
+                            grid: {
+                                display: false
                             }
                         },
                         y: {
-                            type: 'linear',
-                            display: true,
-                            position: 'left',
                             title: {
                                 display: true,
-                                text: 'Total Ventas ($)'
+                                text: 'Monto ($)'
                             },
                             ticks: {
                                 callback: function(value) {
-                                    return '$' + value.toLocaleString('es-ES', {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 2
-                                    });
+                                    return '$' + Math.abs(value).toLocaleString();
                                 }
                             }
-                        },
-                        y1: {
-                            type: 'linear',
-                            display: true,
-                            position: 'right',
-                            title: {
-                                display: true,
-                                text: 'Número de Ventas'
-                            },
-                            grid: {
-                                drawOnChartArea: false
+                        }
+                    },
+                    plugins: {
+                        ...chartOptions.plugins,
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    let value = context.raw;
+                                    if (label === 'Egresos') {
+                                        value = Math.abs(value);
+                                    }
+                                    return `${label}: $${value.toLocaleString()}`;
+                                }
                             }
                         }
                     }
                 }
             });
-        } else {
-            if (ctxVentasTurno) {
-                const ctx = ctxVentasTurno.getContext('2d');
-                ctx.font = '14px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillStyle = '#666';
-                ctx.fillText('No hay datos disponibles para mostrar', ctxVentasTurno.width / 2, ctxVentasTurno.height / 2);
-            }
         }
 
-        // Gráfica de Gastos por Categoría
+        // Gastos por Categoría
+        const ctxGastos = document.getElementById('gastosCategoriaChart');
         const gastosData = <?= json_encode($gastosPorCategoriaResult['data'] ?? []) ?>;
-        const ctxGastos = document.getElementById('gastosCategoriasChart');
-        
+
         if (ctxGastos && gastosData.length > 0) {
             new Chart(ctxGastos, {
                 type: 'doughnut',
@@ -1213,24 +952,45 @@ $comparativaMensualResult = getComparativaMensual($user_id);
                             'rgba(255, 206, 86, 0.8)',
                             'rgba(75, 192, 192, 0.8)',
                             'rgba(153, 102, 255, 0.8)'
-                        ]
+                        ],
+                        borderWidth: 1
                     }]
                 },
                 options: {
-                    responsive: true,
+                    ...chartOptions,
+                    cutout: '60%',
                     plugins: {
+                        ...chartOptions.plugins,
                         legend: {
-                            position: 'right'
+                            position: 'right',
+                            labels: {
+                                generateLabels: function(chart) {
+                                    const data = chart.data;
+                                    if (data.labels.length && data.datasets.length) {
+                                        return data.labels.map((label, i) => {
+                                            const value = data.datasets[0].data[i];
+                                            const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                            const percentage = ((value / total) * 100).toFixed(1);
+                                            return {
+                                                text: `${label}: $${value.toLocaleString()} (${percentage}%)`,
+                                                fillStyle: data.datasets[0].backgroundColor[i],
+                                                index: i
+                                            };
+                                        });
+                                    }
+                                    return [];
+                                }
+                            }
                         }
                     }
                 }
             });
         }
 
-        // Gráfica de Comparativa Mensual
-        const comparativaData = <?= json_encode($comparativaMensualResult['data'] ?? []) ?>;
+        // Comparativa Mensual
         const ctxComparativa = document.getElementById('comparativaMensualChart');
-        
+        const comparativaData = <?= json_encode($comparativaMensualResult['data'] ?? []) ?>;
+
         if (ctxComparativa && comparativaData.length > 0) {
             new Chart(ctxComparativa, {
                 type: 'line',
@@ -1239,44 +999,45 @@ $comparativaMensualResult = getComparativaMensual($user_id);
                         const fecha = new Date(item.mes + '-01');
                         return fecha.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' });
                     }),
-                    datasets: [
-                        {
-                            label: 'Ventas ($)',
-                            data: comparativaData.map(item => parseFloat(item.ventas)),
-                            borderColor: '#4CAF50',
-                            backgroundColor: 'rgba(76, 175, 80, 0.1)',
-                            yAxisID: 'y',
-                            fill: true
-                        },
-                        {
-                            label: 'Número de Clientes',
-                            data: comparativaData.map(item => parseInt(item.num_clientes)),
-                            borderColor: '#2196F3',
-                            backgroundColor: 'rgba(33, 150, 243, 0.1)',
-                            yAxisID: 'y1',
-                            fill: true
-                        }
-                    ]
+                    datasets: [{
+                        label: 'Ventas',
+                        data: comparativaData.map(item => parseFloat(item.ventas)),
+                        borderColor: colors.green,
+                        backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                        fill: true,
+                        yAxisID: 'y'
+                    }, {
+                        label: 'Número de Clientes',
+                        data: comparativaData.map(item => parseInt(item.num_clientes)),
+                        borderColor: colors.blue,
+                        backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                        fill: true,
+                        yAxisID: 'y1'
+                    }]
                 },
                 options: {
-                    responsive: true,
-                    interaction: {
-                        mode: 'index',
-                        intersect: false
-                    },
+                    ...chartOptions,
                     scales: {
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        },
                         y: {
                             type: 'linear',
-                            display: true,
                             position: 'left',
                             title: {
                                 display: true,
                                 text: 'Ventas ($)'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                }
                             }
                         },
                         y1: {
                             type: 'linear',
-                            display: true,
                             position: 'right',
                             title: {
                                 display: true,
@@ -1286,23 +1047,49 @@ $comparativaMensualResult = getComparativaMensual($user_id);
                                 drawOnChartArea: false
                             }
                         }
+                    },
+                    plugins: {
+                        ...chartOptions.plugins,
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.dataset.yAxisID === 'y') {
+                                        label += '$' + context.parsed.y.toLocaleString();
+                                    } else {
+                                        label += context.parsed.y;
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
                     }
                 }
             });
         }
-    }
 
-    // Inicialización cuando el DOM esté listo
-    document.addEventListener('DOMContentLoaded', function() {
-        try {
-            initializeAllCharts();
-        } catch (error) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Hubo un problema al cargar las gráficas'
-            });
-        }
+        // Agregar manejo de errores y mensajes cuando no hay datos
+        const charts = [
+            { ctx: ctxFlujoCaja, data: flujoCajaData, name: 'Flujo de Caja' },
+            { ctx: ctxGastos, data: gastosData, name: 'Gastos por Categoría' },
+            { ctx: ctxComparativa, data: comparativaData, name: 'Comparativa Mensual' }
+        ];
+
+        charts.forEach(chart => {
+            if (chart.ctx && (!chart.data || chart.data.length === 0)) {
+                const ctx = chart.ctx.getContext('2d');
+                ctx.font = '14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#666';
+                ctx.fillText(`No hay datos disponibles para ${chart.name}`, 
+                    chart.ctx.width / 2, 
+                    chart.ctx.height / 2
+                );
+            }
+        });
     });
     </script>
 </body>

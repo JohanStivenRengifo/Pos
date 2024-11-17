@@ -6,11 +6,11 @@ ServerSignature Off
 SetEnv TZ America/Bogota
 
 # Configuración de errores
-ErrorDocument 400 /errors/400.php
-ErrorDocument 401 /errors/401.php
-ErrorDocument 403 /errors/403.php
-ErrorDocument 404 /errors/404.php
-ErrorDocument 500 /errors/500.php
+ErrorDocument 400 https://johanrengifo.cloud/errors/400.php
+ErrorDocument 401 https://johanrengifo.cloud/errors/401.php
+ErrorDocument 403 https://johanrengifo.cloud/errors/403.php
+ErrorDocument 404 https://johanrengifo.cloud/errors/404.php
+ErrorDocument 500 https://johanrengifo.cloud/errors/500.php
 
 # Protección contra XSS y otros ataques
 <IfModule mod_headers.c>
@@ -76,6 +76,18 @@ ErrorDocument 500 /errors/500.php
 <FilesMatch "(^#.*#|\.(bak|config|sql|db|md|log|json|lock|git|env|env\..+|dist)|~)$">
     Order allow,deny
     Deny from all
+</FilesMatch>
+
+# Proteger la carpeta uploads
+<FilesMatch "^\.">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Permitir solo imágenes en la carpeta uploads
+<FilesMatch "\.(jpg|jpeg|png|gif)$">
+    Order deny,allow
+    Allow from all
 </FilesMatch>
 
 php_value upload_max_filesize 25M

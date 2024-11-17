@@ -126,7 +126,7 @@ $(document).ready(function () {
     // Función para buscar producto por código de barras exacto
     function buscarPorCodigoBarrasExacto(codigo) {
         const productoEncontrado = $('.product-card').filter(function() {
-            return $(this).data('codigo').toString().toLowerCase() === codigo.toLowerCase();
+            return $(this).data('codigo').toString() === codigo;
         }).first();
 
         if (productoEncontrado.length) {
@@ -134,10 +134,14 @@ $(document).ready(function () {
             const nombre = productoEncontrado.data('nombre');
             const precio = parseFloat(productoEncontrado.data('precio'));
             const stock = parseInt(productoEncontrado.data('cantidad'));
+            
             agregarProducto(id, nombre, precio, stock);
             $buscarProductoInput.val('');
+            filtrarProductos('');
             return true;
         }
+        
+        mostrarAlerta('error', 'Producto no encontrado', 'No se encontró ningún producto con ese código de barras.');
         return false;
     }
 
@@ -486,123 +490,94 @@ $(document).ready(function () {
         }
     }
 
-    // Configuración para el lector de códigos de barras
+    // Reemplazar la configuración actual del lector de códigos de barras con esta versión mejorada
     let codigoBarras = '';
-    let timeoutBarcode;
-    const BARCODE_DELAY = 50; // Tiempo máximo entre caracteres del código de barras
+    let ultimoKeyTime = 0;
+    const BARCODE_DELAY = 20; // Tiempo máximo entre caracteres del código de barras (ms)
+    const MIN_CHARS = 3; // Mínimo de caracteres para un código válido
 
     // Evento para capturar entrada del lector de códigos de barras
-    document.addEventListener('keypress', function(e) {
-        // Solo procesar si no estamos en un campo de entrada
-        if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
-            e.preventDefault(); // Prevenir la entrada en otros elementos
+    $(document).on('keypress', function(e) {
+        const currentTime = new Date().getTime();
+        
+        // Si el foco está en un input que no es el de búsqueda, ignorar
+        if (e.target.tagName === 'INPUT' && e.target.id !== 'buscar-producto') {
+            return;
+        }
 
-            // Reiniciar el timeout
-            clearTimeout(timeoutBarcode);
+        // Si es el input de búsqueda, permitir la entrada normal
+        if (e.target.id === 'buscar-producto') {
+            // Si el tiempo entre teclas es mayor al delay, considerarlo como entrada manual
+            if (currentTime - ultimoKeyTime > BARCODE_DELAY) {
+                codigoBarras = '';
+                return;
+            }
+        } else {
+            e.preventDefault(); // Prevenir entrada en otros elementos
+        }
 
-            // Agregar el carácter al código
-            codigoBarras += e.key;
+        // Actualizar tiempo de última tecla
+        ultimoKeyTime = currentTime;
 
-            // Configurar nuevo timeout
-            timeoutBarcode = setTimeout(() => {
-                if (codigoBarras.length >= 3) { // Mínimo de caracteres para un código válido
-                    procesarCodigoBarras(codigoBarras);
-                }
-                codigoBarras = ''; // Limpiar el código
-            }, BARCODE_DELAY);
+        // Si es Enter, procesar el código
+        if (e.which === 13) {
+            if (codigoBarras.length >= MIN_CHARS) {
+                procesarCodigoBarras(codigoBarras);
+            }
+            codigoBarras = '';
+            return;
+        }
+
+        // Agregar carácter al código
+        codigoBarras += e.key;
+
+        // Si han pasado más de 100ms desde la última tecla, reiniciar el código
+        setTimeout(() => {
+            if (new Date().getTime() - ultimoKeyTime >= 100) {
+                codigoBarras = '';
+            }
+        }, 100);
+    });
+
+    // Modificar el evento input del campo de búsqueda
+    $buscarProductoInput.off('input').on('input', debounce(function(e) {
+        const valorBuscado = $(this).val().trim();
+        
+        // Si parece ser entrada del lector (rápida), no filtrar aún
+        if (new Date().getTime() - ultimoKeyTime < BARCODE_DELAY) {
+            return;
+        }
+
+        filtrarProductos(valorBuscado);
+    }, 300));
+
+    // Modificar el evento keypress del campo de búsqueda
+    $buscarProductoInput.off('keypress').on('keypress', function(e) {
+        if (e.which === 13) {
+            e.preventDefault();
+            const valorBuscado = $(this).val().trim();
+            
+            // Si el valor tiene 8 o más caracteres, asumimos que es un código de barras
+            if (valorBuscado.length >= 8) {
+                buscarPorCodigoBarrasExacto(valorBuscado);
+                $(this).val('');
+                return;
+            }
+            
+            // Si es una búsqueda manual
+            if (valorBuscado.length >= 3) {
+                buscarProductoManual(valorBuscado);
+            } else {
+                mostrarAlerta('warning', 'Búsqueda muy corta', 'Ingrese al menos 3 caracteres para buscar');
+            }
         }
     });
 
-    // Función mejorada para mostrar notificaciones
-    function showNotification(type, message, details = '') {
-        const Toast = Swal.mixin({
-            toast: true,
-            position: 'top-end',
-            showConfirmButton: false,
-            timer: 3000,
-            timerProgressBar: true,
-            didOpen: (toast) => {
-                toast.addEventListener('mouseenter', Swal.stopTimer)
-                toast.addEventListener('mouseleave', Swal.resumeTimer)
-            }
-        });
-
-        Toast.fire({
-            icon: type,
-            title: message,
-            text: details,
-            className: `notification-${type}`
-        });
-    }
-
-    // Función mejorada para mostrar errores
-    function showError(title, message, suggestion = '') {
-        Swal.fire({
-            icon: 'error',
-            title: title,
-            html: `
-                <div class="error-message">
-                    <p class="error-description">${message}</p>
-                    ${suggestion ? `
-                        <div class="error-suggestion">
-                            <i class="fas fa-lightbulb"></i>
-                            <p>${suggestion}</p>
-                        </div>
-                    ` : ''}
-                </div>
-            `,
-            confirmButtonText: 'Entendido',
-            customClass: {
-                container: 'error-dialog',
-                popup: 'error-popup',
-                title: 'error-title',
-                htmlContainer: 'error-container',
-                confirmButton: 'error-confirm'
-            }
-        });
-    }
-
-    // Mensajes de error específicos para cada caso
-    const ErrorMessages = {
-        STOCK: {
-            title: 'Stock Insuficiente',
-            message: (producto) => `No hay suficiente stock disponible para "${producto}"`,
-            suggestion: 'Verifique el inventario o ajuste la cantidad solicitada.'
-        },
-        BARCODE: {
-            title: 'Código No Encontrado',
-            message: (codigo) => `No se encontró ningún producto con el código: ${codigo}`,
-            suggestion: 'Verifique que el código sea correcto o busque el producto manualmente.'
-        },
-        CLIENTE: {
-            title: 'Cliente No Seleccionado',
-            message: 'Es necesario seleccionar un cliente para continuar.',
-            suggestion: 'Seleccione un cliente de la lista o use "Consumidor Final".'
-        },
-        CARRITO_VACIO: {
-            title: 'Carrito Vacío',
-            message: 'No hay productos en el carrito.',
-            suggestion: 'Agregue productos escaneando su código o seleccionándolos de la lista.'
-        },
-        VENTA: {
-            title: 'Error en la Venta',
-            message: 'No se pudo procesar la venta.',
-            suggestion: 'Verifique la conexión e intente nuevamente. Si el problema persiste, contacte al soporte.'
-        },
-        EMPRESA: {
-            title: 'Configuración Pendiente',
-            message: 'No se puede procesar la venta porque la configuración de la empresa no está completa.',
-            suggestion: 'Por favor, configure los datos de su empresa en el módulo de Configuración antes de realizar ventas.'
-        },
-        EMPRESA_NO_ENCONTRADA: {
-            title: 'Error de Configuración',
-            message: 'La empresa asociada a su cuenta no se encuentra disponible.',
-            suggestion: 'Contacte al administrador del sistema o verifique la configuración de su empresa.'
-        }
-    };
-
-    // Función mejorada para procesar el código de barras
+    // Función mejorada para procesar código de barras
     async function procesarCodigoBarras(codigo) {
+        // Limpiar el código de caracteres no deseados
+        codigo = codigo.replace(/[^\w\d]/g, '');
+        
         const productoEncontrado = $('.product-card').filter(function() {
             return $(this).data('codigo').toString() === codigo;
         }).first();
@@ -610,9 +585,9 @@ $(document).ready(function () {
         if (!productoEncontrado.length) {
             playBeepSound(false);
             showError(
-                ErrorMessages.BARCODE.title,
-                ErrorMessages.BARCODE.message(codigo),
-                ErrorMessages.BARCODE.suggestion
+                'Producto no encontrado',
+                `No se encontró ningún producto con el código: ${codigo}`,
+                'Verifique que el código sea correcto o busque el producto manualmente.'
             );
             return;
         }
@@ -622,35 +597,36 @@ $(document).ready(function () {
         const precio = parseFloat(productoEncontrado.data('precio'));
         const stock = parseInt(productoEncontrado.data('cantidad'));
 
-        if (stock <= 0) {
+        try {
+            await agregarProducto(id, nombre, precio, stock);
+            playBeepSound(true);
+            showNotification('success', 'Producto agregado', nombre);
+        } catch (error) {
             playBeepSound(false);
-            showError(
-                ErrorMessages.STOCK.title,
-                ErrorMessages.STOCK.message(nombre),
-                ErrorMessages.STOCK.suggestion
-            );
-            return;
+            showError('Error', error.message);
         }
+    }
 
-        // Verificar si ya está en el carrito
-        const itemExistente = carrito.find(item => item.id === id);
-        if (itemExistente && itemExistente.cantidad >= stock) {
-            playBeepSound(false);
-            showError(
-                ErrorMessages.STOCK.title,
-                `Ya tiene ${itemExistente.cantidad} unidades de "${nombre}" en el carrito.`,
-                'La cantidad en el carrito ya alcanzó el máximo disponible.'
+    // Función para buscar producto manualmente
+    function buscarProductoManual(valorBuscado) {
+        const productosVisibles = $('.product-card:visible');
+        
+        if (productosVisibles.length === 0) {
+            mostrarAlerta('warning', 'Sin resultados', 'No se encontraron productos que coincidan con la búsqueda');
+        } else if (productosVisibles.length === 1) {
+            const producto = productosVisibles.first();
+            agregarProducto(
+                producto.data('id'),
+                producto.data('nombre'),
+                parseFloat(producto.data('precio')),
+                parseInt(producto.data('cantidad'))
             );
-            return;
+            $buscarProductoInput.val('');
+        } else {
+            mostrarAlerta('info', 'Múltiples resultados', 'Haga clic en el producto deseado');
         }
-
-        playBeepSound(true);
-        agregarProducto(id, nombre, precio, stock);
-        showNotification(
-            'success',
-            'Producto Agregado',
-            `${nombre} - Stock disponible: ${stock - (itemExistente?.cantidad || 0)}`
-        );
+        
+        filtrarProductos('');
     }
 
     // Función para reproducir sonidos
@@ -855,29 +831,150 @@ $(document).ready(function () {
         });
     });
 
-    // Manejador para guardar nuevo cliente
-    $('#guardarCliente').on('click', function(e) {
-        e.preventDefault();
-        const $btn = $(this);
-        const $form = $('#nuevoClienteForm');
+    // Variables para el manejo de tabs
+    let currentTab = 0;
+    const tabs = ['personal', 'identificacion', 'contacto', 'ubicacion'];
+    
+    // Función para validar el tab actual
+    function validateTab(tabId) {
+        const $tab = $(`#${tabId}`);
+        let isValid = true;
+        
+        $tab.find('input[required], select[required]').each(function() {
+            if (!this.value) {
+                isValid = false;
+                $(this).addClass('is-invalid');
+            } else {
+                $(this).removeClass('is-invalid');
+            }
+        });
+        
+        return isValid;
+    }
 
-        // Validar campos requeridos
-        if (!$form[0].checkValidity()) {
-            $form[0].reportValidity();
+    // Función para mostrar el tab actual
+    function showTab(n) {
+        currentTab = n;
+        const tabId = tabs[n];
+        
+        // Activar el tab correspondiente
+        $(`#clienteTabs a[href="#${tabId}"]`).tab('show');
+        
+        // Actualizar botones
+        if (n === 0) {
+            $('.prev-tab').hide();
+        } else {
+            $('.prev-tab').show();
+        }
+        
+        if (n === tabs.length - 1) {
+            $('button[type="submit"]').show();
+            $('.next-tab').hide();
+        } else {
+            $('button[type="submit"]').hide();
+            $('.next-tab').show();
+        }
+        
+        // Actualizar progress bar
+        const progress = ((n + 1) / tabs.length) * 100;
+        $('.progress-bar').css('width', progress + '%');
+    }
+
+    // Manejador para el botón siguiente
+    $('.next-tab').click(function() {
+        const currentTabId = tabs[currentTab];
+        const $currentTab = $(`#${currentTabId}`);
+        let isValid = true;
+
+        // Validar solo los campos del tab actual
+        $currentTab.find('input[required], select[required]').each(function() {
+            if (!$(this).val().trim()) {
+                isValid = false;
+                $(this).addClass('is-invalid');
+            } else {
+                $(this).removeClass('is-invalid');
+            }
+        });
+
+        if (isValid) {
+            showTab(currentTab + 1);
+        } else {
+            Swal.fire({
+                title: 'Campos Incompletos',
+                text: 'Por favor complete todos los campos requeridos en esta sección',
+                icon: 'warning'
+            });
+        }
+    });
+
+    // Manejador para el botón anterior
+    $('.prev-tab').click(function() {
+        showTab(currentTab - 1);
+    });
+
+    // Modificar el manejador del formulario
+    $('#nuevoClienteForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        const $form = $(this);
+        const $submitButton = $form.find('button[type="submit"]');
+        
+        // Validar todos los campos requeridos antes de enviar
+        let isValid = true;
+        const requiredFields = {
+            'primer_nombre': 'Primer Nombre',
+            'apellidos': 'Apellidos',
+            'tipo_identificacion': 'Tipo de Identificación',
+            'identificacion': 'Número de Identificación',
+            'email': 'Correo Electrónico',
+            'telefono': 'Teléfono',
+            'departamento': 'Departamento'
+        };
+
+        // Verificar cada campo requerido
+        Object.keys(requiredFields).forEach(fieldId => {
+            const $field = $(`#${fieldId}`);
+            const value = $field.val().trim();
+            
+            if (!value) {
+                isValid = false;
+                $field.addClass('is-invalid');
+                // Mostrar el tab que contiene el campo inválido
+                const tabId = $field.closest('.tab-pane').attr('id');
+                const tabIndex = tabs.indexOf(tabId);
+                if (tabIndex !== -1) {
+                    showTab(tabIndex);
+                }
+            } else {
+                $field.removeClass('is-invalid');
+            }
+        });
+
+        if (!isValid) {
+            Swal.fire({
+                title: 'Campos Incompletos',
+                text: 'Por favor complete todos los campos requeridos',
+                icon: 'warning'
+            });
             return;
         }
 
-        // Deshabilitar botón y mostrar spinner
-        $btn.prop('disabled', true)
-            .html('<i class="fas fa-spinner fa-spin mr-1"></i>Guardando...');
+        // Deshabilitar el botón y mostrar spinner
+        $submitButton.prop('disabled', true)
+            .html('<i class="fas fa-spinner fa-spin"></i> Guardando...');
 
         // Recopilar datos del formulario
         const clienteData = {
-            nombre: $('#nombre').val().trim(),
-            documento: $('#documento').val().trim(),
-            telefono: $('#telefono').val().trim(),
+            primer_nombre: $('#primer_nombre').val().trim(),
+            segundo_nombre: $('#segundo_nombre').val().trim(),
+            apellidos: $('#apellidos').val().trim(),
+            nombre_comercial: $('#nombre').val().trim(),
+            tipo_identificacion: $('#tipo_identificacion').val(),
+            identificacion: $('#identificacion').val().trim(),
             email: $('#email').val().trim(),
-            direccion: $('#direccion').val().trim()
+            telefono: $('#telefono').val().trim(),
+            departamento: $('#departamento').val(),
+            codigo_postal: $('#codigo_postal').val()
         };
 
         // Enviar datos al servidor
@@ -885,58 +982,67 @@ $(document).ready(function () {
             url: 'guardar_cliente.php',
             method: 'POST',
             data: clienteData,
-            dataType: 'json',
-            success: function(response) {
-                if (response.status) {
-                    // Agregar el nuevo cliente al select
-                    const newOption = new Option(response.cliente.nombre, response.cliente.id, true, true);
-                    $('#cliente-select').append(newOption).trigger('change');
+            dataType: 'json'
+        })
+        .done(function(response) {
+            if (response.status) {
+                // Agregar el nuevo cliente al select
+                const nombreCompleto = clienteData.nombre_comercial || 
+                                     `${clienteData.primer_nombre} ${clienteData.apellidos}`;
+                const newOption = new Option(nombreCompleto, response.cliente_id, true, true);
+                $('#cliente-select').append(newOption).trigger('change');
 
-                    // Mostrar mensaje de éxito
-                    Swal.fire({
-                        title: 'Cliente Guardado',
-                        text: 'El cliente se ha registrado correctamente',
-                        icon: 'success',
-                        timer: 2000,
-                        showConfirmButton: false
-                    });
-
-                    // Cerrar modal y limpiar formulario
-                    $('#nuevoClienteModal').modal('hide');
-                    $form[0].reset();
-                } else {
-                    throw new Error(response.message || 'Error al guardar el cliente');
-                }
-            },
-            error: function(xhr, status, error) {
+                // Mostrar mensaje de éxito
                 Swal.fire({
-                    title: 'Error',
-                    text: 'No se pudo guardar el cliente. Por favor, intente nuevamente.',
-                    icon: 'error'
+                    title: 'Cliente Guardado',
+                    text: 'El cliente se ha registrado correctamente',
+                    icon: 'success',
+                    timer: 2000,
+                    showConfirmButton: false
                 });
-            },
-            complete: function() {
-                // Restaurar botón
-                $btn.prop('disabled', false)
-                    .html('<i class="fas fa-save mr-1"></i>Guardar Cliente');
+
+                // Cerrar modal y limpiar formulario
+                $('#nuevoClienteModal').modal('hide');
+                $form[0].reset();
+                $form.removeClass('was-validated');
+                $('.form-control').removeClass('is-valid is-invalid');
+            } else {
+                throw new Error(response.message || 'Error al guardar el cliente');
             }
+        })
+        .fail(function(xhr, status, error) {
+            console.error('Error al guardar cliente:', error);
+            Swal.fire({
+                title: 'Error',
+                text: xhr.responseJSON?.message || 'No se pudo guardar el cliente. Por favor, intente nuevamente.',
+                icon: 'error'
+            });
+        })
+        .always(function() {
+            // Restaurar el botón
+            $submitButton.prop('disabled', false)
+                .html('<i class="fas fa-save"></i> Guardar Cliente');
         });
     });
 
-    // Limpiar formulario al cerrar el modal
-    $('#nuevoClienteModal').on('hidden.bs.modal', function() {
-        $('#nuevoClienteForm')[0].reset();
-        const $btn = $('#guardarCliente');
-        $btn.prop('disabled', false)
-            .html('<i class="fas fa-save mr-1"></i>Guardar Cliente');
-    });
-
-    // Agregar validación en tiempo real
-    $('#nuevoClienteForm input').on('input', function() {
+    // Inicialización
+    showTab(0);
+    
+    // Validación en tiempo real
+    $('.form-control').on('input', function() {
         $(this).removeClass('is-invalid');
-        if ($(this).attr('required') && !$(this).val().trim()) {
+        if ($(this).prop('required') && !$(this).val().trim()) {
             $(this).addClass('is-invalid');
         }
+    });
+
+    // Reset del formulario al cerrar el modal
+    $('#nuevoClienteModal').on('hidden.bs.modal', function() {
+        const $form = $('#nuevoClienteForm');
+        $form[0].reset();
+        $form.removeClass('was-validated');
+        $('.form-control').removeClass('is-valid is-invalid');
+        showTab(0);
     });
 
     // Función para obtener el email del cliente

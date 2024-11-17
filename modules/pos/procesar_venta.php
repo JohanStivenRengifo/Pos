@@ -231,6 +231,109 @@ try {
     // Confirmar transacción
     $pdo->commit();
 
+    // Dentro del bloque try, después de crear la venta
+    if ($numeracion === 'electronica') {
+        try {
+            error_log("Iniciando proceso de facturación electrónica...");
+            require_once __DIR__ . '/services/factus_service.php';
+            $factusService = new FactusService();
+
+            // Obtener datos completos del cliente
+            $stmt = $pdo->prepare("SELECT * FROM clientes WHERE id = ?");
+            $stmt->execute([$datos['cliente_id']]);
+            $cliente = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$cliente) {
+                throw new Exception("Cliente no encontrado para facturación electrónica");
+            }
+
+            error_log("Cliente encontrado: " . json_encode($cliente));
+
+            // Preparar datos para Factus
+            $datos_factura = [
+                'prefijo' => $empresa['prefijo_factura'],
+                'numero' => $siguiente_numero,
+                'metodo_pago' => $datos['metodo_pago'],
+                'observacion' => $datos['observacion'] ?? '',
+                'cliente' => [
+                    'documento' => $cliente['documento'],
+                    'dv' => $cliente['digito_verificacion'],
+                    'es_empresa' => $cliente['tipo_persona'] === 'juridica',
+                    'nombre' => $cliente['nombre'],
+                    'nombre_comercial' => $cliente['nombre_comercial'],
+                    'direccion' => $cliente['direccion'],
+                    'email' => $cliente['email'],
+                    'telefono' => $cliente['telefono'],
+                    'tipo_documento' => $cliente['tipo_documento'],
+                    'municipio_id' => $cliente['municipio_id']
+                ],
+                'productos' => array_map(function($producto) use ($pdo) {
+                    $stmt = $pdo->prepare("SELECT * FROM productos WHERE id = ?");
+                    $stmt->execute([$producto['id']]);
+                    $prod_data = $stmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    if (!$prod_data) {
+                        throw new Exception("Producto no encontrado: ID " . $producto['id']);
+                    }
+                    
+                    return [
+                        'codigo' => $prod_data['codigo_barras'],
+                        'nombre' => $prod_data['nombre'],
+                        'cantidad' => $producto['cantidad'],
+                        'precio' => $producto['precio'],
+                        'tasa_impuesto' => $prod_data['tasa_iva'] ?? "19.00",
+                        'excluido_impuesto' => $prod_data['excluido_iva'] ?? 0,
+                        'descuento' => $producto['descuento'] ?? 0,
+                        'tasa_descuento' => $producto['tasa_descuento'] ?? 0
+                    ];
+                }, $datos['productos'])
+            ];
+
+            error_log("Datos preparados para envío: " . json_encode($datos_factura));
+            $respuesta_factus = $factusService->enviarFactura($datos_factura);
+            error_log("Respuesta recibida de Factus: " . json_encode($respuesta_factus));
+
+            // Actualizar la venta con la información de Factus
+            $stmt = $pdo->prepare("UPDATE ventas SET 
+                factura_electronica_id = :factura_id,
+                estado_factura = :estado,
+                fecha_envio_dian = NOW(),
+                respuesta_factus = :respuesta
+                WHERE id = :venta_id");
+                
+            $stmt->execute([
+                ':factura_id' => $respuesta_factus['data']['bill']['id'] ?? null,
+                ':estado' => $respuesta_factus['data']['bill']['status'] ?? 'PENDIENTE',
+                ':respuesta' => json_encode($respuesta_factus),
+                ':venta_id' => $venta_id
+            ]);
+
+            // Agregar la respuesta de Factus a la respuesta final
+            $response['factura_electronica'] = [
+                'id' => $respuesta_factus['data']['bill']['id'] ?? null,
+                'numero' => $respuesta_factus['data']['bill']['number'] ?? null,
+                'estado' => $respuesta_factus['data']['bill']['status'] ?? 'PENDIENTE',
+                'url_pdf' => $respuesta_factus['data']['bill']['pdf_url'] ?? null,
+                'url_xml' => $respuesta_factus['data']['bill']['xml_url'] ?? null,
+                'cufe' => $respuesta_factus['data']['bill']['cufe'] ?? null
+            ];
+
+        } catch (Exception $e) {
+            error_log("Error al procesar factura electrónica: " . $e->getMessage());
+            $stmt = $pdo->prepare("UPDATE ventas SET 
+                estado_factura = 'ERROR',
+                error_factura = :error
+                WHERE id = :venta_id");
+                
+            $stmt->execute([
+                ':error' => $e->getMessage(),
+                ':venta_id' => $venta_id
+            ]);
+
+            $response['factura_electronica_error'] = $e->getMessage();
+        }
+    }
+
     // Enviar respuesta exitosa
     $response = [
         'status' => true,

@@ -1,9 +1,4 @@
 <?php
-ini_set('upload_max_filesize', '50M');
-ini_set('post_max_size', '51M');
-ini_set('memory_limit', '512M');
-ini_set('max_execution_time', '300');
-
 session_start();
 require_once '../../config/db.php';
 
@@ -14,1602 +9,591 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $user_id = $_SESSION['user_id'];
-$email = $_SESSION['email'];
 
-function obtenerCategorias()
-{
-    global $pdo, $user_id;
-    $query = "SELECT id, nombre FROM categorias WHERE user_id = ? AND estado = 'activo'";
-    $stmt = $pdo->prepare($query);
-    $stmt->execute([$user_id]);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
+// Obtener categorías y departamentos
+$stmt = $pdo->prepare("SELECT id, nombre FROM categorias WHERE estado = 'activo'");
+$stmt->execute();
+$categorias = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-function obtenerDepartamentos()
-{
-    global $pdo, $user_id;
-    $query = "SELECT id, nombre FROM departamentos WHERE user_id = ? AND estado = 'activo'";
-    $stmt = $pdo->prepare($query);
-    $stmt->execute([$user_id]);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
-
-function codigoBarrasExistente($codigo_barras)
-{
-    global $pdo;
-    $query = "SELECT COUNT(*) FROM inventario WHERE codigo_barras = ?";
-    $stmt = $pdo->prepare($query);
-    $stmt->execute([$codigo_barras]);
-    return $stmt->fetchColumn() > 0;
-}
-
-function agregarProducto($user_id, $data, $imagenes) {
-    global $pdo;
-    
-    try {
-        $pdo->beginTransaction();
-        
-        // Usar el precio de venta proporcionado o calcularlo
-        $precio_venta = $data['precio_venta'];
-        if (empty($precio_venta) || $precio_venta <= 0) {
-            $precio_base = $data['precio_costo'] * (1 + ($data['margen_ganancia'] / 100));
-            $precio_venta = $precio_base * (1 + ($data['impuesto'] / 100));
-        }
-        $precio_venta = round($precio_venta, 2);
-        
-        // Preparar la consulta usando consultas preparadas
-        $query = "INSERT INTO inventario (
-            user_id, codigo_barras, nombre, descripcion, stock, 
-            stock_minimo, unidad_medida, precio_costo, margen_ganancia,
-            impuesto, precio_venta, categoria_id, departamento_id, 
-            fecha_ingreso, estado
-        ) VALUES (
-            :user_id, :codigo_barras, :nombre, :descripcion, :stock,
-            :stock_minimo, :unidad_medida, :precio_costo, :margen_ganancia,
-            :impuesto, :precio_venta, :categoria_id, :departamento_id,
-            NOW(), 'activo'
-        )";
-        
-        $stmt = $pdo->prepare($query);
-        $stmt->execute([
-            ':user_id' => $user_id,
-            ':codigo_barras' => $data['codigo_barras'],
-            ':nombre' => $data['nombre'],
-            ':descripcion' => $data['descripcion'],
-            ':stock' => $data['stock'],
-            ':stock_minimo' => $data['stock_minimo'],
-            ':unidad_medida' => $data['unidad_medida'],
-            ':precio_costo' => $data['precio_costo'],
-            ':margen_ganancia' => $data['margen_ganancia'],
-            ':impuesto' => $data['impuesto'],
-            ':precio_venta' => $precio_venta,
-            ':categoria_id' => $data['categoria_id'],
-            ':departamento_id' => $data['departamento_id']
-        ]);
-
-        $producto_id = $pdo->lastInsertId();
-        
-        // Procesar imágenes
-        if (!empty($imagenes['tmp_name'][0])) {
-            $upload_dir = __DIR__ . '/../../uploads/productos/';
-            if (!is_dir($upload_dir)) {
-                mkdir($upload_dir, 0777, true);
-            }
-            
-            foreach ($imagenes['tmp_name'] as $key => $tmp_name) {
-                if (!is_uploaded_file($tmp_name)) continue;
-                
-                $imagen_info = procesarImagen([
-                    'name' => $imagenes['name'][$key],
-                    'type' => $imagenes['type'][$key],
-                    'tmp_name' => $tmp_name,
-                    'size' => $imagenes['size'][$key]
-                ], $upload_dir);
-                
-                // Guardar información de la imagen
-                $stmt = $pdo->prepare("
-                    INSERT INTO imagenes_producto (
-                        producto_id, nombre_archivo, ruta, 
-                        es_principal, tamano, tipo_mime, orden
-                    ) VALUES (
-                        :producto_id, :nombre_archivo, :ruta,
-                        :es_principal, :tamano, :tipo_mime, :orden
-                    )
-                ");
-                
-                $stmt->execute([
-                    ':producto_id' => $producto_id,
-                    ':nombre_archivo' => $imagen_info['nombre'],
-                    ':ruta' => $imagen_info['ruta'],
-                    ':es_principal' => ($key === 0) ? 1 : 0,
-                    ':tamano' => $imagen_info['tamano'],
-                    ':tipo_mime' => $imagen_info['tipo'],
-                    ':orden' => $key
-                ]);
-            }
-        }
-        
-        // Intentar registrar en el log si la tabla existe
-        try {
-            $stmt = $pdo->prepare("SHOW TABLES LIKE 'log_actividades'");
-            $stmt->execute();
-            if ($stmt->rowCount() > 0) {
-                $stmt = $pdo->prepare("
-                    INSERT INTO log_actividades (
-                        user_id, tipo_actividad, descripcion, 
-                        fecha_hora, ip_address
-                    ) VALUES (
-                        :user_id, 'crear_producto', 
-                        :descripcion, NOW(), :ip_address
-                    )
-                ");
-                
-                $stmt->execute([
-                    ':user_id' => $user_id,
-                    ':descripcion' => "Creación del producto: {$data['nombre']} (SKU: {$data['codigo_barras']})",
-                    ':ip_address' => $_SERVER['REMOTE_ADDR']
-                ]);
-            }
-        } catch (Exception $e) {
-            // Si hay error con el log, solo lo registramos pero no interrumpimos la operación
-            error_log("Error al registrar en log_actividades: " . $e->getMessage());
-        }
-        
-        $pdo->commit();
-        return $producto_id;
-        
-    } catch (Exception $e) {
-        $pdo->rollBack();
-        error_log("Error en agregarProducto: " . $e->getMessage());
-        throw new Exception("Error al procesar el producto: " . $e->getMessage());
-    }
-}
-
-function validarProducto($data) {
-    $errores = [];
-    
-    // Validar código de barras
-    if (!preg_match('/^[0-9]{8,13}$/', $data['codigo_barras'])) {
-        $errores[] = "El código de barras debe tener entre 8 y 13 dígitos numéricos";
-    }
-    
-    // Validar nombre
-    if (strlen($data['nombre']) < 3 || strlen($data['nombre']) > 100) {
-        $errores[] = "El nombre debe tener entre 3 y 100 caracteres";
-    }
-    
-    // Validar precios
-    if ($data['precio_costo'] <= 0) {
-        $errores[] = "El precio de costo debe ser mayor a 0";
-    }
-
-    // Calcular precio de venta si no está establecido manualmente
-    if (empty($data['precio_venta']) || $data['precio_venta'] <= 0) {
-        $precio_base = $data['precio_costo'] * (1 + ($data['margen_ganancia'] / 100));
-        $data['precio_venta'] = $precio_base * (1 + ($data['impuesto'] / 100));
-    }
-    
-    // Validar que el precio de venta sea mayor al costo
-    if ($data['precio_venta'] <= $data['precio_costo']) {
-        $errores[] = "El precio de venta debe ser mayor al precio de costo";
-    }
-    
-    if ($data['impuesto'] < 0 || $data['impuesto'] > 100) {
-        $errores[] = "El impuesto debe estar entre 0% y 100%";
-    }
-    
-    // Validar stock
-    if ($data['stock'] < 0) {
-        $errores[] = "El stock no puede ser negativo";
-    }
-    if ($data['stock_minimo'] < 0) {
-        $errores[] = "El stock mínimo no puede ser negativo";
-    }
-    if ($data['stock_minimo'] > $data['stock']) {
-        $errores[] = "El stock mínimo no puede ser mayor al stock actual";
-    }
-    
-    return $errores;
-}
-
-function procesarImagen($file, $upload_dir) {
-    try {
-        $info = getimagesize($file['tmp_name']);
-        if ($info === false) {
-            throw new Exception("Archivo no válido");
-        }
-
-        // Validar dimensiones (4K = 3840x2160)
-        $max_width = 3840;  // 4K horizontal
-        $max_height = 2160; // 4K vertical
-        
-        // Obtener dimensiones originales
-        $width = $info[0];
-        $height = $info[1];
-
-        // Generar nombre único
-        $extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-        $nuevo_nombre = uniqid('prod_') . '.' . $extension;
-        $ruta_destino = $upload_dir . $nuevo_nombre;
-
-        // Procesar imagen según su tipo
-        $imagen = null;
-        switch ($info['mime']) {
-            case 'image/jpeg':
-                $imagen = imagecreatefromjpeg($file['tmp_name']);
-                break;
-            case 'image/png':
-                $imagen = imagecreatefrompng($file['tmp_name']);
-                // Mantener transparencia para PNG
-                imagealphablending($imagen, true);
-                imagesavealpha($imagen, true);
-                break;
-            case 'image/webp':
-                $imagen = imagecreatefromwebp($file['tmp_name']);
-                break;
-            default:
-                throw new Exception("Formato de imagen no soportado");
-        }
-
-        if (!$imagen) {
-            throw new Exception("Error al procesar la imagen");
-        }
-
-        // Redimensionar solo si excede las dimensiones máximas
-        if ($width > $max_width || $height > $max_height) {
-            // Calcular nuevas dimensiones manteniendo proporción
-            if ($width > $height) {
-                $new_width = $max_width;
-                $new_height = floor($height * ($max_width / $width));
-            } else {
-                $new_height = $max_height;
-                $new_width = floor($width * ($max_height / $height));
-            }
-
-            // Crear nueva imagen redimensionada
-            $imagen_redimensionada = imagecreatetruecolor($new_width, $new_height);
-            
-            // Mantener transparencia si es PNG
-            if ($info['mime'] === 'image/png') {
-                imagealphablending($imagen_redimensionada, false);
-                imagesavealpha($imagen_redimensionada, true);
-            }
-
-            // Redimensionar
-            imagecopyresampled(
-                $imagen_redimensionada, $imagen,
-                0, 0, 0, 0,
-                $new_width, $new_height,
-                $width, $height
-            );
-
-            $imagen = $imagen_redimensionada;
-        }
-
-        // Guardar imagen con la mejor calidad posible según el formato
-        switch ($extension) {
-            case 'jpg':
-            case 'jpeg':
-                imagejpeg($imagen, $ruta_destino, 95); // Alta calidad (95%)
-                break;
-            case 'png':
-                imagepng($imagen, $ruta_destino, 1); // Máxima calidad para PNG
-                break;
-            case 'webp':
-                imagewebp($imagen, $ruta_destino, 95); // Alta calidad (95%)
-                break;
-        }
-
-        // Liberar memoria
-        if (isset($imagen_redimensionada)) {
-            imagedestroy($imagen_redimensionada);
-        }
-        imagedestroy($imagen);
-
-        return [
-            'nombre' => basename($file['name']),
-            'ruta' => 'uploads/productos/' . $nuevo_nombre,
-            'tipo' => $info['mime'],
-            'tamano' => filesize($ruta_destino),
-            'ancho' => $width,
-            'alto' => $height
-        ];
-
-    } catch (Exception $e) {
-        error_log("Error procesando imagen: " . $e->getMessage());
-        throw $e;
-    }
-}
-
-$message = '';
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    try {
-        // Recopilar y sanitizar datos
-        $producto_data = [
-            'codigo_barras' => trim(filter_input(INPUT_POST, 'codigo_barras')),
-            'nombre' => trim(filter_input(INPUT_POST, 'nombre')),
-            'descripcion' => trim(filter_input(INPUT_POST, 'descripcion')),
-            'stock' => filter_input(INPUT_POST, 'stock', FILTER_VALIDATE_INT),
-            'stock_minimo' => filter_input(INPUT_POST, 'stock_minimo', FILTER_VALIDATE_INT),
-            'unidad_medida' => trim(filter_input(INPUT_POST, 'unidad_medida')),
-            'precio_costo' => filter_input(INPUT_POST, 'precio_costo', FILTER_VALIDATE_FLOAT),
-            'margen_ganancia' => filter_input(INPUT_POST, 'margen_ganancia', FILTER_VALIDATE_FLOAT),
-            'impuesto' => filter_input(INPUT_POST, 'impuesto', FILTER_VALIDATE_FLOAT),
-            'categoria_id' => filter_input(INPUT_POST, 'categoria', FILTER_VALIDATE_INT),
-            'departamento_id' => filter_input(INPUT_POST, 'departamento', FILTER_VALIDATE_INT),
-            'precio_venta' => filter_input(INPUT_POST, 'precio_venta', FILTER_VALIDATE_FLOAT) ?: 0
-        ];
-
-        // Validar datos
-        $errores = validarProducto($producto_data);
-        if (!empty($errores)) {
-            throw new Exception(implode("<br>", $errores));
-        }
-
-        // Verificar código de barras duplicado
-        if (codigoBarrasExistente($producto_data['codigo_barras'])) {
-            throw new Exception("El código de barras ya está registrado");
-        }
-
-        // Agregar producto
-        $producto_id = agregarProducto($user_id, $producto_data, $_FILES['imagenes'] ?? []);
-
-        // Modificar la redirección para usar código de barras
-        $_SESSION['success_message'] = "Producto agregado exitosamente";
-        header("Location: ver.php?codigo_barras=" . urlencode($producto_data['codigo_barras']));
-        exit;
-
-    } catch (Exception $e) {
-        $message = $e->getMessage();
-        $messageType = "error";
-    }
-}
-
-$categorias = obtenerCategorias();
-$departamentos = obtenerDepartamentos();
-
-function formatoMoneda($monto)
-{
-    return '$' . number_format($monto, 2, ',', '.');
-}
-
-// Funciones de verificación
-function categoriaExiste($nombre, $user_id) {
-    global $pdo;
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM categorias WHERE LOWER(nombre) = LOWER(?) AND user_id = ? AND estado = 'activo'");
-    $stmt->execute([trim($nombre), $user_id]);
-    return $stmt->fetchColumn() > 0;
-}
-
-function departamentoExiste($nombre, $user_id) {
-    global $pdo;
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM departamentos WHERE LOWER(nombre) = LOWER(?) AND user_id = ? AND estado = 'activo'");
-    $stmt->execute([trim($nombre), $user_id]);
-    return $stmt->fetchColumn() > 0;
-}
-
-// Funciones de creación
-function crearCategoria($nombre, $user_id) {
-    global $pdo;
-    try {
-        $nombre = trim($nombre);
-        
-        // Validaciones
-        if (strlen($nombre) < 3 || strlen($nombre) > 50) {
-            throw new Exception("El nombre debe tener entre 3 y 50 caracteres");
-        }
-
-        if (categoriaExiste($nombre, $user_id)) {
-            throw new Exception("Ya tienes una categoría con este nombre");
-        }
-
-        $pdo->beginTransaction();
-
-        // Insertar categoría
-        $stmt = $pdo->prepare("
-            INSERT INTO categorias (
-                user_id,
-                nombre, 
-                descripcion,
-                estado, 
-                fecha_creacion
-            ) VALUES (?, ?, ?, 'activo', NOW())
-        ");
-        
-        $descripcion = "Categoría creada desde el módulo de inventario";
-        $stmt->execute([$user_id, $nombre, $descripcion]);
-        $id = $pdo->lastInsertId();
-
-        // Registrar en el log
-        registrarLog($user_id, 'crear_categoria', "Creación de categoría: {$nombre}");
-
-        $pdo->commit();
-        return [
-            'id' => $id,
-            'nombre' => $nombre
-        ];
-
-    } catch (Exception $e) {
-        $pdo->rollBack();
-        error_log("Error al crear categoría: " . $e->getMessage());
-        throw new Exception("Error al crear la categoría: " . $e->getMessage());
-    }
-}
-
-function crearDepartamento($nombre, $user_id) {
-    global $pdo;
-    try {
-        $nombre = trim($nombre);
-        
-        // Validaciones
-        if (strlen($nombre) < 3 || strlen($nombre) > 50) {
-            throw new Exception("El nombre debe tener entre 3 y 50 caracteres");
-        }
-
-        if (departamentoExiste($nombre, $user_id)) {
-            throw new Exception("Ya tienes un departamento con este nombre");
-        }
-
-        $pdo->beginTransaction();
-
-        // Insertar departamento
-        $stmt = $pdo->prepare("
-            INSERT INTO departamentos (
-                user_id,
-                nombre, 
-                descripcion,
-                estado, 
-                fecha_creacion
-            ) VALUES (?, ?, ?, 'activo', NOW())
-        ");
-        
-        $descripcion = "Departamento creado desde el módulo de inventario";
-        $stmt->execute([$user_id, $nombre, $descripcion]);
-        $id = $pdo->lastInsertId();
-
-        // Registrar en el log
-        registrarLog($user_id, 'crear_departamento', "Creación de departamento: {$nombre}");
-
-        $pdo->commit();
-        return [
-            'id' => $id,
-            'nombre' => $nombre
-        ];
-
-    } catch (Exception $e) {
-        $pdo->rollBack();
-        error_log("Error al crear departamento: " . $e->getMessage());
-        throw new Exception("Error al crear el departamento: " . $e->getMessage());
-    }
-}
-
-// Función auxiliar para registrar logs
-function registrarLog($user_id, $tipo_actividad, $descripcion) {
-    global $pdo;
-    try {
-        $stmt = $pdo->prepare("SHOW TABLES LIKE 'log_actividades'");
-        $stmt->execute();
-        if ($stmt->rowCount() > 0) {
-            $stmt = $pdo->prepare("
-                INSERT INTO log_actividades (
-                    user_id, 
-                    tipo_actividad, 
-                    descripcion, 
-                    fecha_hora, 
-                    ip_address
-                ) VALUES (?, ?, ?, NOW(), ?)
-            ");
-            
-            $stmt->execute([
-                $user_id,
-                $tipo_actividad,
-                $descripcion,
-                $_SERVER['REMOTE_ADDR']
-            ]);
-        }
-    } catch (Exception $e) {
-        error_log("Error al registrar en log_actividades: " . $e->getMessage());
-    }
-}
-
-// Manejador de peticiones AJAX
-if (isset($_POST['action']) && !empty($_POST['action'])) {
-    header('Content-Type: application/json');
-    
-    try {
-        if (!isset($_SESSION['user_id'])) {
-            throw new Exception("Sesión no válida");
-        }
-
-        $nombre = trim($_POST['nombre'] ?? '');
-        if (empty($nombre)) {
-            throw new Exception("El nombre es requerido");
-        }
-
-        $user_id = $_SESSION['user_id']; // Aseguramos tener el user_id
-
-        switch ($_POST['action']) {
-            case 'crear_categoria':
-                try {
-                    $pdo->beginTransaction();
-                    
-                    // Verificar si ya existe
-                    if (categoriaExiste($nombre, $user_id)) {
-                        throw new Exception("Ya tienes una categoría con este nombre");
-                    }
-
-                    // Insertar categoría
-                    $stmt = $pdo->prepare("
-                        INSERT INTO categorias (
-                            user_id,
-                            nombre, 
-                            descripcion,
-                            estado, 
-                            fecha_creacion
-                        ) VALUES (?, ?, ?, 'activo', NOW())
-                    ");
-                    
-                    $descripcion = "Categoría creada desde el módulo de inventario";
-                    $stmt->execute([$user_id, $nombre, $descripcion]);
-                    $id = $pdo->lastInsertId();
-
-                    // Registrar en el log
-                    registrarLog($user_id, 'crear_categoria', "Creación de categoría: {$nombre}");
-
-                    $pdo->commit();
-
-                    echo json_encode([
-                        'success' => true,
-                        'data' => [
-                            'id' => $id,
-                            'nombre' => $nombre
-                        ]
-                    ]);
-                } catch (Exception $e) {
-                    $pdo->rollBack();
-                    throw $e;
-                }
-                break;
-
-            case 'crear_departamento':
-                try {
-                    $pdo->beginTransaction();
-                    
-                    // Verificar si ya existe
-                    if (departamentoExiste($nombre, $user_id)) {
-                        throw new Exception("Ya tienes un departamento con este nombre");
-                    }
-
-                    // Insertar departamento
-                    $stmt = $pdo->prepare("
-                        INSERT INTO departamentos (
-                            user_id,
-                            nombre, 
-                            descripcion,
-                            estado, 
-                            fecha_creacion
-                        ) VALUES (?, ?, ?, 'activo', NOW())
-                    ");
-                    
-                    $descripcion = "Departamento creado desde el módulo de inventario";
-                    $stmt->execute([$user_id, $nombre, $descripcion]);
-                    $id = $pdo->lastInsertId();
-
-                    // Registrar en el log
-                    registrarLog($user_id, 'crear_departamento', "Creación de departamento: {$nombre}");
-
-                    $pdo->commit();
-
-                    echo json_encode([
-                        'success' => true,
-                        'data' => [
-                            'id' => $id,
-                            'nombre' => $nombre
-                        ]
-                    ]);
-                } catch (Exception $e) {
-                    $pdo->rollBack();
-                    throw $e;
-                }
-                break;
-
-            default:
-                throw new Exception("Acción no v��lida");
-        }
-    } catch (Exception $e) {
-        http_response_code(400);
-        echo json_encode([
-            'success' => false,
-            'error' => $e->getMessage()
-        ]);
-    }
-    exit;
-}
+$stmt = $pdo->prepare("SELECT id, nombre FROM departamentos WHERE estado = 'activo'");
+$stmt->execute();
+$departamentos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crear | VendEasy</title>
+    <title>Crear Producto | VendEasy</title>
     <link rel="icon" type="image/png" href="/favicon/favicon.ico"/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
-    <link rel="stylesheet" href="../../css/welcome.css">
-    <link rel="stylesheet" href="../../css/modulos.css">
-    <style>
-        .producto-form {
-            background: #fff;
-            padding: 25px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1e40af',
+                        secondary: '#1e293b',
+                        accent: '#3b82f6'
+                    }
+                }
+            }
         }
-
-        .form-row {
-            display: flex;
-            flex-wrap: wrap;
-            margin: -10px;
-            margin-bottom: 15px;
-        }
-
-        .form-group {
-            padding: 10px;
-            margin-bottom: 15px;
-        }
-
-        .col-md-2 { width: 16.66%; }
-        .col-md-3 { width: 25%; }
-        .col-md-4 { width: 33.33%; }
-        .col-md-6 { width: 50%; }
-        .col-md-12 { width: 100%; }
-
-        .input-group {
-            display: flex;
-            align-items: center;
-        }
-
-        .input-group-text {
-            background: #f8f9fa;
-            padding: 8px 12px;
-            border: 1px solid #ced4da;
-            border-right: none;
-            border-radius: 4px 0 0 4px;
-        }
-
-        .input-group input {
-            border-radius: 0 4px 4px 0;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 8px 12px;
-            border: 1px solid #ced4da;
-            border-radius: 4px;
-            transition: border-color 0.15s ease-in-out;
-        }
-
-        .form-control:focus {
-            border-color: #80bdff;
-            outline: 0;
-            box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
-        }
-
-        .form-section {
-            background: #f8f9fa;
-            padding: 15px;
-            margin-bottom: 20px;
-            border-radius: 4px;
-            border-left: 4px solid #007bff;
-        }
-
-        .form-section-title {
-            margin: -15px -15px 15px -15px;
-            padding: 10px 15px;
-            background: #007bff;
-            color: white;
-            border-radius: 4px 4px 0 0;
-        }
-
-        .form-actions {
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #dee2e6;
-        }
-
-        .btn {
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.2s;
-        }
-
-        .btn i {
-            font-size: 16px;
-        }
-
-        .btn-primary {
-            background: #007bff;
-            color: white;
-            border: none;
-        }
-
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-            border: none;
-        }
-
-        .btn:hover {
-            opacity: 0.9;
-        }
-
-        .dropzone-container {
-            border: 2px dashed #ccc;
-            border-radius: 4px;
-            padding: 20px;
-            text-align: center;
-            background: #f8f9fa;
-            transition: all 0.3s ease;
-        }
-
-        .dropzone-container.dragover {
-            background: #e9ecef;
-            border-color: #007bff;
-        }
-
-        .dropzone-upload {
-            position: relative;
-            min-height: 150px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .file-input {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            opacity: 0;
-            cursor: pointer;
-        }
-
-        .upload-label {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-            color: #6c757d;
-        }
-
-        .upload-label i {
-            font-size: 2em;
-        }
-
-        .image-preview-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
-        .image-preview {
-            position: relative;
-            width: 150px;
-            height: 150px;
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        .image-preview img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .image-preview .remove-image {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            background: rgba(255, 255, 255, 0.8);
-            border-radius: 50%;
-            width: 25px;
-            height: 25px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            color: #dc3545;
-        }
-
-        .image-preview .main-image {
-            position: absolute;
-            top: 5px;
-            left: 5px;
-            background: rgba(255, 255, 255, 0.8);
-            border-radius: 3px;
-            padding: 2px 5px;
-            font-size: 0.8em;
-            color: #28a745;
-        }
-
-        .image-guidelines {
-            margin-top: 10px;
-            color: #6c757d;
-        }
-
-        .image-preview .image-size {
-            position: absolute;
-            bottom: 5px;
-            right: 5px;
-            background: rgba(255, 255, 255, 0.8);
-            border-radius: 3px;
-            padding: 2px 5px;
-            font-size: 0.8em;
-            color: #6c757d;
-        }
-
-        .dragover {
-            border-color: #28a745;
-            background-color: rgba(40, 167, 69, 0.1);
-        }
-
-        .image-preview {
-            transition: transform 0.2s ease;
-        }
-
-        .image-preview:hover {
-            transform: scale(1.05);
-        }
-
-        .remove-image:hover {
-            background: rgba(255, 255, 255, 1);
-            color: #dc3545;
-        }
-    </style>
+    </script>
 </head>
 
-<body>
-<?php include '../../includes/header.php'; ?>
-    <div class="container">
+<body class="bg-gray-50">
+    <?php include '../../includes/header.php'; ?>
+    
+    <div class="flex">
         <?php include '../../includes/sidebar.php'; ?>
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                const currentUrl = window.location.pathname;
-                const sidebarLinks = document.querySelectorAll('.side_navbar a');
-                sidebarLinks.forEach(link => {
-                    if (link.getAttribute('href') === currentUrl) {
-                        link.classList.add('active');
-                    }
-                });
-            });
-        </script>
-
-        <div class="main-body">
-            <h2>Crear Nuevo Producto</h2>
-            <div class="promo_card">
-                <h1>Agregar Producto al Inventario</h1>
-                <span>Ingrese los detalles del nuevo producto.</span>
-            </div>
-
-            <?php if (!empty($message)): ?>
-                <div class="alert <?= strpos($message, 'exitosamente') !== false ? 'alert-success' : 'alert-danger' ?>">
-                    <?= htmlspecialchars($message); ?>
+        
+        <main class="flex-1 p-6">
+            <div class="max-w-4xl mx-auto">
+                <!-- Encabezado -->
+                <div class="flex items-center justify-between mb-8">
+                    <h1 class="text-3xl font-bold text-gray-900">Crear Nuevo Producto</h1>
+                    <a href="index.php" 
+                       class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+                        <i class="fas fa-arrow-left mr-2"></i>
+                        Volver
+                    </a>
                 </div>
-            <?php endif; ?>
 
-            <div class="history_lists">
-                <div class="list1">
-                    <div class="row">
-                        <h4>Formulario de Nuevo Producto</h4>
-                    </div>
-                    <form method="POST" action="" class="producto-form" enctype="multipart/form-data">
-                        <!-- Sección de Información Básica -->
-                        <div class="form-section">
-                            <div class="form-section-title">
-                                <i class="fas fa-info-circle"></i> Información Básica
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group col-md-4">
-                                    <label for="codigo_barras">Código de Barras: *</label>
-                                    <div class="input-group">
-                                        <input type="text" id="codigo_barras" name="codigo_barras" required 
-                                               class="form-control" pattern="[0-9]{8,13}">
-                                        <button type="button" class="btn btn-outline-secondary" id="generarCodigo">
-                                            <i class="fas fa-barcode"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                <div class="form-group col-md-8">
-                                    <label for="nombre">Nombre del Producto: *</label>
-                                    <input type="text" id="nombre" name="nombre" required class="form-control">
-                                </div>
-                            </div>
-
-                            <div class="form-row">
-                                <div class="form-group col-md-12">
-                                    <label for="descripcion">Descripción:</label>
-                                    <textarea id="descripcion" name="descripcion" class="form-control" rows="3"></textarea>
-                                </div>
-                            </div>
+                <!-- Formulario mejorado -->
+                <form id="productoForm" class="bg-white rounded-xl shadow-lg p-8 space-y-8" enctype="multipart/form-data">
+                    <!-- Información básica -->
+                    <div class="space-y-6">
+                        <div class="flex items-center gap-2 pb-2 border-b border-gray-200">
+                            <i class="fas fa-info-circle text-blue-500"></i>
+                            <h2 class="text-xl font-semibold text-gray-800">Información Básica</h2>
                         </div>
-
-                        <!-- Sección de Inventario -->
-                        <div class="form-section">
-                            <div class="form-section-title">
-                                <i class="fas fa-box"></i> Información de Inventario
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="space-y-2">
+                                <label for="nombre" class="block text-sm font-medium text-gray-700">
+                                    Nombre del Producto <span class="text-red-500">*</span>
+                                </label>
+                                <div class="relative rounded-lg shadow-sm">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <i class="fas fa-box text-gray-400"></i>
+                                    </div>
+                                    <input type="text" 
+                                           id="nombre" 
+                                           name="nombre" 
+                                           required
+                                           class="block w-full pl-10 pr-3 py-2.5 rounded-lg border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                           placeholder="Ej: Smartphone Samsung Galaxy">
+                                </div>
                             </div>
-                            <div class="form-row">
-                                <div class="form-group col-md-4">
-                                    <label for="stock">Stock Inicial: *</label>
-                                    <input type="number" id="stock" name="stock" min="0" required 
-                                           class="form-control">
-                                </div>
-                                
-                                <div class="form-group col-md-4">
-                                    <label for="stock_minimo">Stock Mínimo: *</label>
-                                    <input type="number" id="stock_minimo" name="stock_minimo" 
-                                           min="0" required class="form-control">
-                                </div>
 
-                                <div class="form-group col-md-4">
-                                    <label for="unidad_medida">Unidad de Medida: *</label>
-                                    <select id="unidad_medida" name="unidad_medida" required class="form-control">
-                                        <option value="">Seleccione...</option>
-                                        <option value="UNIDAD">Unidad</option>
-                                        <option value="KG">Kilogramo</option>
-                                        <option value="GR">Gramo</option>
-                                        <option value="LT">Litro</option>
-                                        <option value="MT">Metro</option>
-                                        <option value="CM">Centímetro</option>
+                            <div class="space-y-2">
+                                <label for="codigo_barras" class="block text-sm font-medium text-gray-700">
+                                    Código de Barras <span class="text-red-500">*</span>
+                                </label>
+                                <div class="relative rounded-lg shadow-sm">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <i class="fas fa-barcode text-gray-400"></i>
+                                    </div>
+                                    <input type="text" 
+                                           id="codigo_barras" 
+                                           name="codigo_barras" 
+                                           required
+                                           class="block w-full pl-10 pr-12 py-2.5 rounded-lg border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                           placeholder="Escanea o ingresa el código">
+                                    <button type="button" 
+                                            onclick="generarCodigoBarras()"
+                                            class="absolute inset-y-0 right-0 px-3 flex items-center bg-gray-50 hover:bg-gray-100 rounded-r-lg border-l transition-colors"
+                                            title="Generar código">
+                                        <i class="fas fa-magic text-gray-500"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="space-y-2">
+                                <label for="categoria_id" class="block text-sm font-medium text-gray-700">
+                                    Categoría <span class="text-red-500">*</span>
+                                </label>
+                                <div class="relative rounded-lg shadow-sm">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <i class="fas fa-tag text-gray-400"></i>
+                                    </div>
+                                    <select id="categoria_id" 
+                                            name="categoria_id" 
+                                            required
+                                            class="block w-full pl-10 pr-10 py-2.5 rounded-lg border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none">
+                                        <option value="">Selecciona una categoría</option>
+                                        <?php foreach ($categorias as $categoria): ?>
+                                            <option value="<?= $categoria['id'] ?>">
+                                                <?= htmlspecialchars($categoria['nombre']) ?>
+                                            </option>
+                                        <?php endforeach; ?>
                                     </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Sección de Precios -->
-                        <div class="form-section">
-                            <div class="form-section-title">
-                                <i class="fas fa-dollar-sign"></i> Información de Precios
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group col-md-3">
-                                    <label for="precio_costo">Precio Costo: *</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text">$</span>
-                                        <input type="number" step="0.01" id="precio_costo" name="precio_costo" 
-                                               required class="form-control" min="0">
-                                    </div>
-                                </div>
-
-                                <div class="form-group col-md-3">
-                                    <label for="margen_ganancia">Margen (%): *</label>
-                                    <div class="input-group">
-                                        <input type="number" step="0.01" id="margen_ganancia" 
-                                               name="margen_ganancia" required class="form-control" min="0">
-                                        <span class="input-group-text">%</span>
-                                    </div>
-                                </div>
-
-                                <div class="form-group col-md-3">
-                                    <label for="impuesto">IVA (%): *</label>
-                                    <div class="input-group">
-                                        <input type="number" step="0.01" id="impuesto" name="impuesto" 
-                                               required class="form-control" value="19">
-                                        <span class="input-group-text">%</span>
-                                    </div>
-                                </div>
-
-                                <div class="form-group col-md-3">
-                                    <label for="precio_venta">Precio Venta:</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text">$</span>
-                                        <input type="number" step="0.01" id="precio_venta" name="precio_venta"
-                                               class="form-control">
-                                        <button type="button" id="togglePrecioManual" class="btn btn-outline-secondary">
-                                            <i class="fas fa-lock"></i>
-                                        </button>
+                                    <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                        <i class="fas fa-chevron-down text-gray-400"></i>
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- Sección de Clasificación -->
-                        <div class="form-section">
-                            <div class="form-section-title">
-                                <i class="fas fa-tags"></i> Clasificación
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group col-md-6">
-                                    <label for="categoria">Categoría: *</label>
-                                    <div class="input-group">
-                                        <select id="categoria" name="categoria" required class="form-control">
-                                            <option value="">Seleccione una categoría...</option>
-                                            <?php foreach ($categorias as $categoria): ?>
-                                                <option value="<?= htmlspecialchars($categoria['id']); ?>">
-                                                    <?= htmlspecialchars($categoria['nombre']); ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                            <option value="nueva">+ Crear nueva categoría</option>
-                                        </select>
-                                        <button type="button" class="btn btn-outline-secondary" id="btnNuevaCategoria" style="display:none;">
-                                            <i class="fas fa-plus"></i>
-                                        </button>
+                            <div class="space-y-2">
+                                <label for="departamento_id" class="block text-sm font-medium text-gray-700">
+                                    Departamento <span class="text-red-500">*</span>
+                                </label>
+                                <div class="relative rounded-lg shadow-sm">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <i class="fas fa-building text-gray-400"></i>
                                     </div>
-                                    <!-- Campo para nueva categoría -->
-                                    <div id="nuevaCategoriaForm" style="display:none; margin-top:10px;">
-                                        <div class="input-group">
-                                            <input type="text" id="nuevaCategoria" class="form-control" 
-                                                   placeholder="Nombre de la nueva categoría">
-                                            <button type="button" class="btn btn-success" id="guardarCategoria">
-                                                <i class="fas fa-save"></i> Guardar
-                                            </button>
-                                            <button type="button" class="btn btn-danger" id="cancelarCategoria">
-                                                <i class="fas fa-times"></i>
-                                            </button>
-                                        </div>
+                                    <select id="departamento_id" 
+                                            name="departamento_id" 
+                                            required
+                                            class="block w-full pl-10 pr-10 py-2.5 rounded-lg border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none">
+                                        <option value="">Selecciona un departamento</option>
+                                        <?php foreach ($departamentos as $departamento): ?>
+                                            <option value="<?= $departamento['id'] ?>">
+                                                <?= htmlspecialchars($departamento['nombre']) ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                        <i class="fas fa-chevron-down text-gray-400"></i>
                                     </div>
                                 </div>
+                            </div>
 
-                                <div class="form-group col-md-6">
-                                    <label for="departamento">Departamento: *</label>
-                                    <div class="input-group">
-                                        <select id="departamento" name="departamento" required class="form-control">
-                                            <option value="">Seleccione un departamento...</option>
-                                            <?php foreach ($departamentos as $departamento): ?>
-                                                <option value="<?= htmlspecialchars($departamento['id']); ?>">
-                                                    <?= htmlspecialchars($departamento['nombre']); ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                            <option value="nuevo">+ Crear nuevo departamento</option>
-                                        </select>
-                                        <button type="button" class="btn btn-outline-secondary" id="btnNuevoDepartamento" style="display:none;">
-                                            <i class="fas fa-plus"></i>
-                                        </button>
+                            <div class="space-y-2">
+                                <label for="unidad_medida" class="block text-sm font-medium text-gray-700">
+                                    Unidad de Medida <span class="text-red-500">*</span>
+                                </label>
+                                <div class="relative rounded-lg shadow-sm">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <i class="fas fa-ruler text-gray-400"></i>
                                     </div>
-                                    <!-- Campo para nuevo departamento -->
-                                    <div id="nuevoDepartamentoForm" style="display:none; margin-top:10px;">
-                                        <div class="input-group">
-                                            <input type="text" id="nuevoDepartamento" class="form-control" 
-                                                   placeholder="Nombre del nuevo departamento">
-                                            <button type="button" class="btn btn-success" id="guardarDepartamento">
-                                                <i class="fas fa-save"></i> Guardar
-                                            </button>
-                                            <button type="button" class="btn btn-danger" id="cancelarDepartamento">
-                                                <i class="fas fa-times"></i>
-                                            </button>
-                                        </div>
+                                    <select id="unidad_medida" 
+                                            name="unidad_medida" 
+                                            required
+                                            class="block w-full pl-10 pr-10 py-2.5 rounded-lg border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none">
+                                        <option value="">Selecciona una unidad</option>
+                                        <option value="UNIDAD">Unidad</option>
+                                        <option value="KILOGRAMO">Kilogramo</option>
+                                        <option value="LITRO">Litro</option>
+                                        <option value="METRO">Metro</option>
+                                        <option value="CAJA">Caja</option>
+                                        <option value="PAQUETE">Paquete</option>
+                                    </select>
+                                    <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                        <i class="fas fa-chevron-down text-gray-400"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="space-y-2">
+                                <label for="estado" class="block text-sm font-medium text-gray-700">
+                                    Estado <span class="text-red-500">*</span>
+                                </label>
+                                <div class="relative rounded-lg shadow-sm">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <i class="fas fa-toggle-on text-gray-400"></i>
+                                    </div>
+                                    <select id="estado" 
+                                            name="estado" 
+                                            required
+                                            class="block w-full pl-10 pr-10 py-2.5 rounded-lg border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none">
+                                        <option value="activo">Activo</option>
+                                        <option value="inactivo">Inactivo</option>
+                                    </select>
+                                    <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                        <i class="fas fa-chevron-down text-gray-400"></i>
                                     </div>
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- Agregar después de la sección de Clasificación y antes de form-actions -->
-                        <div class="form-section">
-                            <div class="form-section-title">
-                                <i class="fas fa-images"></i> Galeria de Imágenes
+                    <!-- Precios y Márgenes -->
+                    <div class="space-y-6">
+                        <div class="flex items-center gap-2 pb-2 border-b border-gray-200">
+                            <i class="fas fa-dollar-sign text-green-500"></i>
+                            <h2 class="text-xl font-semibold text-gray-800">Precios y Márgenes</h2>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                            <div class="space-y-2">
+                                <label for="precio_costo" class="block text-sm font-medium text-gray-700">
+                                    Precio de Costo <span class="text-red-500">*</span>
+                                </label>
+                                <div class="relative rounded-lg shadow-sm">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <span class="text-gray-500">$</span>
+                                    </div>
+                                    <input type="number" 
+                                           id="precio_costo" 
+                                           name="precio_costo" 
+                                           required
+                                           step="0.01"
+                                           min="0"
+                                           onchange="calcularMargen()"
+                                           class="block w-full pl-8 pr-3 py-2.5 rounded-lg border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                           placeholder="0.00">
+                                </div>
                             </div>
-                            <div class="form-row">
-                                <div class="form-group col-md-12">
-                                    <div class="dropzone-container">
-                                        <div id="imagePreviewContainer" class="image-preview-container"></div>
-                                        <div class="dropzone-upload">
-                                            <input type="file" id="imageUpload" name="imagenes[]" multiple accept="image/*" class="file-input" />
-                                            <label for="imageUpload" class="upload-label">
-                                                <i class="fas fa-cloud-upload-alt"></i>
-                                                <span>Arrastra las imágenes aquí o haz clic para seleccionar</span>
-                                            </label>
-                                        </div>
+
+                            <div class="space-y-2">
+                                <label for="precio_venta" class="block text-sm font-medium text-gray-700">
+                                    Precio de Venta <span class="text-red-500">*</span>
+                                </label>
+                                <div class="relative rounded-lg shadow-sm">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <span class="text-gray-500">$</span>
                                     </div>
-                                    <div class="image-guidelines">
-                                        <small>
-                                            * Formatos permitidos: JPG, PNG, WEBP<br>
-                                            * Tamaño máximo por imagen: 25MB<br>
-                                            * Puedes subir hasta 10 imágenes<br>
-                                            * La primera imagen será la principal<br>
-                                            * Las imágenes se pueden reordenar arrastrándolas<br>
-                                            * Se permiten imágenes en alta resolución (4K)
-                                        </small>
+                                    <input type="number" 
+                                           id="precio_venta" 
+                                           name="precio_venta" 
+                                           required
+                                           step="0.01"
+                                           min="0"
+                                           onchange="calcularMargen()"
+                                           class="block w-full pl-8 pr-3 py-2.5 rounded-lg border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                           placeholder="0.00">
+                                </div>
+                            </div>
+
+                            <div class="space-y-2">
+                                <label for="margen_ganancia" class="block text-sm font-medium text-gray-700">
+                                    Margen de Ganancia (%) <span class="text-red-500">*</span>
+                                </label>
+                                <div class="relative rounded-lg shadow-sm">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <i class="fas fa-percentage text-gray-400"></i>
                                     </div>
+                                    <input type="number" 
+                                           id="margen_ganancia" 
+                                           name="margen_ganancia" 
+                                           required
+                                           step="0.01"
+                                           min="0"
+                                           readonly
+                                           class="block w-full pl-10 pr-3 py-2.5 rounded-lg bg-gray-50 border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                           placeholder="0">
+                                </div>
+                            </div>
+
+                            <div class="space-y-2">
+                                <label for="impuesto" class="block text-sm font-medium text-gray-700">
+                                    Impuesto (%) <span class="text-red-500">*</span>
+                                </label>
+                                <div class="relative rounded-lg shadow-sm">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <i class="fas fa-receipt text-gray-400"></i>
+                                    </div>
+                                    <input type="number" 
+                                           id="impuesto" 
+                                           name="impuesto" 
+                                           required
+                                           step="0.01"
+                                           min="0"
+                                           value="18"
+                                           onchange="calcularMargen()"
+                                           class="block w-full pl-10 pr-3 py-2.5 rounded-lg border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                           placeholder="18">
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        <div class="form-actions">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-save"></i> Guardar Producto
-                            </button>
-                            <button type="reset" class="btn btn-secondary">
-                                <i class="fas fa-undo"></i> Limpiar Formulario
-                            </button>
+                    <!-- Imágenes -->
+                    <div class="space-y-6">
+                        <div class="flex items-center gap-2 pb-2 border-b border-gray-200">
+                            <i class="fas fa-images text-purple-500"></i>
+                            <h2 class="text-xl font-semibold text-gray-800">Imágenes del Producto</h2>
                         </div>
-                    </form>
-                </div>
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-center w-full">
+                                <label for="imagenes" 
+                                       class="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                                    <div class="flex flex-col items-center justify-center pt-5 pb-6 px-4 text-center">
+                                        <i class="fas fa-cloud-upload-alt text-4xl text-blue-500 mb-4"></i>
+                                        <p class="mb-2 text-sm text-gray-700">
+                                            <span class="font-semibold">Haz clic para subir</span> o arrastra y suelta
+                                        </p>
+                                        <p class="text-xs text-gray-500">PNG, JPG o JPEG (MAX. 800x400px)</p>
+                                    </div>
+                                    <input id="imagenes" 
+                                           name="imagenes[]" 
+                                           type="file" 
+                                           class="hidden" 
+                                           multiple 
+                                           accept="image/*">
+                                </label>
+                            </div>
+                            <div id="preview" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+                        </div>
+                    </div>
+
+                    <!-- Descripción -->
+                    <div class="space-y-6">
+                        <div class="flex items-center gap-2 pb-2 border-b border-gray-200">
+                            <i class="fas fa-align-left text-indigo-500"></i>
+                            <h2 class="text-xl font-semibold text-gray-800">Descripción</h2>
+                        </div>
+                        <div class="space-y-2">
+                            <label for="descripcion" class="block text-sm font-medium text-gray-700">
+                                Descripción del Producto
+                            </label>
+                            <textarea id="descripcion" 
+                                      name="descripcion" 
+                                      rows="4" 
+                                      class="block w-full rounded-lg border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                                      placeholder="Describe las características del producto..."></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Botones de acción -->
+                    <div class="flex justify-end gap-4 pt-6 border-t border-gray-200">
+                        <button type="button" 
+                                onclick="window.location.href='index.php'"
+                                class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                            <i class="fas fa-times mr-2"></i>
+                            Cancelar
+                        </button>
+                        <button type="submit"
+                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                            <i class="fas fa-save mr-2"></i>
+                            Guardar Producto
+                        </button>
+                    </div>
+                </form>
             </div>
-        </div>
+        </main>
     </div>
 
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Constantes
-            const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB en bytes
-            const MAX_FILES = 10; // Aumentado a 10 imágenes
-            const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+        // Función para generar código de barras aleatorio
+        function generarCodigoBarras() {
+            const codigo = Math.floor(Math.random() * 9000000000000) + 1000000000000;
+            document.getElementById('codigo_barras').value = codigo;
+        }
+
+        // Preview de imágenes
+        document.getElementById('imagenes').addEventListener('change', function(e) {
+            const preview = document.getElementById('preview');
+            const files = Array.from(e.target.files);
             
-            // Elementos del DOM
-            const elements = {
-                precioCosto: document.getElementById('precio_costo'),
-                margenGanancia: document.getElementById('margen_ganancia'),
-                impuesto: document.getElementById('impuesto'),
-                precioVenta: document.getElementById('precio_venta'),
-                imageUpload: document.getElementById('imageUpload'),
-                imagePreview: document.getElementById('imagePreviewContainer'),
-                dropzone: document.querySelector('.dropzone-container'),
-                form: document.querySelector('.producto-form')
-            };
+            // Validar número máximo de archivos
+            if (files.length > 10) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Solo puedes subir hasta 10 imágenes'
+                });
+                this.value = '';
+                return;
+            }
+
+            // Limpiar preview
+            preview.innerHTML = '';
             
-            let uploadedFiles = [];
-
-            // Calculadora de precio
-            const calculadora = {
-                precioManual: false,
-
-                calcularPrecioVenta() {
-                    if (this.precioManual) return;
-                    
-                    const precioCosto = parseFloat(elements.precioCosto.value) || 0;
-                    const margenGanancia = parseFloat(elements.margenGanancia.value) || 0;
-                    const impuesto = parseFloat(elements.impuesto.value) || 0;
-                    
-                    const precioBase = precioCosto * (1 + (margenGanancia / 100));
-                    const precioVenta = precioBase * (1 + (impuesto / 100));
-                    
-                    elements.precioVenta.value = precioVenta.toFixed(2);
-                },
-
-                calcularMargenDesdeVenta() {
-                    if (!this.precioManual) return;
-
-                    const precioCosto = parseFloat(elements.precioCosto.value) || 0;
-                    const precioVenta = parseFloat(elements.precioVenta.value) || 0;
-                    const impuesto = parseFloat(elements.impuesto.value) || 0;
-
-                    if (precioCosto <= 0 || precioVenta <= 0) return;
-
-                    // Descontar el IVA del precio de venta
-                    const precioSinIva = precioVenta / (1 + (impuesto / 100));
-                    
-                    // Calcular el margen
-                    const margen = ((precioSinIva - precioCosto) / precioCosto) * 100;
-                    elements.margenGanancia.value = margen.toFixed(2);
-                },
-
-                togglePrecioManual() {
-                    this.precioManual = !this.precioManual;
-                    const btn = document.getElementById('togglePrecioManual');
-                    const icon = btn.querySelector('i');
-
-                    if (this.precioManual) {
-                        elements.precioVenta.readOnly = false;
-                        elements.margenGanancia.readOnly = true;
-                        icon.className = 'fas fa-unlock';
-                        btn.title = 'Precio manual activado';
-                        elements.precioVenta.focus();
-                    } else {
-                        elements.precioVenta.readOnly = true;
-                        elements.margenGanancia.readOnly = false;
-                        icon.className = 'fas fa-lock';
-                        btn.title = 'Precio automático activado';
-                        this.calcularPrecioVenta();
-                    }
-                },
-
-                inicializar() {
-                    // Configuración inicial
-                    elements.precioVenta.readOnly = true;
-                    
-                    // Event listeners para cálculos automáticos
-                    ['precioCosto', 'margenGanancia', 'impuesto'].forEach(id => {
-                        elements[id].addEventListener('input', () => this.calcularPrecioVenta());
+            files.forEach((file, index) => {
+                // Validar tipo de archivo
+                if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Tipo de archivo no permitido',
+                        text: `${file.name} no es un tipo de imagen válido`
                     });
-
-                    // Event listener para precio manual
-                    elements.precioVenta.addEventListener('input', () => this.calcularMargenDesdeVenta());
-                    
-                    // Event listener para el botón de toggle
-                    document.getElementById('togglePrecioManual').addEventListener('click', () => this.togglePrecioManual());
+                    return;
                 }
-            };
 
-            // Manejador de imágenes
-            const imageHandler = {
-                validarArchivo(file) {
-                    if (!ALLOWED_TYPES.includes(file.type)) {
-                        throw new Error(`Tipo de archivo no permitido. Use: ${ALLOWED_TYPES.map(t => t.split('/')[1]).join(', ')}`);
-                    }
-                    if (file.size > MAX_FILE_SIZE) {
-                        throw new Error(`El archivo excede el tamaño máximo de ${MAX_FILE_SIZE/1024/1024}MB`);
-                    }
-                },
-
-                async procesarArchivo(file) {
-                    return new Promise((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.onload = e => resolve(e.target.result);
-                        reader.onerror = () => reject(new Error('Error al leer el archivo'));
-                        reader.readAsDataURL(file);
+                // Validar tamaño
+                if (file.size > 25 * 1024 * 1024) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Archivo muy grande',
+                        text: `${file.name} excede el tamaño máximo de 25MB`
                     });
-                },
+                    return;
+                }
 
-                crearPreview(src, index) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
                     const div = document.createElement('div');
-                    div.className = 'image-preview';
+                    div.className = 'relative group';
                     div.innerHTML = `
-                        <img src="${src}" alt="Preview ${index + 1}">
-                        <span class="remove-image" data-index="${index}">
-                            <i class="fas fa-times"></i>
-                        </span>
-                        ${index === 0 ? '<span class="main-image">Principal</span>' : ''}
-                        <span class="image-size">${(uploadedFiles[index].size / (1024 * 1024)).toFixed(2)}MB</span>
+                        <div class="aspect-w-1 aspect-h-1 w-full overflow-hidden rounded-lg bg-gray-200">
+                            <img src="${e.target.result}" class="h-32 w-full object-cover">
+                            <div class="absolute inset-0 bg-black bg-opacity-40 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button type="button" 
+                                        class="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 focus:outline-none"
+                                        onclick="removeImage(this)">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </div>
+                            ${index === 0 ? '<span class="absolute top-2 left-2 px-2 py-1 bg-blue-500 text-white text-xs rounded-md">Principal</span>' : ''}
+                            <span class="absolute bottom-2 right-2 px-2 py-1 bg-gray-800 bg-opacity-75 text-white text-xs rounded-md">
+                                ${(file.size / (1024 * 1024)).toFixed(2)} MB
+                            </span>
+                        </div>
                     `;
-                    return div;
-                },
+                    preview.appendChild(div);
+                };
+                reader.readAsDataURL(file);
+            });
+        });
 
-                async actualizarPreviews() {
-                    elements.imagePreview.innerHTML = '';
-                    for (let i = 0; i < uploadedFiles.length; i++) {
-                        try {
-                            const src = await this.procesarArchivo(uploadedFiles[i]);
-                            const preview = this.crearPreview(src, i);
-                            elements.imagePreview.appendChild(preview);
-                            
-                            preview.querySelector('.remove-image').addEventListener('click', () => {
-                                uploadedFiles.splice(i, 1);
-                                this.actualizarPreviews();
-                            });
-                        } catch (error) {
-                            console.error('Error al procesar imagen:', error);
-                        }
-                    }
-                },
+        // Función para remover imagen
+        function removeImage(button) {
+            const container = button.closest('.relative');
+            container.remove();
+            
+            // Actualizar etiquetas de imagen principal
+            const previews = document.querySelectorAll('#preview .relative');
+            if (previews.length > 0) {
+                // Remover todas las etiquetas de principal
+                document.querySelectorAll('.bg-blue-500.absolute').forEach(el => el.remove());
+                
+                // Agregar etiqueta de principal a la primera imagen
+                const firstPreview = previews[0];
+                const span = document.createElement('span');
+                span.className = 'absolute top-2 left-2 px-2 py-1 bg-blue-500 text-white text-xs rounded-md';
+                span.textContent = 'Principal';
+                firstPreview.querySelector('.aspect-w-1').appendChild(span);
+            }
+        }
 
-                async manejarArchivos(files) {
-                    if (uploadedFiles.length + files.length > MAX_FILES) {
-                        alert(`Solo puedes subir hasta ${MAX_FILES} imágenes`);
-                        return;
-                    }
-
-                    for (const file of files) {
-                        try {
-                            this.validarArchivo(file);
-                            uploadedFiles.push(file);
-                        } catch (error) {
-                            alert(error.message);
-                            continue;
-                        }
-                    }
-
-                    await this.actualizarPreviews();
+        // Manejo del formulario
+        document.getElementById('productoForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            
+            Swal.fire({
+                title: 'Guardando producto...',
+                text: 'Por favor espera',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
                 }
-            };
-
-            // Manejador de Drag & Drop
-            const dragDropHandler = {
-                inicializar() {
-                    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(event => {
-                        elements.dropzone.addEventListener(event, this.prevenirDefecto);
-                        document.body.addEventListener(event, this.prevenirDefecto);
-                    });
-
-                    ['dragenter', 'dragover'].forEach(event => {
-                        elements.dropzone.addEventListener(event, () => elements.dropzone.classList.add('dragover'));
-                    });
-
-                    ['dragleave', 'drop'].forEach(event => {
-                        elements.dropzone.addEventListener(event, () => elements.dropzone.classList.remove('dragover'));
-                    });
-
-                    elements.dropzone.addEventListener('drop', e => {
-                        imageHandler.manejarArchivos(e.dataTransfer.files);
-                    });
-                },
-
-                prevenirDefecto(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                }
-            };
-
-            // Generador de código de barras
-            const barcodeGenerator = {
-                inicializar() {
-                    document.getElementById('generarCodigo').addEventListener('click', () => {
-                        const codigo = Math.floor(Math.random() * 9000000000000) + 1000000000000;
-                        document.getElementById('codigo_barras').value = codigo;
-                    });
-                }
-            };
-
-            // Validación del formulario
-            const formValidator = {
-                inicializar() {
-                    elements.form.addEventListener('submit', (e) => {
-                        e.preventDefault();
-                        if (this.validarFormulario()) {
-                            elements.form.submit();
-                        }
-                    });
-                },
-
-                validarFormulario() {
-                    // Implementar validaciones adicionales aquí
-                    return true;
-                }
-            };
-
-            // Inicialización
-            calculadora.inicializar();
-            dragDropHandler.inicializar();
-            barcodeGenerator.inicializar();
-            formValidator.inicializar();
-
-            elements.imageUpload.addEventListener('change', (e) => {
-                imageHandler.manejarArchivos(e.target.files);
             });
 
-            // Reemplazar el código de clasificacionHandler
-            const clasificacionHandler = {
-                async obtenerCategorias() {
-                    const response = await fetch('ajax_handlers.php', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                        },
-                        body: new URLSearchParams({
-                            action: 'obtener_categorias'
-                        })
-                    });
-                    
-                    if (!response.ok) throw new Error('Error al obtener categorías');
-                    return await response.json();
-                },
-
-                async obtenerDepartamentos() {
-                    const response = await fetch('ajax_handlers.php', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                        },
-                        body: new URLSearchParams({
-                            action: 'obtener_departamentos'
-                        })
-                    });
-                    
-                    if (!response.ok) throw new Error('Error al obtener departamentos');
-                    return await response.json();
-                },
-
-                async crearCategoria(nombre) {
-                    const response = await fetch('ajax_handlers.php', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                        },
-                        body: new URLSearchParams({
-                            action: 'crear_categoria',
-                            nombre: nombre
-                        })
-                    });
-
-                    const data = await response.json();
-                    if (!response.ok) {
-                        throw new Error(data.error || 'Error al crear la categoría');
-                    }
-                    return data;
-                },
-
-                async crearDepartamento(nombre) {
-                    const response = await fetch('ajax_handlers.php', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                        },
-                        body: new URLSearchParams({
-                            action: 'crear_departamento',
-                            nombre: nombre
-                        })
-                    });
-
-                    const data = await response.json();
-                    if (!response.ok) {
-                        throw new Error(data.error || 'Error al crear el departamento');
-                    }
-                    return data;
-                },
-
-                actualizarSelect(selectId, options, selectedValue = '') {
-                    const select = document.getElementById(selectId);
-                    const ultimaOpcion = select.lastElementChild.cloneNode(true);
-                    select.innerHTML = '<option value="">Seleccione...</option>';
-                    
-                    options.forEach(option => {
-                        const optionElement = new Option(option.nombre, option.id);
-                        select.add(optionElement);
-                    });
-                    
-                    select.add(ultimaOpcion);
-                    if (selectedValue) select.value = selectedValue;
-                },
-
-                async recargarCategorias(selectedValue = '') {
+            $.ajax({
+                url: 'procesar_producto.php',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
                     try {
-                        const categorias = await this.obtenerCategorias();
-                        this.actualizarSelect('categoria', categorias, selectedValue);
-                    } catch (error) {
-                        console.error('Error al recargar categorías:', error);
-                    }
-                },
-
-                async recargarDepartamentos(selectedValue = '') {
-                    try {
-                        const departamentos = await this.obtenerDepartamentos();
-                        this.actualizarSelect('departamento', departamentos, selectedValue);
-                    } catch (error) {
-                        console.error('Error al recargar departamentos:', error);
-                    }
-                },
-
-                inicializar() {
-                    // Manejadores para categoría
-                    document.getElementById('categoria').addEventListener('change', (e) => {
-                        if (e.target.value === 'nueva') {
-                            document.getElementById('nuevaCategoriaForm').style.display = 'block';
-                            e.target.value = '';
-                        }
-                    });
-
-                    document.getElementById('guardarCategoria').addEventListener('click', async () => {
-                        const nombreInput = document.getElementById('nuevaCategoria');
-                        const nombre = nombreInput.value.trim();
-                        
-                        if (!nombre) {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Error',
-                                text: 'El nombre de la categoría es requerido'
-                            });
-                            return;
-                        }
-
-                        try {
-                            const response = await fetch(window.location.href, {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/x-www-form-urlencoded',
-                                },
-                                body: new URLSearchParams({
-                                    action: 'crear_categoria',
-                                    nombre: nombre
-                                })
-                            });
-
-                            const data = await response.json();
-                            
-                            if (!data.success) {
-                                throw new Error(data.error);
-                            }
-
-                            // Actualizar select
-                            const selectCategoria = document.getElementById('categoria');
-                            const option = new Option(data.data.nombre, data.data.id);
-                            selectCategoria.add(option, selectCategoria.options[selectCategoria.options.length - 1]);
-                            selectCategoria.value = data.data.id;
-
-                            // Limpiar y ocultar formulario
-                            nombreInput.value = '';
-                            document.getElementById('nuevaCategoriaForm').style.display = 'none';
-
+                        const data = JSON.parse(response);
+                        if (data.status) {
                             Swal.fire({
                                 icon: 'success',
                                 title: '¡Éxito!',
-                                text: 'Categoría creada correctamente'
+                                text: 'Producto guardado correctamente',
+                                showConfirmButton: false,
+                                timer: 1500
+                            }).then(() => {
+                                window.location.href = 'index.php';
                             });
-                        } catch (error) {
+                        } else {
                             Swal.fire({
                                 icon: 'error',
                                 title: 'Error',
-                                text: error.message
+                                text: data.message || 'Hubo un error al guardar el producto'
                             });
                         }
-                    });
-
-                    // Manejadores para departamento
-                    document.getElementById('departamento').addEventListener('change', (e) => {
-                        if (e.target.value === 'nuevo') {
-                            document.getElementById('nuevoDepartamentoForm').style.display = 'block';
-                            e.target.value = '';
-                        }
-                    });
-
-                    document.getElementById('guardarDepartamento').addEventListener('click', async () => {
-                        const nombreInput = document.getElementById('nuevoDepartamento');
-                        const nombre = nombreInput.value.trim();
-                        
-                        if (!nombre) {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Error',
-                                text: 'El nombre del departamento es requerido'
-                            });
-                            return;
-                        }
-
-                        try {
-                            const response = await fetch(window.location.href, {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/x-www-form-urlencoded',
-                                },
-                                body: new URLSearchParams({
-                                    action: 'crear_departamento',
-                                    nombre: nombre
-                                })
-                            });
-
-                            const data = await response.json();
-                            
-                            if (!data.success) {
-                                throw new Error(data.error);
-                            }
-
-                            // Actualizar select
-                            const selectDepartamento = document.getElementById('departamento');
-                            const option = new Option(data.data.nombre, data.data.id);
-                            selectDepartamento.add(option, selectDepartamento.options[selectDepartamento.options.length - 1]);
-                            selectDepartamento.value = data.data.id;
-
-                            // Limpiar y ocultar formulario
-                            nombreInput.value = '';
-                            document.getElementById('nuevoDepartamentoForm').style.display = 'none';
-
-                            Swal.fire({
-                                icon: 'success',
-                                title: '¡Éxito!',
-                                text: 'Departamento creado correctamente'
-                            });
-                        } catch (error) {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Error',
-                                text: error.message
-                            });
-                        }
-                    });
-
-                    // Manejadores para cancelar
-                    document.getElementById('cancelarCategoria').addEventListener('click', () => {
-                        document.getElementById('nuevaCategoria').value = '';
-                        document.getElementById('nuevaCategoriaForm').style.display = 'none';
-                    });
-
-                    document.getElementById('cancelarDepartamento').addEventListener('click', () => {
-                        document.getElementById('nuevoDepartamento').value = '';
-                        document.getElementById('nuevoDepartamentoForm').style.display = 'none';
+                    } catch (e) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Hubo un error al procesar la respuesta'
+                        });
+                    }
+                },
+                error: function() {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Hubo un error al enviar la solicitud'
                     });
                 }
-            };
+            });
+        });
 
-            // Agregar a la inicialización
-            clasificacionHandler.inicializar();
+        // Función para calcular el margen de ganancia
+        function calcularMargen() {
+            const precioCosto = parseFloat(document.getElementById('precio_costo').value) || 0;
+            const precioVenta = parseFloat(document.getElementById('precio_venta').value) || 0;
+            const impuesto = parseFloat(document.getElementById('impuesto').value) || 0;
+
+            if (precioCosto > 0 && precioVenta > 0) {
+                // Descontar el impuesto del precio de venta
+                const precioSinImpuesto = precioVenta / (1 + (impuesto / 100));
+                
+                // Calcular el margen como porcentaje
+                const margen = ((precioSinImpuesto - precioCosto) / precioCosto) * 100;
+                
+                document.getElementById('margen_ganancia').value = margen.toFixed(2);
+            } else {
+                document.getElementById('margen_ganancia').value = '0.00';
+            }
+        }
+
+        // Agregar event listeners para los campos que afectan el cálculo
+        ['precio_costo', 'precio_venta', 'impuesto'].forEach(id => {
+            document.getElementById(id).addEventListener('input', calcularMargen);
+        });
+
+        // Validar que el precio de venta no sea menor al precio de costo
+        document.getElementById('precio_venta').addEventListener('change', function() {
+            const precioCosto = parseFloat(document.getElementById('precio_costo').value) || 0;
+            const precioVenta = parseFloat(this.value) || 0;
+            const impuesto = parseFloat(document.getElementById('impuesto').value) || 0;
+            
+            // Calcular precio de venta mínimo (costo + impuesto)
+            const precioMinimo = precioCosto * (1 + (impuesto / 100));
+
+            if (precioVenta < precioMinimo) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Advertencia',
+                    text: 'El precio de venta no puede ser menor al precio de costo más impuestos',
+                    confirmButtonText: 'Entendido'
+                });
+                this.value = precioMinimo.toFixed(2);
+                calcularMargen();
+            }
+        });
+
+        // Validar el formulario antes de enviar
+        document.getElementById('productoForm').addEventListener('submit', function(e) {
+            const precioCosto = parseFloat(document.getElementById('precio_costo').value) || 0;
+            const precioVenta = parseFloat(document.getElementById('precio_venta').value) || 0;
+            const margenGanancia = parseFloat(document.getElementById('margen_ganancia').value) || 0;
+
+            if (precioVenta <= precioCosto) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'El precio de venta debe ser mayor al precio de costo',
+                    confirmButtonText: 'Entendido'
+                });
+                return false;
+            }
+
+            if (margenGanancia <= 0) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'El margen de ganancia debe ser mayor a 0',
+                    confirmButtonText: 'Entendido'
+                });
+                return false;
+            }
         });
     </script>
 </body>
-
 </html>

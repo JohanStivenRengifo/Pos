@@ -44,7 +44,7 @@ function descargarPlantilla() {
         'E' => ['Stock Mínimo', 'Cantidad mínima antes de alerta'],
         'F' => ['Unidad Medida', 'UNIDAD, KG, GR, LT, MT, CM'],
         'G' => ['Precio Costo', 'Precio de compra sin IVA'],
-        'H' => ['Margen Ganancia', 'Porcentaje de ganancia'],
+        'H' => ['Precio Venta', 'Precio de venta final (incluye IVA)'],
         'I' => ['Impuesto', 'Porcentaje de IVA (ej: 19)'],
         'J' => ['Departamento', 'Nombre del departamento'],
         'K' => ['Categoría', 'Nombre de la categoría']
@@ -62,8 +62,8 @@ function descargarPlantilla() {
     
     // Agregar datos de ejemplo
     $ejemplos = [
-        ['7501234567890', 'Producto Ejemplo', 'Descripción del producto', '100', '10', 'UNIDAD', '1000.00', '30', '19', 'Electrónicos', 'Smartphones'],
-        ['7502345678901', 'Otro Producto', 'Otra descripción', '50', '5', 'KG', '500.00', '25', '19', 'Alimentos', 'Frutas']
+        ['7501234567890', 'Producto Ejemplo', 'Descripción del producto', '100', '10', 'UNIDAD', '1000.00', '1500.00', '19', 'Electrónicos', 'Smartphones'],
+        ['7502345678901', 'Otro Producto', 'Otra descripción', '50', '5', 'KG', '500.00', '750.00', '19', 'Alimentos', 'Frutas']
     ];
     
     // Agregar los ejemplos usando coordenadas de celda directas
@@ -172,7 +172,7 @@ function validarDatosProducto($datos) {
     
     // Validar código de barras
     if (empty($datos[0]) || !preg_match('/^\d{8,13}$/', $datos[0])) {
-        $errores[] = "Código de barras inválido: debe tener entre 8 y 13 dígitos";
+        $errores[] = "Código de barras inválido: debe tener entre 8 y 13 d��gitos";
     }
     
     // Validar nombre
@@ -194,18 +194,38 @@ function validarDatosProducto($datos) {
         $errores[] = "Unidad de medida inválida: debe ser una de " . implode(', ', $unidades_validas);
     }
     
-    // Validar precios y porcentajes
+    // Validar precio de costo
     if (!is_numeric($datos[6]) || $datos[6] < 0) {
         $errores[] = "Precio de costo inválido: debe ser un número positivo";
     }
-    if (!is_numeric($datos[7]) || $datos[7] < 0 || $datos[7] > 100) {
-        $errores[] = "Margen de ganancia inválido: debe ser un porcentaje entre 0 y 100";
+    
+    // Validar precio de venta
+    if (!is_numeric($datos[7]) || $datos[7] < 0) {
+        $errores[] = "Precio de venta inválido: debe ser un número positivo";
     }
+    
+    // Validar que el precio de venta sea mayor al precio de costo
+    if (floatval($datos[7]) <= floatval($datos[6])) {
+        $errores[] = "El precio de venta debe ser mayor al precio de costo";
+    }
+    
+    // Validar impuesto
     if (!is_numeric($datos[8]) || $datos[8] < 0 || $datos[8] > 100) {
         $errores[] = "Impuesto inválido: debe ser un porcentaje entre 0 y 100";
     }
     
     return $errores;
+}
+
+// Agregar función para calcular el margen de ganancia
+function calcularMargenGanancia($precio_costo, $precio_venta, $impuesto) {
+    // Precio venta sin IVA = Precio venta / (1 + impuesto/100)
+    $precio_venta_sin_iva = $precio_venta / (1 + ($impuesto/100));
+    
+    // Margen = ((Precio venta sin IVA / Precio costo) - 1) * 100
+    $margen = (($precio_venta_sin_iva / $precio_costo) - 1) * 100;
+    
+    return round($margen, 2); // Redondear a 2 decimales
 }
 
 // Modificar la parte de procesamiento del archivo
@@ -297,6 +317,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['archivo_excel'])) {
                 $existe = $stmtCheck->fetch();
                 
                 if ($existe) {
+                    // Calcular el margen de ganancia
+                    $margen_ganancia = calcularMargenGanancia(
+                        floatval($datos[6]),  // precio_costo
+                        floatval($datos[7]),  // precio_venta
+                        floatval($datos[8])   // impuesto
+                    );
+
                     // Actualizar producto existente
                     $stmtUpdate->execute([
                         $datos[1],            // nombre
@@ -304,10 +331,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['archivo_excel'])) {
                         floatval($datos[3]),  // stock
                         floatval($datos[4]),  // stock_minimo
                         strtoupper($datos[5]),// unidad_medida
-                        $precio_costo,
-                        $margen,
-                        $impuesto,
-                        $precio_venta,
+                        $precio_costo,        // precio_costo
+                        $margen_ganancia,     // margen_ganancia calculado
+                        $impuesto,            // impuesto
+                        floatval($datos[7]),  // precio_venta
                         $departamento_id,
                         $categoria_id,
                         $datos[0],            // codigo_barras
@@ -315,6 +342,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['archivo_excel'])) {
                     ]);
                     $productosActualizados++;
                 } else {
+                    // Calcular el margen de ganancia
+                    $margen_ganancia = calcularMargenGanancia(
+                        floatval($datos[6]),  // precio_costo
+                        floatval($datos[7]),  // precio_venta
+                        floatval($datos[8])   // impuesto
+                    );
+
                     // Insertar nuevo producto
                     $stmtInsert->execute([
                         $user_id,
@@ -324,10 +358,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['archivo_excel'])) {
                         floatval($datos[3]),  // stock
                         floatval($datos[4]),  // stock_minimo
                         strtoupper($datos[5]),// unidad_medida
-                        $precio_costo,
-                        $margen,
-                        $impuesto,
-                        $precio_venta,
+                        $precio_costo,        // precio_costo
+                        $margen_ganancia,     // margen_ganancia calculado
+                        $impuesto,            // impuesto
+                        floatval($datos[7]),  // precio_venta
                         $departamento_id,
                         $categoria_id
                     ]);
@@ -386,246 +420,204 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['archivo_excel'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Importar Archivos | VendEasy</title> 
+    <title>Importar Productos | VendEasy</title>
     <link rel="icon" type="image/png" href="/favicon/favicon.ico"/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
-    <link rel="stylesheet" href="../../css/welcome.css">
-    <link rel="stylesheet" href="../../css/modulos.css">
-    <style>
-        .importar-container {
-            background: #fff;
-            padding: 25px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-
-        .info-card {
-            background: #e3f2fd;
-            border-left: 4px solid #1976d2;
-            padding: 15px;
-            margin-bottom: 20px;
-            border-radius: 4px;
-        }
-
-        .info-card h3 {
-            color: #1976d2;
-            margin: 0 0 10px 0;
-        }
-
-        .info-card ul {
-            margin: 0;
-            padding-left: 20px;
-        }
-
-        .info-card li {
-            margin-bottom: 5px;
-            color: #555;
-        }
-
-        .upload-zone {
-            border: 2px dashed #ccc;
-            padding: 30px;
-            text-align: center;
-            background: #f8f9fa;
-            border-radius: 8px;
-            margin: 20px 0;
-            transition: all 0.3s ease;
-        }
-
-        .upload-zone.dragover {
-            background: #e3f2fd;
-            border-color: #1976d2;
-        }
-
-        .upload-icon {
-            font-size: 48px;
-            color: #1976d2;
-            margin-bottom: 15px;
-        }
-
-        .progress-container {
-            margin-top: 20px;
-            display: none;
-        }
-
-        .progress {
-            height: 20px;
-            background: #f0f0f0;
-            border-radius: 10px;
-            overflow: hidden;
-            margin-bottom: 10px;
-        }
-
-        .progress-bar {
-            height: 100%;
-            background: #1976d2;
-            width: 0%;
-            transition: width 0.3s ease;
-        }
-
-        .progress-text {
-            text-align: center;
-            color: #666;
-        }
-
-        .btn-group {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
-        }
-
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            font-weight: 500;
-            transition: all 0.2s;
-        }
-
-        .btn-primary {
-            background: #1976d2;
-            color: white;
-        }
-
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-        }
-
-        .btn:hover {
-            opacity: 0.9;
-            transform: translateY(-1px);
-        }
-
-        .file-input {
-            display: none;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .loading {
-            animation: spin 1s linear infinite;
-        }
-    </style>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.all.min.js"></script>
-</head>
-<body>
-<?php include '../../includes/header.php'; ?>
-    <div class="container">
-        <?php include '../../includes/sidebar.php'; ?>
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                const currentUrl = window.location.pathname;
-                const sidebarLinks = document.querySelectorAll('.side_navbar a');
-                sidebarLinks.forEach(link => {
-                    if (link.getAttribute('href') === currentUrl) {
-                        link.classList.add('active');
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1e40af',
+                        secondary: '#1e293b',
+                        accent: '#3b82f6'
                     }
-                });
-            });
-        </script>
+                }
+            }
+        }
+    </script>
+</head>
 
-        <div class="main-body">
-            <h2>Importar Productos</h2>
-            
-            <div class="info-card">
-                <h3><i class="fas fa-info-circle"></i> Información Importante</h3>
-                <ul>
-                    <li>Puede importar hasta <strong><?= number_format(MAX_PRODUCTOS_POR_CARGA) ?></strong> productos por archivo</li>
-                    <li>Tamaño máximo del archivo: <strong><?= MAX_TAMANO_ARCHIVO / (1024 * 1024) ?>MB</strong></li>
-                    <li>Formatos soportados: <strong>XLSX, XLS</strong></li>
-                    <li>La plantilla incluye ejemplos y validaciones</li>
-                    <li>Los campos marcados con * son obligatorios</li>
-                </ul>
-            </div>
-
-            <div class="importar-container">
-                <div class="btn-group">
-                    <a href="?descargar_plantilla=1" class="btn btn-secondary">
-                        <i class="fas fa-download"></i> Descargar Plantilla
-                    </a>
-                    <a href="#" class="btn btn-secondary" onclick="mostrarInstrucciones()">
-                        <i class="fas fa-question-circle"></i> Ver Instrucciones
+<body class="bg-gray-50">
+    <?php include '../../includes/header.php'; ?>
+    
+    <div class="flex">
+        <?php include '../../includes/sidebar.php'; ?>
+        
+        <main class="flex-1 p-6">
+            <div class="max-w-7xl mx-auto">
+                <!-- Encabezado -->
+                <div class="flex items-center justify-between mb-8">
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-900">Importar Productos</h1>
+                        <p class="mt-2 text-sm text-gray-600">
+                            Importa tus productos desde un archivo Excel
+                        </p>
+                    </div>
+                    <a href="index.php" 
+                       class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+                        <i class="fas fa-arrow-left mr-2"></i>
+                        Volver
                     </a>
                 </div>
 
-                <form id="importForm" action="" method="post" enctype="multipart/form-data">
-                    <div class="upload-zone" id="dropZone">
-                        <div class="upload-icon">
-                            <i class="fas fa-file-excel"></i>
-                        </div>
-                        <h3>Arrastra tu archivo Excel aquí</h3>
-                        <p>o</p>
-                        <input type="file" name="archivo_excel" id="archivo_excel" 
-                               class="file-input" accept=".xlsx,.xls">
-                        <button type="button" class="btn btn-primary" onclick="document.getElementById('archivo_excel').click()">
-                            <i class="fas fa-folder-open"></i> Seleccionar Archivo
-                        </button>
+                <!-- Tarjeta de información -->
+                <div class="bg-white rounded-xl shadow-lg p-6 mb-8">
+                    <div class="flex items-center gap-3 mb-4 text-blue-600">
+                        <i class="fas fa-info-circle text-2xl"></i>
+                        <h2 class="text-xl font-semibold">Información Importante</h2>
                     </div>
-
-                    <div class="progress-container" id="progressContainer">
-                        <div class="progress">
-                            <div class="progress-bar" id="progressBar"></div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div class="bg-blue-50 rounded-lg p-4 border border-blue-100">
+                            <div class="flex items-center gap-2 mb-2 text-blue-700">
+                                <i class="fas fa-file-excel"></i>
+                                <h3 class="font-semibold">Formato del Archivo</h3>
+                            </div>
+                            <ul class="text-sm text-blue-600 space-y-1">
+                                <li>• Formatos soportados: XLSX, XLS</li>
+                                <li>• Tamaño máximo: <?= MAX_TAMANO_ARCHIVO / (1024 * 1024) ?>MB</li>
+                                <li>• Use la plantilla proporcionada</li>
+                            </ul>
                         </div>
-                        <div class="progress-text" id="progressText">Procesando...</div>
+
+                        <div class="bg-green-50 rounded-lg p-4 border border-green-100">
+                            <div class="flex items-center gap-2 mb-2 text-green-700">
+                                <i class="fas fa-check-circle"></i>
+                                <h3 class="font-semibold">Límites y Validaciones</h3>
+                            </div>
+                            <ul class="text-sm text-green-600 space-y-1">
+                                <li>• Máximo <?= number_format(MAX_PRODUCTOS_POR_CARGA) ?> productos</li>
+                                <li>• Campos obligatorios marcados con *</li>
+                                <li>• Validación automática de datos</li>
+                            </ul>
+                        </div>
+
+                        <div class="bg-purple-50 rounded-lg p-4 border border-purple-100">
+                            <div class="flex items-center gap-2 mb-2 text-purple-700">
+                                <i class="fas fa-lightbulb"></i>
+                                <h3 class="font-semibold">Recomendaciones</h3>
+                            </div>
+                            <ul class="text-sm text-purple-600 space-y-1">
+                                <li>• Revise los datos antes de importar</li>
+                                <li>• Haga una copia de seguridad</li>
+                                <li>• Siga el formato de la plantilla</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Acciones -->
+                <div class="flex flex-wrap gap-4 mb-8">
+                    <a href="?descargar_plantilla=1" 
+                       class="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105 shadow-sm">
+                        <i class="fas fa-download mr-2"></i>
+                        Descargar Plantilla
+                    </a>
+                    <button type="button"
+                            onclick="mostrarInstrucciones()"
+                            class="inline-flex items-center px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all transform hover:scale-105 shadow-sm">
+                        <i class="fas fa-question-circle mr-2"></i>
+                        Ver Instrucciones
+                    </button>
+                </div>
+
+                <!-- Zona de carga -->
+                <form id="importForm" class="bg-white rounded-xl shadow-lg p-8">
+                    <div class="space-y-6">
+                        <!-- Área de arrastrar y soltar -->
+                        <div id="dropZone" 
+                             class="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center hover:border-blue-500 transition-colors cursor-pointer bg-gray-50 hover:bg-blue-50">
+                            <input type="file" 
+                                   name="archivo_excel" 
+                                   id="archivo_excel" 
+                                   class="hidden" 
+                                   accept=".xlsx,.xls">
+                            
+                            <div class="space-y-4">
+                                <i class="fas fa-cloud-upload-alt text-6xl text-blue-500"></i>
+                                <div>
+                                    <h3 class="text-xl font-medium text-gray-700">
+                                        Arrastra tu archivo Excel aquí
+                                    </h3>
+                                    <p class="text-gray-500 mt-1">o</p>
+                                </div>
+                                <button type="button" 
+                                        onclick="document.getElementById('archivo_excel').click()"
+                                        class="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105">
+                                    <i class="fas fa-folder-open mr-2"></i>
+                                    Seleccionar Archivo
+                                </button>
+                                <p class="text-sm text-gray-500">
+                                    Archivos permitidos: XLSX, XLS (Máx. <?= MAX_TAMANO_ARCHIVO / (1024 * 1024) ?>MB)
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Barra de progreso -->
+                        <div id="progressContainer" class="hidden space-y-4">
+                            <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                                <div id="progressBar" 
+                                     class="h-full bg-blue-600 transition-all duration-300"
+                                     style="width: 0%">
+                                </div>
+                            </div>
+                            <div class="flex justify-between text-sm text-gray-600">
+                                <span id="progressText">Procesando...</span>
+                                <span id="progressPercentage">0%</span>
+                            </div>
+                        </div>
                     </div>
                 </form>
             </div>
-        </div>
+        </main>
     </div>
 
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
     <script>
-        // Funciones para drag & drop
-        const dropZone = document.getElementById('dropZone');
-        const fileInput = document.getElementById('archivo_excel');
-        const progressContainer = document.getElementById('progressContainer');
-        const progressBar = document.getElementById('progressBar');
-        const progressText = document.getElementById('progressText');
+        // Función para mostrar instrucciones
+        function mostrarInstrucciones() {
+            Swal.fire({
+                title: 'Instrucciones de Uso',
+                html: `
+                    <div class="text-left space-y-4">
+                        <div class="flex items-center gap-2 text-blue-600">
+                            <i class="fas fa-file-excel"></i>
+                            <h3 class="font-semibold">Preparación del Archivo</h3>
+                        </div>
+                        <ol class="list-decimal list-inside space-y-2 text-gray-600">
+                            <li>Descargue la plantilla Excel proporcionada</li>
+                            <li>Complete los datos según el formato indicado</li>
+                            <li>No modifique la estructura de la plantilla</li>
+                            <li>Verifique que los datos sean correctos</li>
+                            <li>Guarde el archivo en formato XLSX o XLS</li>
+                        </ol>
 
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, preventDefaults, false);
-            document.body.addEventListener(eventName, preventDefaults, false);
-        });
-
-        ['dragenter', 'dragover'].forEach(eventName => {
-            dropZone.addEventListener(eventName, highlight, false);
-        });
-
-        ['dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, unhighlight, false);
-        });
-
-        dropZone.addEventListener('drop', handleDrop, false);
-        fileInput.addEventListener('change', handleFiles);
-
-        function preventDefaults(e) {
-            e.preventDefault();
-            e.stopPropagation();
+                        <div class="flex items-center gap-2 text-green-600 mt-4">
+                            <i class="fas fa-check-circle"></i>
+                            <h3 class="font-semibold">Proceso de Importación</h3>
+                        </div>
+                        <ol class="list-decimal list-inside space-y-2 text-gray-600">
+                            <li>Seleccione o arrastre su archivo</li>
+                            <li>Confirme la importación</li>
+                            <li>Espere a que se complete el proceso</li>
+                            <li>Verifique los resultados</li>
+                        </ol>
+                    </div>
+                `,
+                icon: 'info',
+                confirmButtonText: 'Entendido',
+                confirmButtonColor: '#3b82f6',
+                customClass: {
+                    container: 'text-left'
+                }
+            });
         }
 
-        function highlight(e) {
-            dropZone.classList.add('dragover');
-        }
-
-        function unhighlight(e) {
-            dropZone.classList.remove('dragover');
-        }
-
-        function handleDrop(e) {
-            const dt = e.dataTransfer;
-            const files = dt.files;
-            handleFiles({ target: { files } });
-        }
-
+        // Función para manejar la subida del archivo
         function handleFiles(e) {
             const files = e.target.files;
             if (files.length > 0) {
@@ -654,24 +646,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['archivo_excel'])) {
                 // Mostrar confirmación
                 Swal.fire({
                     title: '¿Importar archivo?',
-                    text: `¿Desea importar el archivo ${file.name}?`,
+                    html: `
+                        <div class="text-left">
+                            <p class="mb-2">Archivo: <strong>${file.name}</strong></p>
+                            <p>Tamaño: <strong>${(file.size / 1024 / 1024).toFixed(2)} MB</strong></p>
+                        </div>
+                    `,
                     icon: 'question',
                     showCancelButton: true,
                     confirmButtonText: 'Sí, importar',
-                    cancelButtonText: 'Cancelar'
+                    cancelButtonText: 'Cancelar',
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33'
                 }).then((result) => {
                     if (result.isConfirmed) {
-                        importarArchivo();
+                        importarArchivo(file);
                     }
                 });
             }
         }
 
-        function importarArchivo() {
-            const formData = new FormData(document.getElementById('importForm'));
+        // Función para importar el archivo
+        function importarArchivo(file) {
+            const formData = new FormData();
+            formData.append('archivo_excel', file);
             
             // Mostrar progreso
-            progressContainer.style.display = 'block';
+            const progressContainer = document.getElementById('progressContainer');
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            const progressPercentage = document.getElementById('progressPercentage');
+            
+            progressContainer.classList.remove('hidden');
             let progress = 0;
             
             const interval = setInterval(() => {
@@ -680,70 +686,117 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['archivo_excel'])) {
                 updateProgress(Math.min(progress, 90));
             }, 500);
 
-            fetch('importar.php', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                clearInterval(interval);
-                updateProgress(100);
-                
-                setTimeout(() => {
-                    progressContainer.style.display = 'none';
+            // Realizar la petición AJAX
+            $.ajax({
+                url: window.location.href,
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                xhr: function() {
+                    const xhr = new window.XMLHttpRequest();
+                    xhr.upload.addEventListener('progress', function(evt) {
+                        if (evt.lengthComputable) {
+                            const percentComplete = (evt.loaded / evt.total) * 100;
+                            updateProgress(percentComplete);
+                        }
+                    }, false);
+                    return xhr;
+                },
+                success: function(response) {
+                    clearInterval(interval);
+                    updateProgress(100);
                     
-                    if (data.success) {
-                        Swal.fire({
-                            icon: 'success',
-                            title: '¡Importación exitosa!',
-                            text: data.message
-                        }).then(() => {
-                            window.location.href = 'index.php';
-                        });
-                    } else {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Error',
-                            text: data.message
-                        });
-                    }
-                }, 500);
-            })
-            .catch(error => {
-                clearInterval(interval);
-                progressContainer.style.display = 'none';
-                
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'Hubo un problema al procesar el archivo'
-                });
+                    setTimeout(() => {
+                        progressContainer.classList.add('hidden');
+                        
+                        if (response.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: '¡Importación exitosa!',
+                                text: response.message,
+                                confirmButtonColor: '#3085d6'
+                            }).then(() => {
+                                window.location.href = 'index.php';
+                            });
+                        } else {
+                            let errorMessage = response.message;
+                            if (response.errors && response.errors.length > 0) {
+                                errorMessage += '\n\nErrores encontrados:\n' + response.errors.join('\n');
+                            }
+                            
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error en la importación',
+                                text: errorMessage,
+                                confirmButtonColor: '#d33'
+                            });
+                        }
+                    }, 500);
+                },
+                error: function(xhr, status, error) {
+                    clearInterval(interval);
+                    progressContainer.classList.add('hidden');
+                    
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Hubo un problema al procesar el archivo: ' + error,
+                        confirmButtonColor: '#d33'
+                    });
+                }
             });
         }
 
+        // Función para actualizar la barra de progreso
         function updateProgress(value) {
-            progressBar.style.width = `${value}%`;
-            progressText.textContent = `Procesando... ${Math.round(value)}%`;
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            const progressPercentage = document.getElementById('progressPercentage');
+            
+            const percentage = Math.round(value);
+            progressBar.style.width = `${percentage}%`;
+            progressText.textContent = percentage === 100 ? 'Completado' : 'Procesando...';
+            progressPercentage.textContent = `${percentage}%`;
         }
 
-        function mostrarInstrucciones() {
-            Swal.fire({
-                title: 'Instrucciones de Uso',
-                html: `
-                    <div style="text-align: left">
-                        <ol>
-                            <li>Descargue la plantilla Excel</li>
-                            <li>Complete los datos según el formato indicado</li>
-                            <li>No modifique la estructura de la plantilla</li>
-                            <li>Verifique que los IDs de departamentos y categorías existan</li>
-                            <li>Puede importar hasta ${MAX_PRODUCTOS_POR_CARGA.toLocaleString()} productos</li>
-                            <li>El archivo no debe superar los ${MAX_TAMANO_ARCHIVO/(1024*1024)}MB</li>
-                        </ol>
-                    </div>
-                `,
-                icon: 'info',
-                confirmButtonText: 'Entendido'
-            });
+        // Event Listeners
+        document.getElementById('archivo_excel').addEventListener('change', handleFiles);
+
+        // Drag and Drop
+        const dropZone = document.getElementById('dropZone');
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight(e) {
+            dropZone.classList.add('border-blue-500', 'bg-blue-50');
+        }
+
+        function unhighlight(e) {
+            dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+        }
+
+        dropZone.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles({ target: { files } });
         }
     </script>
 </body>

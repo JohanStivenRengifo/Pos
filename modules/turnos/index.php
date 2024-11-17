@@ -44,21 +44,35 @@ function getMetodoPagoIcon($metodo_pago) {
 }
 
 // Funciones para manejar los turnos
-function getTurnos($user_id, $limit = 10, $offset = 0) {
+function getTurnos($user_id, $limit = null, $offset = 0, $fecha = null) {
     global $pdo;
     try {
+        $params = [':user_id' => $user_id];
+        
         $query = "SELECT t.*, 
                   DATE_FORMAT(t.fecha_apertura, '%d/%m/%Y %H:%i') as fecha_apertura_formateada,
                   DATE_FORMAT(t.fecha_cierre, '%d/%m/%Y %H:%i') as fecha_cierre_formateada
                   FROM turnos t 
-                  WHERE t.user_id = :user_id 
-                  ORDER BY t.fecha_apertura DESC 
-                  LIMIT :limit OFFSET :offset";
+                  WHERE t.user_id = :user_id";
+        
+        if ($fecha) {
+            $query .= " AND DATE(t.fecha_apertura) = :fecha";
+            $params[':fecha'] = $fecha;
+        }
+        
+        $query .= " ORDER BY t.fecha_apertura DESC";
+        
+        // Solo agregar LIMIT si se especifica
+        if ($limit !== null) {
+            $query .= " LIMIT :limit OFFSET :offset";
+            $params[':limit'] = $limit;
+            $params[':offset'] = $offset;
+        }
         
         $stmt = $pdo->prepare($query);
-        $stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
-        $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
-        $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+        foreach ($params as $key => &$val) {
+            $stmt->bindParam($key, $val);
+        }
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {
@@ -196,9 +210,10 @@ function getDetallesTurno($turno_id) {
 
         // 3. Obtener detalles de cada venta
         foreach ($ventas as &$venta) {
-            $query = "SELECT vd.cantidad, vd.precio_unitario, 
-                     i.nombre as nombre_producto,
-                     (vd.cantidad * vd.precio_unitario) as subtotal  -- Calculamos el subtotal directamente en la consulta
+            $query = "SELECT 
+                         vd.cantidad, 
+                         vd.precio_unitario,
+                         i.nombre as nombre_producto
                      FROM venta_detalles vd
                      LEFT JOIN inventario i ON vd.producto_id = i.id
                      WHERE vd.venta_id = ?";
@@ -209,17 +224,10 @@ function getDetallesTurno($turno_id) {
             
             // Formatear campos monetarios de los detalles
             foreach ($detalles as &$detalle) {
-                // Asegurarnos de que los valores sean numéricos antes de formatearlos
-                $precio = floatval($detalle['precio_unitario']);
-                $cantidad = floatval($detalle['cantidad']);
-                $subtotal = floatval($detalle['subtotal']);
-
-                $detalle['precio_unitario'] = number_format($precio, 2, '.', '');
-                $detalle['subtotal'] = number_format($subtotal, 2, '.', '');
+                $detalle['precio_unitario'] = number_format(floatval($detalle['precio_unitario']), 2, '.', '');
             }
             
             $venta['detalles'] = $detalles;
-            $venta['total'] = number_format((float)$venta['total'], 2, '.', '');
         }
 
         // 4. Calcular totales
@@ -459,10 +467,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
 
 // Obtener datos para la vista
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-$limit = 10;
-$offset = ($page - 1) * $limit;
+$fecha_filtro = isset($_GET['fecha']) ? $_GET['fecha'] : null;
 
-$turnos = getTurnos($user_id, $limit, $offset);
+// Si hay filtro de fecha, usar paginación, si no, mostrar todos
+if ($fecha_filtro) {
+    $limit = 10;
+    $offset = ($page - 1) * $limit;
+    $turnos = getTurnos($user_id, $limit, $offset, $fecha_filtro);
+} else {
+    // Mostrar todos los turnos sin límite
+    $turnos = getTurnos($user_id, null, 0, null);
+}
+
 $turno_activo = getTurnoActivo($user_id);
 
 ?>
@@ -474,360 +490,176 @@ $turno_activo = getTurnoActivo($user_id);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Turnos | VendEasy</title>
     <link rel="icon" type="image/png" href="/favicon/favicon.ico"/>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
-    <link rel="stylesheet" href="../../css/welcome.css">
-    <link rel="stylesheet" href="../../css/modulos.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <style>
-        .turno-activo-card {
-            background: linear-gradient(145deg, #2ecc71, #27ae60);
-            color: white;
-            padding: 20px;
-            border-radius: 15px;
-            margin-bottom: 30px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        }
-
-        .turno-activo-card h3 {
-            margin: 0 0 15px 0;
-            font-size: 1.5rem;
-        }
-
-        .turno-info {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-
-        .turno-info-item {
-            background: rgba(255,255,255,0.1);
-            padding: 15px;
-            border-radius: 10px;
-        }
-
-        .turno-info-item strong {
-            display: block;
-            font-size: 0.9rem;
-            margin-bottom: 5px;
-        }
-
-        .turno-info-item span {
-            font-size: 1.2rem;
-            font-weight: 500;
-        }
-
-        .turno-actions {
-            display: flex;
-            gap: 15px;
-            margin-top: 20px;
-        }
-
-        .btn-turno {
-            padding: 12px 25px;
-            border: none;
-            border-radius: 8px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .btn-iniciar {
-            background: #2ecc71;
-            color: white;
-        }
-
-        .btn-cerrar {
-            background: #e74c3c;
-            color: white;
-        }
-
-        .turnos-table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            margin-top: 20px;
-        }
-
-        .turnos-table th {
-            background: #f8f9fa;
-            padding: 15px;
-            font-weight: 600;
-            color: #344767;
-            text-align: left;
-        }
-
-        .turnos-table td {
-            padding: 15px;
-            border-bottom: 1px solid #e9ecef;
-        }
-
-        .estado-badge {
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 500;
-        }
-
-        .estado-activo {
-            background: #e8f5e9;
-            color: #2e7d32;
-        }
-
-        .estado-cerrado {
-            background: #ffebee;
-            color: #c62828;
-        }
-
-        .monto {
-            font-family: 'Poppins', monospace;
-            font-weight: 500;
-        }
-
-        .search-box {
-            margin-bottom: 20px;
-        }
-
-        .search-box input {
-            width: 100%;
-            padding: 12px;
-            border: 1.5px solid #e9ecef;
-            border-radius: 8px;
-            font-size: 0.95rem;
-        }
-
-        .turno-detalles {
-            text-align: left;
-            max-height: 80vh;
-            overflow-y: auto;
-            padding: 20px;
-        }
-
-        .turno-header {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #e9ecef;
-        }
-
-        .info-grupo {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .turno-montos {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin-bottom: 25px;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 10px;
-        }
-
-        .monto-item {
-            text-align: center;
-        }
-
-        .monto-item strong {
-            display: block;
-            font-size: 0.9rem;
-            color: #6c757d;
-            margin-bottom: 5px;
-        }
-
-        .monto-item span {
-            font-size: 1.2rem;
-            font-weight: 500;
-            color: #2ecc71;
-        }
-
-        .diferencia-negativa span {
-            color: #e74c3c;
-        }
-
-        .resumen-ventas {
-            margin-bottom: 25px;
-        }
-
-        .totales-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 15px;
-        }
-
-        .total-item {
-            text-align: center;
-            padding: 15px;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        }
-
-        .total-item i {
-            font-size: 1.5rem;
-            color: #3498db;
-            margin-bottom: 10px;
-        }
-
-        .total-item strong {
-            display: block;
-            font-size: 0.85rem;
-            color: #6c757d;
-            margin-bottom: 5px;
-        }
-
-        .total-item span {
-            font-size: 1.1rem;
-            font-weight: 500;
-            color: #2ecc71;
-        }
-
-        .ventas-lista {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .venta-item {
-            background: white;
-            border-radius: 10px;
-            padding: 15px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        }
-
-        .venta-header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
-        }
-
-        .detalles-table {
-            width: 100%;
-            margin: 10px 0;
-            border-collapse: collapse;
-        }
-
-        .detalles-table th,
-        .detalles-table td {
-            padding: 8px;
-            text-align: left;
-            border-bottom: 1px solid #e9ecef;
-        }
-
-        .venta-footer {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px solid #e9ecef;
-        }
-
-        .metodo-pago {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            color: #6c757d;
-        }
-
-        .total {
-            color: #2ecc71;
-        }
-
-        .observaciones {
-            margin-top: 20px;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 10px;
-        }
-
-        .no-ventas {
-            text-align: center;
-            color: #6c757d;
-            padding: 20px;
-        }
-    </style>
 </head>
-<body>
+<body class="bg-gray-50">
     <?php include '../../includes/header.php'; ?>
-    <div class="container">
+    
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <?php include '../../includes/sidebar.php'; ?>
         
-        <div class="main-body">
-            <h2>Gestión de Turnos</h2>
+        <div class="main-content ml-64">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6">Gestión de Turnos</h2>
             
             <?php if ($turno_activo): ?>
             <!-- Tarjeta de Turno Activo -->
-            <div class="turno-activo-card">
-                <h3><i class="fas fa-clock"></i> Turno Activo</h3>
-                <div class="turno-info">
-                    <div class="turno-info-item">
-                        <strong>Inicio del Turno</strong>
-                        <span><?= $turno_activo['fecha_apertura_formateada'] ?></span>
+            <div class="bg-gradient-to-r from-emerald-500 to-green-600 rounded-lg shadow-lg p-6 mb-8">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-semibold text-white flex items-center">
+                        <i class="fas fa-clock mr-2"></i> Turno Activo
+                    </h3>
+                    <span class="bg-emerald-400 text-white px-3 py-1 rounded-full text-sm">
+                        En curso
+                    </span>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-white/10 rounded-lg p-4">
+                        <p class="text-white/80 text-sm mb-1">Inicio del Turno</p>
+                        <p class="text-white font-medium">
+                            <?= $turno_activo['fecha_apertura_formateada'] ?>
+                        </p>
                     </div>
-                    <div class="turno-info-item">
-                        <strong>Monto Inicial</strong>
-                        <span class="monto">$<?= $turno_activo['monto_inicial_formateado'] ?></span>
+                    
+                    <div class="bg-white/10 rounded-lg p-4">
+                        <p class="text-white/80 text-sm mb-1">Monto Inicial</p>
+                        <p class="text-white font-medium">
+                            $<?= number_format($turno_activo['monto_inicial'], 2) ?>
+                        </p>
+                    </div>
+                    
+                    <div class="bg-white/10 rounded-lg p-4">
+                        <p class="text-white/80 text-sm mb-1">Tiempo Transcurrido</p>
+                        <p class="text-white font-medium" id="tiempoTranscurrido">
+                            Calculando...
+                        </p>
                     </div>
                 </div>
-                <div class="turno-actions">
-                    <button onclick="cerrarTurno()" class="btn-turno btn-cerrar">
-                        <i class="fas fa-stop-circle"></i> Cerrar Turno
+                
+                <div class="mt-6 flex justify-end">
+                    <button onclick="cerrarTurno()" 
+                            class="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg 
+                                   flex items-center transition-colors duration-200">
+                        <i class="fas fa-stop-circle mr-2"></i> 
+                        Cerrar Turno
                     </button>
                 </div>
             </div>
             <?php else: ?>
             <!-- Botón para Iniciar Turno -->
-            <div class="promo_card">
-                <h1>No hay turno activo</h1>
-                <span>Inicia un nuevo turno para comenzar a registrar ventas.</span>
-                <button onclick="iniciarTurno()" class="btn-turno btn-iniciar">
-                    <i class="fas fa-play-circle"></i> Iniciar Turno
-                </button>
+            <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+                <div class="text-center">
+                    <i class="fas fa-cash-register text-4xl text-gray-400 mb-4"></i>
+                    <h3 class="text-xl font-medium text-gray-800 mb-2">No hay turno activo</h3>
+                    <p class="text-gray-600 mb-6">
+                        Inicia un nuevo turno para comenzar a registrar ventas
+                    </p>
+                    <button onclick="iniciarTurno()" 
+                            class="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-lg 
+                                   flex items-center justify-center mx-auto transition-colors duration-200">
+                        <i class="fas fa-play-circle mr-2"></i>
+                        Iniciar Turno
+                    </button>
+                </div>
             </div>
             <?php endif; ?>
 
             <!-- Historial de Turnos -->
-            <div class="history_lists">
-                <div class="list1">
-                    <div class="row">
-                        <h4>Historial de Turnos</h4>
-                        <div class="search-box">
-                            <input type="text" id="searchTurnos" placeholder="Buscar turnos...">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
+                    <h4 class="text-lg font-medium text-gray-800">Historial de Turnos</h4>
+                    <form id="filtroFechas" class="flex flex-wrap items-center gap-4">
+                        <div class="flex items-center gap-2">
+                            <label class="text-sm text-gray-600">Fecha:</label>
+                            <input type="date" 
+                                   id="fecha" 
+                                   name="fecha"
+                                   value="<?= $fecha_filtro ?? '' ?>"
+                                   class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 
+                                          focus:ring-emerald-500 focus:border-emerald-500">
                         </div>
-                    </div>
-                    <table class="turnos-table">
+                        <button type="submit"
+                                class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg 
+                                       flex items-center gap-2 transition-colors duration-200">
+                            <i class="fas fa-filter"></i>
+                            Filtrar
+                        </button>
+                        <?php if ($fecha_filtro): ?>
+                        <button type="button"
+                                onclick="limpiarFiltro()"
+                                class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2 rounded-lg 
+                                       flex items-center gap-2 transition-colors duration-200">
+                            <i class="fas fa-times"></i>
+                            Mostrar Todo
+                        </button>
+                        <?php endif; ?>
+                    </form>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
                         <thead>
                             <tr>
-                                <th>Fecha Apertura</th>
-                                <th>Fecha Cierre</th>
-                                <th>Monto Inicial</th>
-                                <th>Monto Final</th>
-                                <th>Acciones</th>
+                                <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Fecha Apertura
+                                </th>
+                                <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Fecha Cierre
+                                </th>
+                                <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Monto Inicial
+                                </th>
+                                <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Monto Final
+                                </th>
+                                <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Estado
+                                </th>
+                                <th class="px-6 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Acciones
+                                </th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody class="bg-white divide-y divide-gray-200">
                             <?php if (empty($turnos)): ?>
-                                <tr>
-                                    <td colspan="5" style="text-align: center;">No hay turnos registrados</td>
-                                </tr>
+                            <tr>
+                                <td colspan="6" class="px-6 py-4 text-center text-gray-500">
+                                    No hay turnos registrados
+                                </td>
+                            </tr>
                             <?php else: ?>
                                 <?php foreach ($turnos as $turno): ?>
-                                <tr>
-                                    <td><?= htmlspecialchars($turno['fecha_apertura_formateada']) ?></td>
-                                    <td><?= $turno['fecha_cierre_formateada'] ?? '-' ?></td>
-                                    <td class="monto">$<?= number_format($turno['monto_inicial'], 2) ?></td>
-                                    <td class="monto">$<?= $turno['monto_final'] ? number_format($turno['monto_final'], 2) : '-' ?></td>
-                                    <td>
-                                        <button onclick="verDetallesTurno(<?= $turno['id'] ?>)" class="btn-icon view">
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <?= htmlspecialchars($turno['fecha_apertura_formateada']) ?>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <?= $turno['fecha_cierre_formateada'] ?? '-' ?>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        $<?= number_format($turno['monto_inicial'], 2) ?>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <?= $turno['monto_final'] ? '$'.number_format($turno['monto_final'], 2) : '-' ?>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <?php if ($turno['fecha_cierre']): ?>
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                                Cerrado
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                                Activo
+                                            </span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <button onclick="verDetallesTurno(<?= $turno['id'] ?>)" 
+                                                class="text-emerald-600 hover:text-emerald-900">
                                             <i class="fas fa-eye"></i>
                                         </button>
                                     </td>
@@ -842,19 +674,49 @@ $turno_activo = getTurnoActivo($user_id);
     </div>
 
     <script>
-        // Función para iniciar turno
+        // Actualizar el tiempo transcurrido cada minuto
+        function actualizarTiempoTranscurrido() {
+            const fechaInicio = new Date('<?= $turno_activo['fecha_apertura'] ?? '' ?>');
+            const ahora = new Date();
+            const diff = ahora - fechaInicio;
+            
+            const horas = Math.floor(diff / (1000 * 60 * 60));
+            const minutos = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            
+            document.getElementById('tiempoTranscurrido').textContent = 
+                `${horas}h ${minutos}m`;
+        }
+
+        if (document.getElementById('tiempoTranscurrido')) {
+            actualizarTiempoTranscurrido();
+            setInterval(actualizarTiempoTranscurrido, 60000);
+        }
+
+        // Función para iniciar turno con nuevo diseño
         function iniciarTurno() {
             Swal.fire({
                 title: 'Iniciar Nuevo Turno',
                 html: `
-                    <div class="form-group">
-                        <label>Monto Inicial en Caja</label>
-                        <input type="number" id="monto_inicial" class="swal2-input" placeholder="0.00" step="0.01" min="0">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Monto Inicial en Caja
+                        </label>
+                        <input type="number" 
+                               id="monto_inicial" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-emerald-500 
+                                      focus:border-emerald-500" 
+                               placeholder="0.00" 
+                               step="0.01" 
+                               min="0">
                     </div>
                 `,
                 showCancelButton: true,
                 confirmButtonText: 'Iniciar Turno',
                 cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#10B981',
+                customClass: {
+                    container: 'font-sans'
+                },
                 preConfirm: () => {
                     const montoInicial = document.getElementById('monto_inicial').value;
                     if (!montoInicial || montoInicial <= 0) {
@@ -892,23 +754,43 @@ $turno_activo = getTurnoActivo($user_id);
             });
         }
 
-        // Función para cerrar turno
+        // Función para cerrar turno con nuevo diseño
         function cerrarTurno() {
             Swal.fire({
                 title: 'Cerrar Turno',
                 html: `
-                    <div class="form-group">
-                        <label>Monto Final en Caja</label>
-                        <input type="number" id="monto_final" class="swal2-input" placeholder="0.00" step="0.01" min="0">
-                    </div>
-                    <div class="form-group">
-                        <label>Notas</label>
-                        <textarea id="notas" class="swal2-textarea" placeholder="Observaciones del turno..."></textarea>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Monto Final en Caja
+                            </label>
+                            <input type="number" 
+                                   id="monto_final" 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-emerald-500 
+                                          focus:border-emerald-500" 
+                                   placeholder="0.00" 
+                                   step="0.01" 
+                                   min="0">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Observaciones
+                            </label>
+                            <textarea id="notas" 
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-emerald-500 
+                                             focus:border-emerald-500" 
+                                      rows="3" 
+                                      placeholder="Observaciones del turno..."></textarea>
+                        </div>
                     </div>
                 `,
                 showCancelButton: true,
                 confirmButtonText: 'Cerrar Turno',
                 cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#EF4444',
+                customClass: {
+                    container: 'font-sans'
+                },
                 preConfirm: () => {
                     const montoFinal = document.getElementById('monto_final').value;
                     const notas = document.getElementById('notas').value;
@@ -953,7 +835,22 @@ $turno_activo = getTurnoActivo($user_id);
             });
         }
 
-        // Función para ver detalles del turno
+        // Agregar esta función al inicio del script
+        function getMetodoPagoIcon(metodo_pago) {
+            switch (String(metodo_pago).toLowerCase()) {
+                case 'efectivo':
+                    return 'money-bill-wave';
+                case 'transferencia':
+                    return 'exchange-alt';
+                case 'tarjeta':
+                    return 'credit-card';
+                case 'otro':
+                default:
+                    return 'circle';
+            }
+        }
+
+        // Actualizar la función verDetallesTurno para mostrar mejor los detalles
         function verDetallesTurno(turno_id) {
             const formData = new FormData();
             formData.append('action', 'get_detalles_turno');
@@ -976,134 +873,156 @@ $turno_activo = getTurnoActivo($user_id);
                 const ventas = data.data.ventas;
                 const totales = data.data.totales;
 
-                let ventasHtml = '';
-                if (ventas && ventas.length > 0) {
-                    ventasHtml = `
-                        <div class="ventas-lista">
-                            ${ventas.map(venta => `
-                                <div class="venta-item">
-                                    <div class="venta-header">
-                                        <strong>Factura #${venta.numero_factura || 'N/A'}</strong>
-                                        <span>${venta.fecha_formateada}</span>
-                                    </div>
-                                    <div class="venta-cliente">Cliente: ${venta.nombre_cliente || 'Cliente General'}</div>
-                                    ${venta.detalles && venta.detalles.length > 0 ? `
-                                        <div class="venta-detalles">
-                                            <table class="detalles-table">
-                                                <thead>
-                                                    <tr>
-                                                        <th>Producto</th>
-                                                        <th>Cantidad</th>
-                                                        <th>Precio</th>
-                                                        <th>Subtotal</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    ${venta.detalles.map(detalle => `
-                                                        <tr>
-                                                            <td>${detalle.nombre_producto || 'N/A'}</td>
-                                                            <td>${detalle.cantidad}</td>
-                                                            <td>$${detalle.precio_unitario}</td>
-                                                            <td>$${detalle.subtotal}</td>
-                                                        </tr>
-                                                    `).join('')}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    ` : '<p>No hay detalles disponibles</p>'}
-                                    <div class="venta-footer">
-                                        <span class="metodo-pago">
-                                            <i class="fas fa-${getMetodoPagoIcon(venta.metodo_pago)}"></i>
-                                            ${venta.metodo_pago || 'N/A'}
-                                        </span>
-                                        <strong class="total">Total: $${venta.total}</strong>
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
-                    `;
-                } else {
-                    ventasHtml = '<p class="no-ventas">No se registraron ventas durante este turno</p>';
-                }
-
                 Swal.fire({
                     title: 'Detalles del Turno',
                     html: `
                         <div class="turno-detalles">
-                            <div class="turno-header">
-                                <div class="info-grupo">
-                                    <strong>Apertura:</strong>
-                                    <span>${turno.fecha_apertura_formateada}</span>
-                                </div>
-                                <div class="info-grupo">
-                                    <strong>Cierre:</strong>
-                                    <span>${turno.fecha_cierre_formateada || 'En curso'}</span>
-                                </div>
-                                <div class="info-grupo">
-                                    <strong>Responsable:</strong>
-                                    <span>${turno.nombre_usuario || 'N/A'}</span>
-                                </div>
-                            </div>
-                            
-                            <div class="turno-montos">
-                                <div class="monto-item">
-                                    <strong>Monto Inicial:</strong>
-                                    <span>$${turno.monto_inicial}</span>
-                                </div>
-                                <div class="monto-item">
-                                    <strong>Monto Final:</strong>
-                                    <span>$${turno.monto_final || '-'}</span>
-                                </div>
-                                <div class="monto-item ${parseFloat(turno.diferencia || 0) < 0 ? 'diferencia-negativa' : ''}">
-                                    <strong>Diferencia:</strong>
-                                    <span>$${turno.diferencia || '0.00'}</span>
-                                </div>
-                            </div>
-
-                            <div class="resumen-ventas">
-                                <h4>Resumen de Ventas</h4>
-                                <div class="totales-grid">
-                                    <div class="total-item">
-                                        <i class="fas fa-cash-register"></i>
-                                        <strong>Total Ventas</strong>
-                                        <span>$${totales.total_ventas}</span>
+                            <div class="bg-gray-50 p-4 rounded-lg mb-6">
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <p class="text-sm text-gray-600">Apertura</p>
+                                        <p class="font-medium">${turno.fecha_apertura_formateada}</p>
                                     </div>
-                                    <div class="total-item">
-                                        <i class="fas fa-money-bill-wave"></i>
-                                        <strong>Efectivo</strong>
-                                        <span>$${totales.total_efectivo}</span>
+                                    <div>
+                                        <p class="text-sm text-gray-600">Cierre</p>
+                                        <p class="font-medium">${turno.fecha_cierre_formateada || 'En curso'}</p>
                                     </div>
-                                    <div class="total-item">
-                                        <i class="fas fa-credit-card"></i>
-                                        <strong>Tarjeta</strong>
-                                        <span>$${totales.total_tarjeta}</span>
-                                    </div>
-                                    <div class="total-item">
-                                        <i class="fas fa-exchange-alt"></i>
-                                        <strong>Transferencia</strong>
-                                        <span>$${totales.total_transferencia}</span>
+                                    <div>
+                                        <p class="text-sm text-gray-600">Responsable</p>
+                                        <p class="font-medium">${turno.nombre_usuario || 'N/A'}</p>
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="ventas-seccion">
-                                <h4>Detalle de Ventas (${totales.cantidad_ventas})</h4>
-                                ${ventasHtml}
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                                <div class="bg-white p-4 rounded-lg shadow">
+                                    <p class="text-sm text-gray-600">Monto Inicial</p>
+                                    <p class="text-lg font-semibold text-gray-900">$${turno.monto_inicial}</p>
+                                </div>
+                                <div class="bg-white p-4 rounded-lg shadow">
+                                    <p class="text-sm text-gray-600">Monto Final</p>
+                                    <p class="text-lg font-semibold text-gray-900">$${turno.monto_final || '-'}</p>
+                                </div>
+                                <div class="bg-white p-4 rounded-lg shadow ${parseFloat(turno.diferencia || 0) < 0 ? 'bg-red-50' : ''}">
+                                    <p class="text-sm text-gray-600">Diferencia</p>
+                                    <p class="text-lg font-semibold ${parseFloat(turno.diferencia || 0) < 0 ? 'text-red-600' : 'text-gray-900'}">
+                                        $${turno.diferencia || '0.00'}
+                                    </p>
+                                </div>
                             </div>
+
+                            <div class="bg-white p-4 rounded-lg shadow mb-6">
+                                <h4 class="text-lg font-medium mb-4">Resumen de Ventas</h4>
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div class="text-center">
+                                        <i class="fas fa-cash-register text-2xl text-gray-400 mb-2"></i>
+                                        <p class="text-sm text-gray-600">Total Ventas</p>
+                                        <p class="text-lg font-semibold text-emerald-600">$${totales.total_ventas}</p>
+                                    </div>
+                                    <div class="text-center">
+                                        <i class="fas fa-money-bill-wave text-2xl text-gray-400 mb-2"></i>
+                                        <p class="text-sm text-gray-600">Efectivo</p>
+                                        <p class="text-lg font-semibold text-emerald-600">$${totales.total_efectivo}</p>
+                                    </div>
+                                    <div class="text-center">
+                                        <i class="fas fa-credit-card text-2xl text-gray-400 mb-2"></i>
+                                        <p class="text-sm text-gray-600">Tarjeta</p>
+                                        <p class="text-lg font-semibold text-emerald-600">$${totales.total_tarjeta}</p>
+                                    </div>
+                                    <div class="text-center">
+                                        <i class="fas fa-exchange-alt text-2xl text-gray-400 mb-2"></i>
+                                        <p class="text-sm text-gray-600">Transferencia</p>
+                                        <p class="text-lg font-semibold text-emerald-600">$${totales.total_transferencia}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            ${ventas && ventas.length > 0 ? `
+                                <div class="space-y-4">
+                                    <h4 class="text-lg font-medium">Detalle de Ventas (${totales.cantidad_ventas})</h4>
+                                    ${ventas.map(venta => `
+                                        <div class="bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200">
+                                            <div class="flex flex-wrap justify-between items-center mb-3 pb-2 border-b border-gray-100">
+                                                <div class="flex items-center space-x-2">
+                                                    <span class="bg-emerald-100 text-emerald-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                                                        Factura #${venta.numero_factura || 'N/A'}
+                                                    </span>
+                                                    <span class="text-sm text-gray-500">${venta.fecha_formateada}</span>
+                                                </div>
+                                                <div class="flex items-center space-x-2">
+                                                    <i class="fas fa-${getMetodoPagoIcon(venta.metodo_pago)} text-gray-400"></i>
+                                                    <span class="text-sm font-medium text-gray-600">${venta.metodo_pago}</span>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="mb-3">
+                                                <span class="text-sm text-gray-600">Cliente:</span>
+                                                <span class="text-sm font-medium text-gray-800 ml-1">${venta.nombre_cliente}</span>
+                                            </div>
+
+                                            <div class="overflow-x-auto rounded-lg border border-gray-100">
+                                                <table class="min-w-full divide-y divide-gray-200">
+                                                    <thead class="bg-gray-50">
+                                                        <tr>
+                                                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                                Producto
+                                                            </th>
+                                                            <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                                Cantidad
+                                                            </th>
+                                                            <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                                Precio Unit.
+                                                            </th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody class="bg-white divide-y divide-gray-200">
+                                                        ${venta.detalles.map(detalle => `
+                                                            <tr class="hover:bg-gray-50">
+                                                                <td class="px-4 py-2.5 text-sm text-gray-900">
+                                                                    ${detalle.nombre_producto || 'N/A'}
+                                                                </td>
+                                                                <td class="px-4 py-2.5 text-sm text-gray-900 text-center">
+                                                                    <span class="inline-flex items-center justify-center bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
+                                                                        ${detalle.cantidad}
+                                                                    </span>
+                                                                </td>
+                                                                <td class="px-4 py-2.5 text-sm text-gray-900 text-right font-medium">
+                                                                    $${detalle.precio_unitario}
+                                                                </td>
+                                                            </tr>
+                                                        `).join('')}
+                                                    </tbody>
+                                                    <tfoot class="bg-gray-50">
+                                                        <tr>
+                                                            <td colspan="2" class="px-4 py-3 text-right text-sm font-medium text-gray-900">
+                                                                Total:
+                                                            </td>
+                                                            <td class="px-4 py-3 text-right text-sm font-bold text-emerald-600">
+                                                                $${venta.total}
+                                                            </td>
+                                                        </tr>
+                                                    </tfoot>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            ` : '<div class="text-center py-8 bg-gray-50 rounded-lg"><i class="fas fa-receipt text-gray-400 text-4xl mb-3"></i><p class="text-gray-500">No hay ventas registradas en este turno</p></div>'}
 
                             ${turno.observaciones ? `
-                                <div class="observaciones">
-                                    <h4>Observaciones</h4>
-                                    <p>${turno.observaciones}</p>
+                                <div class="mt-6 bg-gray-50 p-4 rounded-lg">
+                                    <h4 class="text-lg font-medium mb-2">Observaciones</h4>
+                                    <p class="text-gray-600">${turno.observaciones}</p>
                                 </div>
                             ` : ''}
                         </div>
                     `,
-                    width: '800px',
+                    width: '900px',
                     showCloseButton: true,
                     showConfirmButton: false,
                     customClass: {
-                        container: 'turno-detalles-modal'
+                        container: 'turno-detalles-modal',
+                        popup: 'swal2-popup-large'
                     }
                 });
             })
@@ -1116,31 +1035,35 @@ $turno_activo = getTurnoActivo($user_id);
             });
         }
 
-        // Función auxiliar para obtener el icono del método de pago
-        function getMetodoPagoIcon(metodo_pago) {
-            switch (String(metodo_pago).toLowerCase()) {
-                case 'efectivo':
-                    return 'money-bill-wave';
-                case 'transferencia':
-                    return 'exchange-alt';
-                case 'tarjeta':
-                    return 'credit-card';
-                default:
-                    return 'circle';
-            }
+        // Agregar estas nuevas funciones al script existente
+        
+        // Función para limpiar los filtros
+        function limpiarFiltro() {
+            window.location.href = window.location.pathname;
         }
 
-        // Búsqueda en la tabla
-        document.getElementById('searchTurnos').addEventListener('keyup', function() {
-            const searchText = this.value.toLowerCase();
-            const table = document.querySelector('.turnos-table tbody');
-            const rows = table.getElementsByTagName('tr');
+        // Actualizar la validación del formulario de filtro
+        document.getElementById('filtroFechas').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const fecha = document.getElementById('fecha').value;
+            if (!fecha) {
+                // Si no hay fecha seleccionada, mostrar todos los turnos
+                window.location.href = window.location.pathname;
+                return;
+            }
 
-            Array.from(rows).forEach(row => {
-                const text = row.textContent.toLowerCase();
-                row.style.display = text.includes(searchText) ? '' : 'none';
-            });
+            this.submit();
         });
+
+        // Actualizar la función de limpiar filtro
+        function limpiarFiltro() {
+            window.location.href = window.location.pathname;
+        }
+
+        // Establecer fecha máxima como hoy
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('fecha').max = today;
     </script>
 </body>
 </html>

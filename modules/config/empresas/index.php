@@ -149,365 +149,157 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestión de Empresas - VendEasy</title>
     <link rel="icon" type="image/png" href="../../../favicon/favicon.ico"/>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
-    <link rel="stylesheet" href="../../../css/welcome.css">
-    <link rel="stylesheet" href="../../../css/modulos.css">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- SweetAlert2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.all.min.js"></script>
-    <style>
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 1000;
-            overflow-y: auto;
-            padding: 20px;
-        }
-
-        .modal-dialog {
-            width: 100%;
-            max-width: 800px;
-            margin: 30px auto;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-
-        .modal-content {
-            padding: 25px;
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #dee2e6;
-        }
-
-        .modal-body {
-            padding: 20px 0;
-        }
-
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 8px 12px;
-            border: 1px solid #ced4da;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-
-        .table {
-            background: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-
-        .table th {
-            background: #f8f9fa;
-            color: #333;
-            font-weight: 600;
-            padding: 15px;
-        }
-
-        .table td {
-            padding: 12px 15px;
-            vertical-align: middle;
-        }
-
-        .badge {
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-weight: 500;
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 8px;
-            justify-content: center;
-        }
-
-        .btn {
-            padding: 8px 16px;
-            border-radius: 4px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .close {
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            color: #666;
-        }
-
-        #preview-logo img {
-            border: 1px solid #dee2e6;
-            padding: 5px;
-            border-radius: 4px;
-        }
-
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
-            margin-top: 20px;
-        }
-
-        .form-column {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .form-group {
-            margin-bottom: 1rem;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-            color: #333;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 8px 12px;
-            border: 1px solid #ced4da;
-            border-radius: 4px;
-            font-size: 14px;
-            transition: border-color 0.15s ease-in-out;
-        }
-
-        .form-control:focus {
-            border-color: #80bdff;
-            outline: 0;
-            box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
-        }
-
-        /* Estilo específico para el campo de logo */
-        .form-group:first-child {
-            grid-column: 1 / -1; /* Ocupa ambas columnas */
-            margin-bottom: 2rem;
-        }
-
-        /* Mejoras visuales para el modal */
-        .modal-body {
-            padding: 1.5rem;
-        }
-
-        .modal-footer {
-            padding: 1rem 1.5rem;
-            border-top: 1px solid #dee2e6;
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .form-grid {
-                grid-template-columns: 1fr;
-                gap: 10px;
-            }
-        }
-
-        .history_lists .row {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-        }
-
-        .list1 {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .table-responsive {
-            margin-top: 0;
-        }
-
-        .table {
-            margin-bottom: 0;
-        }
-
-        .table th {
-            background: #f8f9fa;
-            border-bottom: 2px solid #dee2e6;
-        }
-
-        .table td {
-            vertical-align: middle;
-        }
-
-        /* Mejoras para las tarjetas superiores */
-        .history_lists .list1 h4 {
-            color: #333;
-            margin-bottom: 0;
-        }
-
-        .history_lists .list1 .row {
-            margin-bottom: 0;
-        }
-
-        /* Estilo para los datos de la empresa principal */
-        .history_lists .list1 strong {
-            color: #333;
-        }
-
-        .modal.show {
-            display: block !important;
-        }
-        
-        .modal {
-            background-color: rgba(0,0,0,0.5);
-        }
-        
-        .modal-dialog {
-            margin: 1.75rem auto;
-            max-width: 800px;
-        }
-    </style>
 </head>
 
-<body>
+<body class="bg-gray-50">
     <?php include '../../../includes/header.php'; ?>
-    <div class="container">
-        <?php include '../../../includes/sidebar.php'; ?>
-        
-        <div class="main-body">
-            <h2>Gestión de Empresas</h2>
-            <div class="promo_card">
-                <h1>Administra tus Empresas</h1>
-                <span>Configura y gestiona la información de tus empresas.</span>
-            </div>
+    
+    <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="flex flex-col md:flex-row gap-6">
+            
+            <!-- Sidebar -->
+            <?php include '../../../includes/sidebar.php'; ?>
 
-            <?php if (!empty($message)): ?>
-                <div class="alert <?= $messageType === 'success' ? 'alert-success' : 'alert-danger' ?>">
-                    <?= htmlspecialchars($message); ?>
+            <!-- Contenido Principal -->
+            <div class="flex-1">
+                <div class="mb-6">
+                    <h1 class="text-3xl font-bold text-gray-900">Gestión de Empresas</h1>
+                    <p class="mt-2 text-gray-600">Administra la información de tus empresas registradas</p>
                 </div>
-            <?php endif; ?>
 
-            <div class="history_lists">
-                <div class="row" style="display: flex; gap: 20px; margin-bottom: 20px;">
-                    <!-- Tarjeta para crear nueva empresa -->
-                    <div class="list1" style="flex: 1;">
-                        <div class="row">
-                            <h4>Empresas Registradas</h4>
-                            <button class="btn btn-primary" onclick="abrirModalEmpresa()">
-                                <i class="fas fa-plus"></i> Nueva Empresa
+                <!-- Tarjetas de Resumen -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <!-- Tarjeta de Empresas -->
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <h2 class="text-xl font-semibold text-gray-900">Empresas Registradas</h2>
+                                <p class="text-gray-600 mt-1">Total: <?= count($empresas_usuario) ?> empresas</p>
+                            </div>
+                            <button 
+                                onclick="abrirModalEmpresa()" 
+                                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
+                                <i class="fas fa-plus"></i>
+                                Nueva Empresa
                             </button>
                         </div>
-                        <p style="margin-top: 10px; color: #666;">
-                            Gestiona la información de tus empresas registradas
-                        </p>
                     </div>
 
-                    <!-- Tarjeta de balance general -->
-                    <div class="list1" style="flex: 1;">
-                        <div class="row">
-                            <h4>Balance General</h4>
-                            <?php
-                            // Obtener la empresa principal
-                            $empresa_principal = null;
-                            foreach ($empresas_usuario as $empresa) {
-                                if ($empresa['es_principal']) {
-                                    $empresa_principal = $empresa;
-                                    break;
-                                }
-                            }
-                            ?>
-                        </div>
+                    <!-- Tarjeta de Empresa Principal -->
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h2 class="text-xl font-semibold text-gray-900">Empresa Principal</h2>
                         <?php if ($empresa_principal): ?>
-                            <div style="margin-top: 10px;">
-                                <p style="margin-bottom: 5px; color: #666;">
-                                    Empresa Principal: <strong><?= htmlspecialchars($empresa_principal['nombre_empresa']) ?></strong>
-                                </p>
-                                <p style="color: #666;">
-                                    NIT: <strong><?= htmlspecialchars($empresa_principal['nit']) ?></strong>
-                                </p>
+                            <div class="mt-3">
+                                <div class="flex items-center gap-4">
+                                    <?php if (!empty($empresa_principal['logo'])): ?>
+                                        <img src="/<?= htmlspecialchars($empresa_principal['logo']) ?>" 
+                                             alt="Logo" 
+                                             class="w-12 h-12 object-contain rounded-lg">
+                                    <?php else: ?>
+                                        <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                                            <i class="fas fa-building text-gray-400 text-2xl"></i>
+                                        </div>
+                                    <?php endif; ?>
+                                    <div>
+                                        <h3 class="font-semibold text-gray-900">
+                                            <?= htmlspecialchars($empresa_principal['nombre_empresa']) ?>
+                                        </h3>
+                                        <p class="text-gray-600">NIT: <?= htmlspecialchars($empresa_principal['nit']) ?></p>
+                                    </div>
+                                </div>
                             </div>
                         <?php else: ?>
-                            <p style="margin-top: 10px; color: #666;">
-                                No hay empresa principal configurada
-                            </p>
+                            <p class="mt-3 text-gray-600">No hay empresa principal configurada</p>
                         <?php endif; ?>
                     </div>
                 </div>
 
-                <!-- Lista de empresas (ocupando el espacio completo) -->
-                <div class="list1" style="width: 100%;">
-                    <div class="table-responsive">
-                        <table class="table">
-                            <thead>
+                <!-- Tabla de Empresas -->
+                <div class="bg-white rounded-lg shadow overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
                                 <tr>
-                                    <th style="width: 80px;">Logo</th>
-                                    <th>Nombre</th>
-                                    <th>NIT</th>
-                                    <th style="width: 100px;">Estado</th>
-                                    <th style="width: 120px;">Principal</th>
-                                    <th style="width: 120px;">Acciones</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Logo</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">NIT</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Principal</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
                                 </tr>
                             </thead>
-                            <tbody>
+                            <tbody class="bg-white divide-y divide-gray-200">
                                 <?php if (empty($empresas_usuario)): ?>
                                     <tr>
-                                        <td colspan="6" class="text-center">No hay empresas registradas</td>
+                                        <td colspan="6" class="px-6 py-4 text-center text-gray-500">
+                                            No hay empresas registradas
+                                        </td>
                                     </tr>
                                 <?php else: ?>
                                     <?php foreach ($empresas_usuario as $empresa): ?>
-                                    <tr>
-                                        <td>
-                                            <?php if (!empty($empresa['logo']) && file_exists($_SERVER['DOCUMENT_ROOT'] . '/' . $empresa['logo'])): ?>
-                                                <img src="/<?= htmlspecialchars($empresa['logo']); ?>" 
-                                                     alt="Logo" 
-                                                     style="width: 50px; height: 50px; object-fit: contain;">
-                                            <?php else: ?>
-                                                <i class="fas fa-building fa-2x"></i>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td><?= htmlspecialchars($empresa['nombre_empresa']); ?></td>
-                                        <td><?= htmlspecialchars($empresa['nit']); ?></td>
-                                        <td>
-                                            <span class="badge <?= $empresa['estado'] ? 'badge-success' : 'badge-danger' ?>">
-                                                <?= $empresa['estado'] ? 'Activa' : 'Inactiva' ?>
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <?php if ($empresa['es_principal']): ?>
-                                                <span class="badge badge-success">Principal</span>
-                                            <?php else: ?>
-                                                <form method="POST" style="display: inline;">
-                                                    <input type="hidden" name="empresa_id" value="<?= $empresa['id']; ?>">
-                                                    <button type="submit" name="set_empresa_principal" class="btn btn-sm btn-outline-primary">
-                                                        Hacer Principal
-                                                    </button>
-                                                </form>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td>
-                                            <div class="action-buttons">
-                                                <button class="btn btn-sm btn-primary" 
-                                                        onclick='editarEmpresa(<?= htmlspecialchars(json_encode($empresa), ENT_QUOTES, 'UTF-8'); ?>)'>
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
-                                                <?php if (!$empresa['es_principal']): ?>
-                                                    <button class="btn btn-sm btn-danger" 
-                                                            onclick="confirmarEliminarEmpresa(<?= $empresa['id']; ?>)">
-                                                        <i class="fas fa-trash"></i>
-                                                    </button>
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <?php if (!empty($empresa['logo'])): ?>
+                                                    <img src="/<?= htmlspecialchars($empresa['logo']) ?>" 
+                                                         alt="Logo" 
+                                                         class="w-10 h-10 object-contain rounded">
+                                                <?php else: ?>
+                                                    <i class="fas fa-building text-gray-400 text-2xl"></i>
                                                 <?php endif; ?>
-                                            </div>
-                                        </td>
-                                    </tr>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="text-sm font-medium text-gray-900">
+                                                    <?= htmlspecialchars($empresa['nombre_empresa']) ?>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="text-sm text-gray-500">
+                                                    <?= htmlspecialchars($empresa['nit']) ?>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                                    <?= $empresa['estado'] ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' ?>">
+                                                    <?= $empresa['estado'] ? 'Activa' : 'Inactiva' ?>
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <?php if ($empresa['es_principal']): ?>
+                                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                                        Principal
+                                                    </span>
+                                                <?php else: ?>
+                                                    <form method="POST" class="inline">
+                                                        <input type="hidden" name="empresa_id" value="<?= $empresa['id'] ?>">
+                                                        <button type="submit" 
+                                                                name="set_empresa_principal"
+                                                                class="text-blue-600 hover:text-blue-900 text-sm font-medium">
+                                                            Hacer Principal
+                                                        </button>
+                                                    </form>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <div class="flex gap-2">
+                                                    <button onclick='editarEmpresa(<?= json_encode($empresa) ?>)'
+                                                            class="text-indigo-600 hover:text-indigo-900">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    <?php if (!$empresa['es_principal']): ?>
+                                                        <button onclick="confirmarEliminarEmpresa(<?= $empresa['id'] ?>)"
+                                                                class="text-red-600 hover:text-red-900">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </td>
+                                        </tr>
                                     <?php endforeach; ?>
                                 <?php endif; ?>
                             </tbody>
@@ -518,89 +310,221 @@ try {
         </div>
     </div>
 
-    <!-- Modal para crear/editar empresa -->
-    <div class="modal" id="modalEmpresa">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Nueva Empresa</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
+    <!-- Modal de Empresa con diseño mejorado -->
+    <div id="modalEmpresa" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-8 border w-full max-w-4xl shadow-xl rounded-lg bg-white">
+            <div class="flex flex-col">
+                <!-- Encabezado del Modal -->
+                <div class="flex justify-between items-center pb-4 mb-6 border-b border-gray-200">
+                    <h3 class="text-2xl font-bold text-gray-900" id="modalTitle">Nueva Empresa</h3>
+                    <button class="text-gray-400 hover:text-gray-500 transition-colors" onclick="cerrarModal()">
+                        <i class="fas fa-times text-xl"></i>
                     </button>
                 </div>
-                <form id="formEmpresa" method="POST" enctype="multipart/form-data">
-                    <div class="modal-body">
-                        <input type="hidden" id="empresa_id" name="empresa_id">
-                        
-                        <!-- Logo en fila completa -->
-                        <div class="form-group">
-                            <label for="logo">Logo de la Empresa</label>
-                            <input type="file" class="form-control" id="logo" name="logo" accept="image/*">
-                            <div id="preview-logo" class="mt-2"></div>
-                        </div>
 
-                        <!-- Grid de 2 columnas -->
-                        <div class="form-grid">
-                            <!-- Columna 1 -->
-                            <div class="form-column">
-                                <div class="form-group">
-                                    <label for="nombre_empresa">Nombre de la Empresa *</label>
-                                    <input type="text" class="form-control" id="nombre_empresa" name="nombre_empresa" required>
-                                </div>
+                <form id="formEmpresa" method="POST" enctype="multipart/form-data" class="space-y-8">
+                    <input type="hidden" id="empresa_id" name="empresa_id">
 
-                                <div class="form-group">
-                                    <label for="regimen_fiscal">Régimen Fiscal *</label>
-                                    <select class="form-control" id="regimen_fiscal" name="regimen_fiscal" required>
-                                        <option value="">Seleccione...</option>
-                                        <option value="1">Régimen Común</option>
-                                        <option value="2">Régimen Simplificado</option>
-                                        <option value="3">Régimen Especial</option>
-                                    </select>
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="telefono">Teléfono *</label>
-                                    <input type="text" class="form-control" id="telefono" name="telefono" required>
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="prefijo_factura">Prefijo de Factura *</label>
-                                    <input type="text" class="form-control" id="prefijo_factura" name="prefijo_factura" required>
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="numero_inicial">Número Inicial *</label>
-                                    <input type="number" class="form-control" id="numero_inicial" name="numero_inicial" required min="1">
-                                </div>
+                    <!-- Logo Upload con diseño mejorado -->
+                    <div class="bg-gray-50 p-6 rounded-lg">
+                        <label class="block text-sm font-semibold text-gray-700 mb-3">Logo de la Empresa</label>
+                        <div class="flex items-center gap-6">
+                            <div id="preview-logo" 
+                                 class="flex-shrink-0 h-32 w-32 bg-white rounded-lg shadow-sm border-2 border-dashed border-gray-300 
+                                        flex items-center justify-center hover:border-blue-500 transition-colors cursor-pointer"
+                                 onclick="document.getElementById('logo').click()">
+                                <i class="fas fa-upload text-gray-400 text-3xl"></i>
                             </div>
-
-                            <!-- Columna 2 -->
-                            <div class="form-column">
-                                <div class="form-group">
-                                    <label for="nit">NIT *</label>
-                                    <input type="text" class="form-control" id="nit" name="nit" required>
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="direccion">Dirección *</label>
-                                    <input type="text" class="form-control" id="direccion" name="direccion" required>
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="correo_contacto">Correo de Contacto *</label>
-                                    <input type="email" class="form-control" id="correo_contacto" name="correo_contacto" required>
-                                </div>
-
-                                <div class="form-group">
-                                    <label for="numero_final">Número Final *</label>
-                                    <input type="number" class="form-control" id="numero_final" name="numero_final" required min="1">
-                                </div>
+                            <div class="flex-1">
+                                <input type="file" 
+                                       id="logo" 
+                                       name="logo" 
+                                       accept="image/*"
+                                       class="hidden">
+                                <label for="logo" 
+                                       class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm 
+                                              font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 
+                                              focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 
+                                              cursor-pointer transition-colors">
+                                    <i class="fas fa-image mr-2"></i>
+                                    Seleccionar imagen
+                                </label>
+                                <p class="mt-2 text-sm text-gray-500">
+                                    PNG, JPG o GIF (Máximo 2MB)
+                                </p>
                             </div>
                         </div>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
-                        <button type="submit" name="save_empresa" class="btn btn-primary">Guardar</button>
+
+                    <!-- Grid de 2 columnas con diseño mejorado -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <!-- Columna 1 -->
+                        <div class="space-y-6">
+                            <div class="form-group">
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    Nombre de la Empresa <span class="text-red-500">*</span>
+                                </label>
+                                <input type="text" 
+                                       id="nombre_empresa" 
+                                       name="nombre_empresa" 
+                                       required
+                                       placeholder="Nombre de tu empresa"
+                                       class="form-input block w-full rounded-md border-gray-300 shadow-sm 
+                                              focus:border-blue-500 focus:ring-blue-500 transition-colors">
+                            </div>
+
+                            <div class="form-group">
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    Régimen Fiscal <span class="text-red-500">*</span>
+                                </label>
+                                <select id="regimen_fiscal" 
+                                        name="regimen_fiscal" 
+                                        required
+                                        class="form-select block w-full rounded-md border-gray-300 shadow-sm 
+                                               focus:border-blue-500 focus:ring-blue-500 transition-colors">
+                                    <option value="">Seleccione un régimen...</option>
+                                    <option value="1">Régimen Común</option>
+                                    <option value="2">Régimen Simplificado</option>
+                                    <option value="3">Régimen Especial</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    Teléfono <span class="text-red-500">*</span>
+                                </label>
+                                <div class="relative">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <i class="fas fa-phone text-gray-400"></i>
+                                    </div>
+                                    <input type="text" 
+                                           id="telefono" 
+                                           name="telefono" 
+                                           required
+                                           placeholder="(123) 456-7890"
+                                           class="form-input block w-full pl-10 rounded-md border-gray-300 shadow-sm 
+                                                  focus:border-blue-500 focus:ring-blue-500 transition-colors">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    Prefijo Factura <span class="text-red-500">*</span>
+                                </label>
+                                <input type="text" 
+                                       id="prefijo_factura" 
+                                       name="prefijo_factura" 
+                                       required
+                                       value="EF"
+                                       class="form-input block w-full rounded-md border-gray-300 shadow-sm 
+                                              focus:border-blue-500 focus:ring-blue-500 transition-colors">
+                            </div>
+
+                            <div class="form-group">
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    Número Inicial <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" 
+                                       id="numero_inicial" 
+                                       name="numero_inicial" 
+                                       required
+                                       min="1"
+                                       value="1"
+                                       class="form-input block w-full rounded-md border-gray-300 shadow-sm 
+                                              focus:border-blue-500 focus:ring-blue-500 transition-colors">
+                            </div>
+                        </div>
+
+                        <!-- Columna 2 -->
+                        <div class="space-y-6">
+                            <div class="form-group">
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    NIT <span class="text-red-500">*</span>
+                                </label>
+                                <div class="relative">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <i class="fas fa-id-card text-gray-400"></i>
+                                    </div>
+                                    <input type="text" 
+                                           id="nit" 
+                                           name="nit" 
+                                           required
+                                           placeholder="Número de identificación tributaria"
+                                           class="form-input block w-full pl-10 rounded-md border-gray-300 shadow-sm 
+                                                  focus:border-blue-500 focus:ring-blue-500 transition-colors">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    Dirección <span class="text-red-500">*</span>
+                                </label>
+                                <div class="relative">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <i class="fas fa-map-marker-alt text-gray-400"></i>
+                                    </div>
+                                    <input type="text" 
+                                           id="direccion" 
+                                           name="direccion" 
+                                           required
+                                           placeholder="Dirección completa"
+                                           class="form-input block w-full pl-10 rounded-md border-gray-300 shadow-sm 
+                                                  focus:border-blue-500 focus:ring-blue-500 transition-colors">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    Correo de Contacto <span class="text-red-500">*</span>
+                                </label>
+                                <div class="relative">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <i class="fas fa-envelope text-gray-400"></i>
+                                    </div>
+                                    <input type="email" 
+                                           id="correo_contacto" 
+                                           name="correo_contacto" 
+                                           required
+                                           placeholder="correo@empresa.com"
+                                           class="form-input block w-full pl-10 rounded-md border-gray-300 shadow-sm 
+                                                  focus:border-blue-500 focus:ring-blue-500 transition-colors">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    Número Final <span class="text-red-500">*</span>
+                                </label>
+                                <input type="number" 
+                                       id="numero_final" 
+                                       name="numero_final" 
+                                       required
+                                       min="1"
+                                       value="999999999"
+                                       class="form-input block w-full rounded-md border-gray-300 shadow-sm 
+                                              focus:border-blue-500 focus:ring-blue-500 transition-colors">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Botones del formulario con diseño mejorado -->
+                    <div class="flex justify-end space-x-4 pt-6 mt-6 border-t border-gray-200">
+                        <button type="button" 
+                                onclick="cerrarModal()"
+                                class="px-6 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 
+                                       rounded-lg shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 
+                                       focus:ring-offset-2 focus:ring-gray-500 transition-colors">
+                            <i class="fas fa-times mr-2"></i>
+                            Cancelar
+                        </button>
+                        <button type="submit" 
+                                name="save_empresa"
+                                class="px-6 py-2.5 text-sm font-medium text-white bg-blue-600 border border-transparent 
+                                       rounded-lg shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 
+                                       focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                            <i class="fas fa-save mr-2"></i>
+                            Guardar
+                        </button>
                     </div>
                 </form>
             </div>
@@ -609,80 +533,31 @@ try {
 
     <script>
         function abrirModalEmpresa() {
-            // Limpiar el formulario
             document.getElementById('formEmpresa').reset();
             document.getElementById('empresa_id').value = '';
-            
-            // Mostrar el modal
-            const modal = document.getElementById('modalEmpresa');
-            modal.classList.add('show');
-            modal.style.display = 'block'; // Importante: hacer visible el modal
-            
-            // Actualizar el título
-            document.querySelector('.modal-title').textContent = 'Nueva Empresa';
-            
-            // Limpiar la previsualización del logo
-            document.getElementById('preview-logo').innerHTML = '';
+            document.getElementById('modalTitle').textContent = 'Nueva Empresa';
+            document.getElementById('modalEmpresa').classList.remove('hidden');
+            document.getElementById('preview-logo').innerHTML = '<i class="fas fa-upload text-gray-400 text-2xl"></i>';
         }
 
-        // Asegurarse de que el modal se pueda cerrar correctamente
         function cerrarModal() {
-            const modal = document.getElementById('modalEmpresa');
-            modal.classList.remove('show');
-            modal.style.display = 'none';
-        }
-
-        // Eventos para cerrar el modal
-        document.querySelectorAll('[data-dismiss="modal"]').forEach(button => {
-            button.addEventListener('click', cerrarModal);
-        });
-
-        // Cerrar modal al hacer clic fuera
-        window.onclick = function(event) {
-            const modal = document.getElementById('modalEmpresa');
-            if (event.target == modal) {
-                cerrarModal();
-            }
-        }
-
-        // Funciones para manejar el modal
-        function abrirModalEmpresa() {
-            document.getElementById('formEmpresa').reset();
-            document.getElementById('empresa_id').value = '';
-            document.querySelector('.modal-title').textContent = 'Nueva Empresa';
-            document.getElementById('modalEmpresa').classList.add('show');
-            document.getElementById('preview-logo').innerHTML = '';
+            document.getElementById('modalEmpresa').classList.add('hidden');
         }
 
         function editarEmpresa(empresa) {
-            console.log('Datos de empresa recibidos:', empresa); // Para debug
+            document.getElementById('modalTitle').textContent = 'Editar Empresa';
+            document.getElementById('empresa_id').value = empresa.id;
             
-            // Mostrar el modal
-            const modal = document.getElementById('modalEmpresa');
-            modal.classList.add('show');
-            modal.style.display = 'block'; // Asegurarse que el modal sea visible
-            
-            document.querySelector('.modal-title').textContent = 'Editar Empresa';
-            
-            // Llenar el formulario con los datos de la empresa
-            const campos = {
-                'empresa_id': empresa.id,
-                'nombre_empresa': empresa.nombre_empresa,
-                'nit': empresa.nit,
-                'regimen_fiscal': empresa.regimen_fiscal,
-                'direccion': empresa.direccion,
-                'telefono': empresa.telefono,
-                'correo_contacto': empresa.correo_contacto,
-                'prefijo_factura': empresa.prefijo_factura,
-                'numero_inicial': empresa.numero_inicial,
-                'numero_final': empresa.numero_final
-            };
+            // Llenar los campos del formulario
+            const campos = [
+                'nombre_empresa', 'nit', 'regimen_fiscal', 'direccion',
+                'telefono', 'correo_contacto', 'prefijo_factura',
+                'numero_inicial', 'numero_final'
+            ];
 
-            // Llenar cada campo del formulario
-            Object.keys(campos).forEach(campo => {
-                const elemento = document.getElementById(campo);
-                if (elemento) {
-                    elemento.value = campos[campo] || '';
+            campos.forEach(campo => {
+                if (document.getElementById(campo)) {
+                    document.getElementById(campo).value = empresa[campo] || '';
                 }
             });
 
@@ -690,35 +565,17 @@ try {
             const previewLogo = document.getElementById('preview-logo');
             if (empresa.logo) {
                 previewLogo.innerHTML = `
-                    <div class="mt-2">
-                        <p>Logo actual:</p>
-                        <img src="/${empresa.logo}" alt="Logo actual" 
-                             style="max-width: 150px; max-height: 150px; object-fit: contain;">
-                    </div>`;
+                    <img src="/${empresa.logo}" 
+                         alt="Logo actual" 
+                         class="h-24 w-24 object-contain rounded-lg">`;
             } else {
-                previewLogo.innerHTML = '<p class="mt-2">No hay logo cargado</p>';
+                previewLogo.innerHTML = '<i class="fas fa-upload text-gray-400 text-2xl"></i>';
             }
+
+            document.getElementById('modalEmpresa').classList.remove('hidden');
         }
 
-        // Modificar la función de cerrar modal
-        document.querySelectorAll('[data-dismiss="modal"]').forEach(button => {
-            button.addEventListener('click', () => {
-                const modal = document.getElementById('modalEmpresa');
-                modal.classList.remove('show');
-                modal.style.display = 'none';
-            });
-        });
-
-        // Agregar evento para cerrar modal haciendo clic fuera
-        window.addEventListener('click', function(event) {
-            const modal = document.getElementById('modalEmpresa');
-            if (event.target === modal) {
-                modal.classList.remove('show');
-                modal.style.display = 'none';
-            }
-        });
-
-        // Previsualización del logo
+        // Preview del logo al seleccionar archivo
         document.getElementById('logo').addEventListener('change', function(e) {
             const file = e.target.files[0];
             const previewLogo = document.getElementById('preview-logo');
@@ -733,11 +590,9 @@ try {
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     previewLogo.innerHTML = `
-                        <div class="mt-2">
-                            <p>Vista previa:</p>
-                            <img src="${e.target.result}" alt="Preview" 
-                                 style="max-width: 150px; max-height: 150px; object-fit: contain;">
-                        </div>`;
+                        <img src="${e.target.result}" 
+                             alt="Preview" 
+                             class="h-24 w-24 object-contain rounded-lg">`;
                 }
                 reader.readAsDataURL(file);
             }
@@ -768,19 +623,7 @@ try {
             });
         }
 
-        // Validación del formulario
-        document.getElementById('formEmpresa').addEventListener('submit', function(e) {
-            const numeroInicial = parseInt(document.getElementById('numero_inicial').value);
-            const numeroFinal = parseInt(document.getElementById('numero_final').value);
-
-            if (numeroFinal <= numeroInicial) {
-                e.preventDefault();
-                alert('El número final debe ser mayor que el número inicial');
-                return false;
-            }
-        });
-
-        // Mejorar el manejo de mensajes
+        // Mostrar mensajes de éxito/error con SweetAlert2
         <?php if (!empty($message)): ?>
             Swal.fire({
                 icon: '<?= $messageType === 'success' ? 'success' : 'error' ?>',

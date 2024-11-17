@@ -54,12 +54,15 @@ if (isset($_POST['action'])) {
                     'email' => trim($_POST['email']),
                     'password' => $_POST['password'],
                     'rol' => $_POST['rol'],
-                    'empresa_id' => $empresa_id,
-                    'estado' => 'activo'
+                    'empresa_id' => $empresa_id
                 ]);
 
-                $response['success'] = true;
-                $response['message'] = 'Usuario creado exitosamente';
+                if ($result) {
+                    $response['success'] = true;
+                    $response['message'] = 'Usuario creado exitosamente';
+                } else {
+                    throw new Exception("Error al crear el usuario");
+                }
                 break;
 
             case 'actualizar_usuario':
@@ -198,6 +201,7 @@ function crearUsuario($data) {
             throw new Exception("Rol no válido");
         }
 
+        // Insertar nuevo usuario
         $stmt = $pdo->prepare("
             INSERT INTO users (
                 nombre, 
@@ -205,22 +209,31 @@ function crearUsuario($data) {
                 password, 
                 rol, 
                 empresa_id, 
-                estado, 
+                estado,
                 fecha_creacion
-            ) VALUES (?, ?, ?, ?, ?, ?, NOW())
+            ) VALUES (
+                :nombre,
+                :email,
+                :password,
+                :rol,
+                :empresa_id,
+                :estado,
+                CURRENT_TIMESTAMP
+            )
         ");
 
         $hashed_password = password_hash($data['password'], PASSWORD_BCRYPT);
-        $result = $stmt->execute([
-            $data['nombre'],
-            $data['email'],
-            $hashed_password,
-            $data['rol'],
-            $data['empresa_id'],
-            $data['estado']
-        ]);
+        
+        $params = [
+            ':nombre' => $data['nombre'],
+            ':email' => $data['email'],
+            ':password' => $hashed_password,
+            ':rol' => $data['rol'],
+            ':empresa_id' => $data['empresa_id'],
+            ':estado' => 'activo'
+        ];
 
-        if (!$result) {
+        if (!$stmt->execute($params)) {
             throw new Exception("Error al crear el usuario");
         }
 
@@ -298,423 +311,206 @@ function eliminarUsuario($user_id, $empresa_id) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestión de Usuarios - VendEasy</title>
-    <link rel="icon" type="image/png" href="favicon/favicon.ico"/>
+    <link rel="icon" type="image/png" href="../../../favicon/favicon.ico"/>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
-    <link rel="stylesheet" href="../../../css/welcome.css">
-    <link rel="stylesheet" href="../../../css/modulos.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.all.min.js"></script>
-    <style>
-        /* Estilos mejorados para la gestión de usuarios */
-        .stats-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
-
-        .stat-card {
-            background: white;
-            border-radius: 12px;
-            padding: 1.5rem;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            transition: transform 0.2s;
-        }
-
-        .stat-card:hover {
-            transform: translateY(-5px);
-        }
-
-        .stat-card h3 {
-            color: #2c3e50;
-            margin: 0 0 0.5rem 0;
-            font-size: 1.1rem;
-        }
-
-        .stat-card .value {
-            font-size: 2rem;
-            font-weight: bold;
-            color: #3498db;
-            margin-bottom: 0.5rem;
-        }
-
-        .stat-card .description {
-            color: #666;
-            font-size: 0.9rem;
-        }
-
-        .users-table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            background: white;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .users-table th {
-            background: #f8f9fa;
-            padding: 1rem;
-            text-align: left;
-            font-weight: 600;
-            color: #2c3e50;
-        }
-
-        .users-table td {
-            padding: 1rem;
-            border-top: 1px solid #eee;
-            vertical-align: middle;
-        }
-
-        .users-table tr:hover {
-            background: #f8f9fa;
-        }
-
-        .badge {
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 500;
-        }
-
-        .badge-success {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .badge-danger {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .btn-icon {
-            width: 36px;
-            height: 36px;
-            padding: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 8px;
-            border: none;
-            cursor: pointer;
-            transition: all 0.2s;
-            background: #f8f9fa;
-            color: #2c3e50;
-        }
-
-        .btn-icon:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .btn-icon.edit {
-            background: #e3f2fd;
-            color: #1976d2;
-        }
-
-        .btn-icon.delete {
-            background: #fde7e7;
-            color: #d32f2f;
-        }
-
-        .filters {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-            flex-wrap: wrap;
-        }
-
-        .filter-group {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .search-box {
-            flex: 1;
-            min-width: 200px;
-            position: relative;
-        }
-
-        .search-box input {
-            width: 100%;
-            padding: 0.75rem 1rem 0.75rem 2.5rem;
-            border: 1px solid #ced4da;
-            border-radius: 8px;
-            font-size: 1rem;
-        }
-
-        .search-box i {
-            position: absolute;
-            left: 1rem;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #6c757d;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 3rem;
-            color: #6c757d;
-        }
-
-        .empty-state i {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-        }
-
-        /* Mejoras para el modal */
-        .modal-content {
-            border-radius: 12px;
-        }
-
-        .modal-header {
-            background: #f8f9fa;
-            border-radius: 12px 12px 0 0;
-        }
-
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-            color: #2c3e50;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 0.75rem;
-            border: 1px solid #ced4da;
-            border-radius: 8px;
-            transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-        }
-
-        .form-control:focus {
-            border-color: #80bdff;
-            outline: 0;
-            box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            z-index: 1050;
-            overflow-y: auto;
-            padding: 20px;
-        }
-
-        .modal-dialog {
-            position: relative;
-            width: 100%;
-            max-width: 600px;
-            margin: 30px auto;
-        }
-
-        .modal-content {
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.2);
-            transform: translateY(-20px);
-            opacity: 0;
-            transition: all 0.3s ease;
-        }
-
-        .modal.show .modal-content {
-            transform: translateY(0);
-            opacity: 1;
-        }
-
-        .modal-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 1.25rem;
-            border-bottom: 1px solid #dee2e6;
-        }
-
-        .modal-header .close {
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-            padding: 0;
-            margin: 0;
-            width: 30px;
-            height: 30px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            transition: background-color 0.2s;
-        }
-
-        .modal-header .close:hover {
-            background-color: #f8f9fa;
-        }
-
-        .modal-body {
-            padding: 1.5rem;
-        }
-
-        .modal-footer {
-            padding: 1.25rem;
-            border-top: 1px solid #dee2e6;
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-        }
-
-        /* Animación para el loading spinner */
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .loading-spinner {
-            display: inline-block;
-            width: 1.5rem;
-            height: 1.5rem;
-            border: 3px solid rgba(255,255,255,0.3);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 1s ease-in-out infinite;
-        }
-    </style>
 </head>
-<body>
-<?php include '../../../includes/header.php'; ?>
-    <div class="container">
+<body class="bg-gray-50">
+    <?php include '../../../includes/header.php'; ?>
+    
+    <div class="container mx-auto px-4">
         <?php include '../../../includes/sidebar.php'; ?>
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                const currentUrl = window.location.pathname;
-                const sidebarLinks = document.querySelectorAll('.side_navbar a');
-                sidebarLinks.forEach(link => {
-                    if (link.getAttribute('href') === currentUrl) {
-                        link.classList.add('active');
-                    }
-                });
-            });
-        </script>
 
-        <div class="main-body">
-            <h2>Gestión de Usuarios</h2>
-            <div class="promo_card">
-                <h1>Administración de Usuarios</h1>
-                <span>Gestiona los usuarios de tu empresa y sus permisos de manera eficiente.</span>
+        <div class="p-4 sm:ml-64">
+            <!-- Encabezado -->
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold text-gray-800">Gestión de Usuarios</h2>
+                <p class="text-gray-600">Administra los usuarios y sus permisos de manera eficiente</p>
             </div>
 
             <!-- Tarjetas de estadísticas -->
-            <div class="stats-cards">
-                <div class="stat-card">
-                    <h3>Total Usuarios</h3>
-                    <div class="value"><?= count($usuarios) ?></div>
-                    <div class="description">Usuarios registrados en el sistema</div>
-                </div>
-                <div class="stat-card">
-                    <h3>Usuarios Activos</h3>
-                    <div class="value"><?= count(array_filter($usuarios, fn($u) => $u['estado'] === 'activo')) ?></div>
-                    <div class="description">Usuarios con acceso al sistema</div>
-                </div>
-                <div class="stat-card">
-                    <h3>Último Registro</h3>
-                    <div class="value">
-                        <?php 
-                        $ultimo = array_reduce($usuarios, function($carry, $item) {
-                            return (!$carry || strtotime($item['fecha_creacion']) > strtotime($carry['fecha_creacion'])) ? $item : $carry;
-                        });
-                        echo $ultimo ? date('d/m/Y', strtotime($ultimo['fecha_creacion'])) : 'N/A';
-                        ?>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
+                    <div class="flex items-center">
+                        <div class="p-3 bg-blue-100 rounded-full">
+                            <i class="fas fa-users text-blue-600 text-xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm text-gray-500">Total Usuarios</p>
+                            <p class="text-2xl font-semibold"><?= count($usuarios) ?></p>
+                        </div>
                     </div>
-                    <div class="description">Fecha del último usuario registrado</div>
+                </div>
+                
+                <div class="bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
+                    <div class="flex items-center">
+                        <div class="p-3 bg-green-100 rounded-full">
+                            <i class="fas fa-user-check text-green-600 text-xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm text-gray-500">Usuarios Activos</p>
+                            <p class="text-2xl font-semibold">
+                                <?= count(array_filter($usuarios, fn($u) => $u['estado'] === 'activo')) ?>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow">
+                    <div class="flex items-center">
+                        <div class="p-3 bg-purple-100 rounded-full">
+                            <i class="fas fa-clock text-purple-600 text-xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm text-gray-500">Último Registro</p>
+                            <p class="text-2xl font-semibold">
+                                <?php 
+                                $ultimo = array_reduce($usuarios, function($carry, $item) {
+                                    return (!$carry || strtotime($item['fecha_creacion']) > strtotime($carry['fecha_creacion'])) ? $item : $carry;
+                                });
+                                echo $ultimo ? date('d/m/Y', strtotime($ultimo['fecha_creacion'])) : 'N/A';
+                                ?>
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Filtros y búsqueda -->
-            <div class="filters">
-                <div class="search-box">
-                    <i class="fas fa-search"></i>
-                    <input type="text" id="searchUsuarios" placeholder="Buscar usuarios...">
+            <!-- Barra de acciones -->
+            <div class="flex flex-wrap gap-4 mb-6">
+                <div class="flex-1 min-w-[200px]">
+                    <div class="relative">
+                        <input type="text" 
+                               id="searchUsuarios" 
+                               class="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                               placeholder="Buscar usuarios...">
+                        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    </div>
                 </div>
-                <div class="filter-group">
-                    <select id="filterRol" class="form-control">
-                        <option value="">Todos los roles</option>
-                        <?php foreach (getRoles() as $key => $value): ?>
-                            <option value="<?= htmlspecialchars($key) ?>"><?= htmlspecialchars($value) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <select id="filterEstado" class="form-control">
-                        <option value="">Todos los estados</option>
-                        <option value="activo">Activo</option>
-                        <option value="inactivo">Inactivo</option>
-                    </select>
-                </div>
-                <button type="button" class="btn btn-primary" onclick="abrirModalUsuario()">
-                    <i class="fas fa-user-plus"></i> Nuevo Usuario
+
+                <select id="filterRol" 
+                        class="rounded-lg border border-gray-300 py-2 px-4 focus:ring-2 focus:ring-blue-500">
+                    <option value="">Todos los roles</option>
+                    <?php foreach (getRoles() as $key => $value): ?>
+                        <option value="<?= htmlspecialchars($key) ?>"><?= htmlspecialchars($value) ?></option>
+                    <?php endforeach; ?>
+                </select>
+
+                <select id="filterEstado" 
+                        class="rounded-lg border border-gray-300 py-2 px-4 focus:ring-2 focus:ring-blue-500">
+                    <option value="">Todos los estados</option>
+                    <option value="activo">Activo</option>
+                    <option value="inactivo">Inactivo</option>
+                </select>
+
+                <button onclick="abrirModalUsuario()" 
+                        class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
+                    <i class="fas fa-plus"></i>
+                    <span>Nuevo Usuario</span>
                 </button>
             </div>
 
             <!-- Tabla de usuarios -->
-            <div class="table-responsive">
-                <table class="users-table">
-                    <thead>
+            <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
                         <tr>
-                            <th>Nombre</th>
-                            <th>Email</th>
-                            <th>Rol</th>
-                            <th>Estado</th>
-                            <th>Último Acceso</th>
-                            <th>Acciones</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Usuario
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Rol
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Estado
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Último Acceso
+                            </th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Acciones
+                            </th>
                         </tr>
                     </thead>
-                    <tbody id="usuariosTableBody">
+                    <tbody class="bg-white divide-y divide-gray-200">
                         <?php if (empty($usuarios)): ?>
                             <tr>
-                                <td colspan="6">
-                                    <div class="empty-state">
-                                        <i class="fas fa-users-slash"></i>
-                                        <p>No hay usuarios registrados</p>
-                                        <button class="btn btn-primary" onclick="abrirModalUsuario()">
-                                            <i class="fas fa-user-plus"></i> Agregar el primer usuario
+                                <td colspan="5" class="px-6 py-12">
+                                    <div class="text-center">
+                                        <i class="fas fa-users-slash text-4xl text-gray-400 mb-4"></i>
+                                        <p class="text-gray-500 mb-4">No hay usuarios registrados</p>
+                                        <button onclick="abrirModalUsuario()" 
+                                                class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                                            Agregar el primer usuario
                                         </button>
                                     </div>
                                 </td>
                             </tr>
                         <?php else: ?>
                             <?php foreach ($usuarios as $usuario): ?>
-                                <tr>
-                                    <td><?= htmlspecialchars($usuario['nombre']) ?></td>
-                                    <td><?= htmlspecialchars($usuario['email']) ?></td>
-                                    <td><?= htmlspecialchars(getRoles()[$usuario['rol']] ?? $usuario['rol']) ?></td>
-                                    <td>
-                                        <span class="badge <?= $usuario['estado'] === 'activo' ? 'badge-success' : 'badge-danger' ?>">
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center">
+                                            <div class="flex-shrink-0 h-10 w-10">
+                                                <div class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                                    <span class="text-blue-600 font-medium">
+                                                        <?= strtoupper(substr($usuario['nombre'], 0, 2)) ?>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div class="ml-4">
+                                                <div class="text-sm font-medium text-gray-900">
+                                                    <?= htmlspecialchars($usuario['nombre']) ?>
+                                                </div>
+                                                <div class="text-sm text-gray-500">
+                                                    <?= htmlspecialchars($usuario['email']) ?>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <span class="px-3 py-1 rounded-full text-sm
+                                            <?php
+                                            switch($usuario['rol']) {
+                                                case 'administrador':
+                                                    echo 'bg-purple-100 text-purple-800';
+                                                    break;
+                                                case 'contador':
+                                                    echo 'bg-blue-100 text-blue-800';
+                                                    break;
+                                                case 'supervisor':
+                                                    echo 'bg-green-100 text-green-800';
+                                                    break;
+                                                default:
+                                                    echo 'bg-gray-100 text-gray-800';
+                                            }
+                                            ?>">
+                                            <?= htmlspecialchars(getRoles()[$usuario['rol']] ?? $usuario['rol']) ?>
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <span class="px-3 py-1 rounded-full text-sm
+                                            <?= $usuario['estado'] === 'activo' 
+                                                ? 'bg-green-100 text-green-800' 
+                                                : 'bg-red-100 text-red-800' ?>">
                                             <?= ucfirst($usuario['estado']) ?>
                                         </span>
                                     </td>
-                                    <td><?= $usuario['ultimo_acceso'] ? date('d/m/Y H:i', strtotime($usuario['ultimo_acceso'])) : 'Nunca' ?></td>
-                                    <td>
-                                        <div class="action-buttons">
-                                            <button class="btn-icon edit" onclick="editarUsuario(<?= htmlspecialchars(json_encode($usuario)) ?>)" 
-                                                    title="Editar usuario">
+                                    <td class="px-6 py-4 text-sm text-gray-500">
+                                        <?= $usuario['ultimo_acceso'] 
+                                            ? date('d/m/Y H:i', strtotime($usuario['ultimo_acceso'])) 
+                                            : 'Nunca' ?>
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        <div class="flex justify-end space-x-2">
+                                            <button onclick="editarUsuario(<?= htmlspecialchars(json_encode($usuario)) ?>)"
+                                                    class="text-blue-600 hover:text-blue-900 p-2 rounded-full hover:bg-blue-50">
                                                 <i class="fas fa-edit"></i>
                                             </button>
-                                            <button class="btn-icon delete" onclick="eliminarUsuario(<?= $usuario['id'] ?>)"
-                                                    title="Eliminar usuario">
+                                            <button onclick="eliminarUsuario(<?= $usuario['id'] ?>)"
+                                                    class="text-red-600 hover:text-red-900 p-2 rounded-full hover:bg-red-50">
                                                 <i class="fas fa-trash"></i>
                                             </button>
                                         </div>
@@ -728,192 +524,193 @@ function eliminarUsuario($user_id, $empresa_id) {
         </div>
     </div>
 
-    <!-- Modal para crear/editar usuario -->
-    <div class="modal" id="modalUsuario" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Gestionar Usuario</h5>
-                    <button type="button" class="close" onclick="cerrarModal()">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    <form id="formUsuario" class="needs-validation" novalidate>
-                        <input type="hidden" id="user_id" name="user_id">
-                        <div class="form-group">
-                            <label for="nombre_usuario">Nombre: *</label>
-                            <input type="text" class="form-control" id="nombre_usuario" name="nombre" required 
-                                   minlength="3" maxlength="100">
-                            <div class="invalid-feedback">
-                                El nombre es requerido y debe tener entre 3 y 100 caracteres
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="email_usuario">Email: *</label>
-                            <input type="email" class="form-control" id="email_usuario" name="email" required>
-                            <div class="invalid-feedback">
-                                Por favor ingrese un email válido
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="password_usuario">Contraseña:</label>
-                            <input type="password" class="form-control" id="password_usuario" name="password" 
-                                   minlength="6">
-                            <small class="form-text text-muted password-hint" style="display: none;">
-                                Dejar en blanco para mantener la contraseña actual
-                            </small>
-                            <div class="invalid-feedback">
-                                La contraseña debe tener al menos 6 caracteres
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="rol_usuario">Rol: *</label>
-                            <select class="form-control" id="rol_usuario" name="rol" required>
-                                <?php foreach (getRoles() as $key => $value): ?>
-                                    <option value="<?= htmlspecialchars($key) ?>">
-                                        <?= htmlspecialchars($value) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                            <div class="invalid-feedback">
-                                Por favor seleccione un rol
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="estado_usuario">Estado: *</label>
-                            <select class="form-control" id="estado_usuario" name="estado" required>
-                                <option value="activo">Activo</option>
-                                <option value="inactivo">Inactivo</option>
-                            </select>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" onclick="cerrarModal()">
-                        <i class="fas fa-times"></i> Cancelar
-                    </button>
-                    <button type="button" class="btn btn-primary" onclick="guardarUsuario()">
-                        <i class="fas fa-save"></i> Guardar
-                    </button>
-                </div>
+    <!-- Modal de Usuario -->
+    <div id="modalUsuario" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center pb-3">
+                <h3 class="text-xl font-semibold text-gray-900" id="modalTitle">Crear Nuevo Usuario</h3>
+                <button onclick="cerrarModal()" class="text-gray-400 hover:text-gray-500">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
+
+            <form id="formUsuario" class="space-y-4">
+                <input type="hidden" id="user_id" name="user_id">
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+                    <input type="text" id="nombre_usuario" name="nombre"
+                           class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           required>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input type="email" id="email_usuario" name="email"
+                           class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           required>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+                    <input type="password" id="password_usuario" name="password"
+                           class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           minlength="6">
+                    <p class="text-sm text-gray-500 mt-1 password-hint" style="display: none;">
+                        Dejar en blanco para mantener la contraseña actual
+                    </p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Rol</label>
+                    <select id="rol_usuario" name="rol"
+                            class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            required>
+                        <?php foreach (getRoles() as $key => $value): ?>
+                            <option value="<?= htmlspecialchars($key) ?>">
+                                <?= htmlspecialchars($value) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+                    <select id="estado_usuario" name="estado"
+                            class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            required>
+                        <option value="activo">Activo</option>
+                        <option value="inactivo">Inactivo</option>
+                    </select>
+                </div>
+
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button" onclick="cerrarModal()"
+                            class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
+                        Cancelar
+                    </button>
+                    <button type="button" onclick="guardarUsuario()"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                        Guardar
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
     <script>
-    // Mantener el JavaScript existente y agregar estas mejoras:
+    // Mantener las funciones JavaScript existentes pero actualizar las notificaciones y UI
     
-    // Función para filtrar usuarios
-    function filtrarUsuarios() {
-        const searchTerm = document.getElementById('searchUsuarios').value.toLowerCase();
-        const rolFiltro = document.getElementById('filterRol').value;
-        const estadoFiltro = document.getElementById('filterEstado').value;
-        
-        const rows = document.querySelectorAll('#usuariosTableBody tr');
-        
-        rows.forEach(row => {
-            if (row.querySelector('td.empty-state')) return;
-            
-            const nombre = row.cells[0].textContent.toLowerCase();
-            const email = row.cells[1].textContent.toLowerCase();
-            const rol = row.cells[2].textContent.toLowerCase();
-            const estado = row.cells[3].textContent.toLowerCase();
-            
-            const matchSearch = nombre.includes(searchTerm) || email.includes(searchTerm);
-            const matchRol = !rolFiltro || rol.includes(rolFiltro.toLowerCase());
-            const matchEstado = !estadoFiltro || estado.includes(estadoFiltro.toLowerCase());
-            
-            row.style.display = matchSearch && matchRol && matchEstado ? '' : 'none';
+    function showNotification(title, message, type = 'success') {
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true,
+            didOpen: (toast) => {
+                toast.addEventListener('mouseenter', Swal.stopTimer)
+                toast.addEventListener('mouseleave', Swal.resumeTimer)
+            }
+        })
+
+        Toast.fire({
+            icon: type,
+            title: message
+        })
+    }
+
+    function eliminarUsuario(userId) {
+        Swal.fire({
+            title: '¿Estás seguro?',
+            text: "El usuario será desactivado",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#EF4444',
+            cancelButtonColor: '#6B7280',
+            confirmButtonText: 'Sí, desactivar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Mantener la lógica existente de eliminación
+                const formData = new FormData();
+                formData.append('action', 'eliminar_usuario');
+                formData.append('user_id', userId);
+
+                fetch(window.location.href, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification('¡Éxito!', data.message);
+                        setTimeout(() => location.reload(), 1000);
+                    } else {
+                        throw new Error(data.message);
+                    }
+                })
+                .catch(error => {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: error.message
+                    });
+                });
+            }
         });
     }
 
-    // Event listeners para filtros
-    document.getElementById('searchUsuarios').addEventListener('input', filtrarUsuarios);
-    document.getElementById('filterRol').addEventListener('change', filtrarUsuarios);
-    document.getElementById('filterEstado').addEventListener('change', filtrarUsuarios);
-
-    // Mejorar la experiencia del modal
-    function abrirModalUsuario() {
-        const modal = document.getElementById('modalUsuario');
-        modal.style.display = 'block';
-        
-        // Animar entrada
-        setTimeout(() => {
-            modal.querySelector('.modal-content').style.transform = 'translateY(0)';
-            modal.querySelector('.modal-content').style.opacity = '1';
-        }, 10);
-
-        // Focus en el primer campo
-        setTimeout(() => {
-            modal.querySelector('input[name="nombre"]').focus();
-        }, 300);
-    }
-
+    // Variables globales
     let usuarioActual = null;
 
-    // Funciones de UI
-    const UI = {
-        showLoading(button) {
-            const originalContent = button.innerHTML;
-            button.disabled = true;
-            button.innerHTML = '<span class="loading-spinner"></span> Procesando...';
-            return () => {
-                button.disabled = false;
-                button.innerHTML = originalContent;
-            };
-        },
-
-        showModal(id) {
-            const modal = document.getElementById(id);
-            modal.classList.add('show');
-            modal.style.display = 'block';
-            document.body.style.overflow = 'hidden';
-        },
-
-        hideModal(id) {
-            const modal = document.getElementById(id);
-            modal.classList.remove('show');
-            modal.style.display = 'none';
-            document.body.style.overflow = '';
-        },
-
-        showNotification(title, message, type = 'success') {
-            return Swal.fire({
-                title,
-                text: message,
-                icon: type,
-                toast: true,
-                position: 'top-end',
-                showConfirmButton: false,
-                timer: 3000,
-                timerProgressBar: true
-            });
-        }
-    };
-
-    // Funciones principales
+    // Función para abrir el modal
     function abrirModalUsuario() {
         usuarioActual = null;
         const form = document.getElementById('formUsuario');
         form.reset();
         
-        document.querySelector('.modal-title').textContent = 'Crear Nuevo Usuario';
+        // Configurar modal para nuevo usuario
+        document.querySelector('#modalTitle').textContent = 'Crear Nuevo Usuario';
         document.getElementById('user_id').value = '';
         document.getElementById('email_usuario').readOnly = false;
         document.getElementById('password_usuario').required = true;
         document.querySelector('.password-hint').style.display = 'none';
         
-        UI.showModal('modalUsuario');
+        // Mostrar modal
+        document.getElementById('modalUsuario').classList.remove('hidden');
     }
 
+    // Función para cerrar el modal
     function cerrarModal() {
-        UI.hideModal('modalUsuario');
+        document.getElementById('modalUsuario').classList.add('hidden');
+        document.getElementById('formUsuario').reset();
     }
 
+    // Función para editar usuario
+    function editarUsuario(usuario) {
+        usuarioActual = usuario;
+        
+        // Llenar el formulario con los datos del usuario
+        document.querySelector('#modalTitle').textContent = 'Editar Usuario';
+        document.getElementById('user_id').value = usuario.id;
+        document.getElementById('nombre_usuario').value = usuario.nombre;
+        document.getElementById('email_usuario').value = usuario.email;
+        document.getElementById('email_usuario').readOnly = true;
+        document.getElementById('password_usuario').required = false;
+        document.getElementById('rol_usuario').value = usuario.rol;
+        document.getElementById('estado_usuario').value = usuario.estado;
+        
+        // Mostrar hint de contraseña en modo edición
+        document.querySelector('.password-hint').style.display = 'block';
+        
+        // Mostrar modal
+        document.getElementById('modalUsuario').classList.remove('hidden');
+    }
+
+    // Función para guardar usuario
     async function guardarUsuario() {
         const form = document.getElementById('formUsuario');
-        const submitBtn = document.querySelector('.modal-footer .btn-primary');
         
         if (!form.checkValidity()) {
             form.classList.add('was-validated');
@@ -921,8 +718,6 @@ function eliminarUsuario($user_id, $empresa_id) {
         }
 
         try {
-            const restoreButton = UI.showLoading(submitBtn);
-            
             const formData = new FormData(form);
             formData.append('action', usuarioActual ? 'actualizar_usuario' : 'crear_usuario');
 
@@ -933,14 +728,13 @@ function eliminarUsuario($user_id, $empresa_id) {
 
             const data = await response.json();
             
-            if (!data.success) {
+            if (data.success) {
+                showNotification('¡Éxito!', data.message);
+                cerrarModal();
+                setTimeout(() => location.reload(), 1000);
+            } else {
                 throw new Error(data.message || 'Error al guardar usuario');
             }
-
-            await UI.showNotification('¡Éxito!', data.message);
-            cerrarModal();
-            location.reload();
-
         } catch (error) {
             Swal.fire({
                 icon: 'error',
@@ -950,248 +744,71 @@ function eliminarUsuario($user_id, $empresa_id) {
         }
     }
 
-    function editarUsuario(usuario) {
-        usuarioActual = usuario;
-        document.querySelector('.modal-title').textContent = 'Editar Usuario';
-        
-        document.getElementById('user_id').value = usuario.id;
-        document.getElementById('nombre_usuario').value = usuario.nombre;
-        document.getElementById('email_usuario').value = usuario.email;
-        document.getElementById('email_usuario').readOnly = true;
-        document.getElementById('password_usuario').required = false;
-        document.getElementById('rol_usuario').value = usuario.rol;
-        document.getElementById('estado_usuario').value = usuario.estado;
-        
-        document.querySelector('.password-hint').style.display = 'block';
-        
-        UI.showModal('modalUsuario');
-    }
-
-    function eliminarUsuario(userId) {
-        if (!userId) return;
-
-        Swal.fire({
-            title: '¿Estás seguro?',
-            text: "El usuario será desactivado. Esta acción puede revertirse más tarde.",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#dc3545',
-            cancelButtonColor: '#6c757d',
-            confirmButtonText: 'Sí, desactivar',
-            cancelButtonText: 'Cancelar'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                // Mostrar loading
-                Swal.fire({
-                    title: 'Procesando...',
-                    text: 'Por favor espere',
-                    allowOutsideClick: false,
-                    allowEscapeKey: false,
-                    showConfirmButton: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    }
-                });
-
-                // Realizar la petición
-                const formData = new FormData();
-                formData.append('action', 'eliminar_usuario');
-                formData.append('user_id', userId);
-
-                fetch(window.location.href, {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Error en la respuesta del servidor');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (!data.success) {
-                        throw new Error(data.message || 'Error al desactivar usuario');
-                    }
-                    
-                    Swal.fire({
-                        icon: 'success',
-                        title: '¡Éxito!',
-                        text: data.message,
-                        timer: 1500,
-                        showConfirmButton: false
-                    }).then(() => {
-                        location.reload();
-                    });
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: error.message || 'Error al procesar la solicitud'
-                    });
-                });
-            }
-        });
-    }
-
-    // Event Listeners
-    document.addEventListener('DOMContentLoaded', function() {
-        // Cerrar modal con click fuera
-        window.addEventListener('click', (e) => {
-            const modal = document.getElementById('modalUsuario');
-            if (e.target === modal) {
-                cerrarModal();
-            }
-        });
-
-        // Cerrar modal con Escape
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                cerrarModal();
-            }
-        });
-    });
-    </script>
-
-    <!-- Agregar este script justo antes del cierre de </body> -->
-    <script>
-    // Mejoras de UI/UX
-    document.addEventListener('DOMContentLoaded', function() {
-        // Tooltips para los botones de acción
-        const tooltips = document.querySelectorAll('[title]');
-        tooltips.forEach(el => {
-            el.addEventListener('mouseenter', function(e) {
-                const tooltip = document.createElement('div');
-                tooltip.className = 'custom-tooltip';
-                tooltip.textContent = this.getAttribute('title');
-                document.body.appendChild(tooltip);
-                
-                const rect = this.getBoundingClientRect();
-                tooltip.style.top = rect.top - tooltip.offsetHeight - 10 + 'px';
-                tooltip.style.left = rect.left + (rect.width - tooltip.offsetWidth)/2 + 'px';
-                
-                this.addEventListener('mouseleave', () => tooltip.remove());
-            });
-        });
-
-        // Animación de entrada para las tarjetas de estadísticas
-        const cards = document.querySelectorAll('.stat-card');
-        cards.forEach((card, index) => {
-            card.style.opacity = '0';
-            card.style.transform = 'translateY(20px)';
-            setTimeout(() => {
-                card.style.transition = 'all 0.5s ease';
-                card.style.opacity = '1';
-                card.style.transform = 'translateY(0)';
-            }, index * 100);
-        });
-
-        // Mejorar la experiencia de búsqueda
-        let searchTimeout;
-        const searchInput = document.getElementById('searchUsuarios');
-        searchInput.addEventListener('input', function() {
-            clearTimeout(searchTimeout);
-            const spinner = this.parentElement.querySelector('.spinner');
-            if (!spinner) {
-                const newSpinner = document.createElement('div');
-                newSpinner.className = 'spinner';
-                this.parentElement.appendChild(newSpinner);
-            }
-            
-            searchTimeout = setTimeout(() => {
-                filtrarUsuarios();
-                const spinner = this.parentElement.querySelector('.spinner');
-                if (spinner) spinner.remove();
-            }, 300);
-        });
-
-        // Mejorar la experiencia de filtrado
-        const filters = document.querySelectorAll('#filterRol, #filterEstado');
-        filters.forEach(filter => {
-            filter.addEventListener('change', function() {
-                const badge = document.createElement('span');
-                badge.className = 'filter-badge';
-                badge.textContent = `${this.options[this.selectedIndex].text}`;
-                
-                // Mostrar badge de filtro activo
-                const container = document.querySelector('.active-filters');
-                if (!container) {
-                    const newContainer = document.createElement('div');
-                    newContainer.className = 'active-filters';
-                    this.parentElement.appendChild(newContainer);
-                }
-                
-                filtrarUsuarios();
-            });
-        });
-
-        // Animación para filas de la tabla
-        const rows = document.querySelectorAll('.users-table tbody tr');
-        rows.forEach((row, index) => {
-            row.style.opacity = '0';
-            setTimeout(() => {
-                row.style.transition = 'opacity 0.3s ease';
-                row.style.opacity = '1';
-            }, index * 50);
-        });
-    });
-
-    // Mejorar la función de filtrado con feedback visual
+    // Reemplazar la función filtrarUsuarios actual por esta versión corregida
     function filtrarUsuarios() {
         const searchTerm = document.getElementById('searchUsuarios').value.toLowerCase();
-        const rolFiltro = document.getElementById('filterRol').value;
-        const estadoFiltro = document.getElementById('filterEstado').value;
+        const rolFiltro = document.getElementById('filterRol').value.toLowerCase();
+        const estadoFiltro = document.getElementById('filterEstado').value.toLowerCase();
         
-        const rows = document.querySelectorAll('#usuariosTableBody tr');
+        const rows = document.querySelectorAll('tbody tr');
         let visibleCount = 0;
         
         rows.forEach(row => {
-            if (row.querySelector('.empty-state')) return;
+            // Ignorar la fila de "no hay usuarios" si existe
+            if (row.querySelector('.text-center')) return;
             
-            const nombre = row.cells[0].textContent.toLowerCase();
-            const email = row.cells[1].textContent.toLowerCase();
-            const rol = row.cells[2].textContent.toLowerCase();
-            const estado = row.cells[3].textContent.toLowerCase();
+            // Obtener los valores de las celdas
+            const nombreCell = row.querySelector('.text-sm.font-medium.text-gray-900');
+            const emailCell = row.querySelector('.text-sm.text-gray-500');
+            const rolCell = row.querySelector('td:nth-child(2) span');
+            const estadoCell = row.querySelector('td:nth-child(3) span');
             
+            if (!nombreCell || !emailCell || !rolCell || !estadoCell) return;
+            
+            const nombre = nombreCell.textContent.toLowerCase();
+            const email = emailCell.textContent.toLowerCase();
+            const rol = rolCell.textContent.toLowerCase();
+            const estado = estadoCell.textContent.toLowerCase();
+            
+            // Aplicar filtros
             const matchSearch = nombre.includes(searchTerm) || email.includes(searchTerm);
-            const matchRol = !rolFiltro || rol.includes(rolFiltro.toLowerCase());
-            const matchEstado = !estadoFiltro || estado.includes(estadoFiltro.toLowerCase());
+            const matchRol = !rolFiltro || rol.includes(rolFiltro);
+            const matchEstado = !estadoFiltro || estado.includes(estadoFiltro);
             
+            // Mostrar u ocultar fila
             if (matchSearch && matchRol && matchEstado) {
                 row.style.display = '';
-                row.style.animation = 'fadeIn 0.3s ease forwards';
                 visibleCount++;
             } else {
                 row.style.display = 'none';
             }
         });
 
-        // Mostrar mensaje cuando no hay resultados
-        const emptyMessage = document.querySelector('.no-results');
-        if (visibleCount === 0 && !document.querySelector('.empty-state')) {
-            if (!emptyMessage) {
-                const message = document.createElement('tr');
-                message.className = 'no-results';
-                message.innerHTML = `
-                    <td colspan="6" class="text-center py-4">
-                        <div class="empty-state">
-                            <i class="fas fa-search"></i>
-                            <p>No se encontraron usuarios con los filtros seleccionados</p>
-                            <button class="btn btn-secondary" onclick="limpiarFiltros()">
-                                <i class="fas fa-times"></i> Limpiar filtros
+        // Manejar mensaje de no resultados
+        const tbody = document.querySelector('tbody');
+        const existingNoResults = document.querySelector('.no-results');
+        
+        if (visibleCount === 0) {
+            if (!existingNoResults) {
+                const noResultsRow = document.createElement('tr');
+                noResultsRow.className = 'no-results';
+                noResultsRow.innerHTML = `
+                    <td colspan="5" class="px-6 py-12">
+                        <div class="text-center">
+                            <i class="fas fa-search text-4xl text-gray-400 mb-4"></i>
+                            <p class="text-gray-500 mb-4">No se encontraron usuarios con los filtros seleccionados</p>
+                            <button onclick="limpiarFiltros()" 
+                                    class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200">
+                                Limpiar filtros
                             </button>
                         </div>
                     </td>
                 `;
-                document.querySelector('#usuariosTableBody').appendChild(message);
+                tbody.appendChild(noResultsRow);
             }
-        } else if (emptyMessage) {
-            emptyMessage.remove();
+        } else if (existingNoResults) {
+            existingNoResults.remove();
         }
-
-        // Actualizar contador de resultados
-        actualizarContador(visibleCount);
     }
 
     // Función para limpiar filtros
@@ -1199,109 +816,37 @@ function eliminarUsuario($user_id, $empresa_id) {
         document.getElementById('searchUsuarios').value = '';
         document.getElementById('filterRol').value = '';
         document.getElementById('filterEstado').value = '';
-        filtrarUsuarios();
-    }
-
-    // Función para actualizar el contador de resultados
-    function actualizarContador(count) {
-        const container = document.querySelector('.results-count');
-        if (!container) {
-            const newContainer = document.createElement('div');
-            newContainer.className = 'results-count';
-            document.querySelector('.filters').appendChild(newContainer);
+        
+        // Mostrar todas las filas
+        const rows = document.querySelectorAll('tbody tr');
+        rows.forEach(row => {
+            if (!row.querySelector('.text-center')) {
+                row.style.display = '';
+            }
+        });
+        
+        // Eliminar mensaje de no resultados si existe
+        const noResults = document.querySelector('.no-results');
+        if (noResults) {
+            noResults.remove();
         }
-        document.querySelector('.results-count').textContent = 
-            `Mostrando ${count} ${count === 1 ? 'usuario' : 'usuarios'}`;
     }
+
+    // Asegurarse de que los event listeners estén correctamente configurados
+    document.addEventListener('DOMContentLoaded', function() {
+        // Event listener para la búsqueda con debounce
+        const searchInput = document.getElementById('searchUsuarios');
+        let searchTimeout;
+        
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(filtrarUsuarios, 300);
+        });
+
+        // Event listeners para los filtros
+        document.getElementById('filterRol').addEventListener('change', filtrarUsuarios);
+        document.getElementById('filterEstado').addEventListener('change', filtrarUsuarios);
+    });
     </script>
-
-    <style>
-    /* Agregar estos estilos */
-    .custom-tooltip {
-        position: absolute;
-        background: rgba(0,0,0,0.8);
-        color: white;
-        padding: 5px 10px;
-        border-radius: 4px;
-        font-size: 12px;
-        z-index: 1000;
-        pointer-events: none;
-    }
-
-    .spinner {
-        width: 20px;
-        height: 20px;
-        border: 2px solid #f3f3f3;
-        border-top: 2px solid #3498db;
-        border-radius: 50%;
-        position: absolute;
-        right: 10px;
-        top: 50%;
-        transform: translateY(-50%);
-        animation: spin 1s linear infinite;
-    }
-
-    .filter-badge {
-        background: #e3f2fd;
-        color: #1976d2;
-        padding: 2px 8px;
-        border-radius: 12px;
-        font-size: 12px;
-        margin-left: 8px;
-    }
-
-    .active-filters {
-        display: flex;
-        gap: 8px;
-        margin-top: 8px;
-    }
-
-    .results-count {
-        color: #666;
-        font-size: 14px;
-        margin-left: auto;
-    }
-
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-
-    .empty-state {
-        text-align: center;
-        padding: 2rem;
-    }
-
-    .empty-state i {
-        font-size: 2rem;
-        color: #ccc;
-        margin-bottom: 1rem;
-    }
-
-    /* Mejorar la apariencia de los inputs */
-    .search-box input:focus {
-        border-color: #3498db;
-        box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
-    }
-
-    .form-control:focus {
-        border-color: #3498db;
-        box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
-    }
-
-    /* Animaciones para las acciones */
-    .btn-icon:active {
-        transform: scale(0.95);
-    }
-
-    .stat-card {
-        transition: all 0.3s ease;
-    }
-
-    .stat-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    }
-    </style>
 </body>
 </html> 

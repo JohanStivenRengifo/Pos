@@ -190,287 +190,158 @@ $total_anuladas = getTotalAnuladas($user_id);
     <title>Gestión de Ventas | VendEasy</title>
     <link rel="icon" type="image/png" href="/favicon/favicon.ico"/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
-    <link rel="stylesheet" href="../../css/welcome.css">
-    <link rel="stylesheet" href="../../css/modulos.css">
-    <style>
-        .filters-section {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-            padding: 1rem;
-            background: #fff;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .search-box {
-            flex: 1;
-            position: relative;
-        }
-
-        .search-box input {
-            width: 100%;
-            padding: 0.5rem 1rem 0.5rem 2.5rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 0.9rem;
-        }
-
-        .search-box i {
-            position: absolute;
-            left: 0.8rem;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #666;
-        }
-
-        .filter-dropdown {
-            min-width: 150px;
-            padding: 0.5rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 0.9rem;
-        }
-
-        .date-filter {
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-        }
-
-        .date-filter input {
-            padding: 0.5rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 0.9rem;
-        }
-
-        .ventas-table {
-            width: 100%;
-            border-collapse: collapse;
-            background: #fff;
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .ventas-table th {
-            background: #f8f9fa;
-            padding: 1rem;
-            text-align: left;
-            font-weight: 600;
-            color: #344767;
-        }
-
-        .ventas-table td {
-            padding: 1rem;
-            border-top: 1px solid #eee;
-        }
-
-        .estado-venta {
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 500;
-            display: inline-block;
-        }
-
-        .estado-venta.activa {
-            background-color: #e8f5e9;
-            color: #2e7d32;
-        }
-
-        .estado-venta.anulada {
-            background-color: #ffebee;
-            color: #c62828;
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .action-button {
-            padding: 0.5rem;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            background: transparent;
-        }
-
-        .btn-imprimir { color: #2196f3; }
-        .btn-modificar { color: #4caf50; }
-        .btn-anular { color: #f44336; }
-
-        .btn-imprimir:hover { background-color: #e3f2fd; }
-        .btn-modificar:hover { background-color: #e8f5e9; }
-        .btn-anular:hover { background-color: #ffebee; }
-
-        .stats-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
-
-        .stat-card {
-            background: #fff;
-            padding: 1.5rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .stat-card h3 {
-            margin: 0;
-            color: #666;
-            font-size: 0.9rem;
-        }
-
-        .stat-card .value {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: #344767;
-            margin-top: 0.5rem;
-        }
-
-        .pagination {
-            display: flex;
-            justify-content: center;
-            gap: 0.5rem;
-            margin-top: 2rem;
-        }
-
-        .pagination a {
-            padding: 0.5rem 1rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            color: #666;
-            text-decoration: none;
-            transition: all 0.3s ease;
-        }
-
-        .pagination a.active {
-            background: #2196f3;
-            color: white;
-            border-color: #2196f3;
-        }
-
-        .pagination a:hover:not(.active) {
-            background: #f5f5f5;
-        }
-    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
-<body>
-<?php include '../../includes/header.php'; ?>
-    <div class="container">
+<body class="bg-gray-50">
+    <?php include '../../includes/header.php'; ?>
+    
+    <div class="flex">
         <?php include '../../includes/sidebar.php'; ?>
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                const currentUrl = window.location.pathname;
-                const sidebarLinks = document.querySelectorAll('.side_navbar a');
-                sidebarLinks.forEach(link => {
-                    if (link.getAttribute('href') === currentUrl) {
-                        link.classList.add('active');
-                    }
-                });
-            });
-        </script>
-
-        <div class="main-body">
-            <div class="page-header">
-                <h2>Gestión de Ventas</h2>
+        
+        <main class="flex-1 p-8">
+            <!-- Encabezado -->
+            <div class="mb-8">
+                <h1 class="text-2xl font-bold text-gray-800">Gestión de Ventas</h1>
+                <p class="text-gray-600">Administra y monitorea todas las transacciones de ventas</p>
             </div>
 
-            <div class="stats-cards">
-                <div class="stat-card">
-                    <h3>Ventas Totales</h3>
-                    <div class="value">$<?= number_format($total_ventas_monto, 2) ?></div>
+            <!-- Tarjetas de estadísticas -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-blue-100 text-blue-500">
+                            <i class="fas fa-chart-line text-xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <h3 class="text-gray-500 text-sm">Ventas Totales</h3>
+                            <p class="text-2xl font-semibold text-gray-800">$<?= number_format($total_ventas_monto, 2) ?></p>
+                        </div>
+                    </div>
                 </div>
-                <div class="stat-card">
-                    <h3>Ventas del Día</h3>
-                    <div class="value">$<?= number_format($ventas_dia, 2) ?></div>
+
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-green-100 text-green-500">
+                            <i class="fas fa-calendar-day text-xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <h3 class="text-gray-500 text-sm">Ventas del Día</h3>
+                            <p class="text-2xl font-semibold text-gray-800">$<?= number_format($ventas_dia, 2) ?></p>
+                        </div>
+                    </div>
                 </div>
-                <div class="stat-card">
-                    <h3>Ventas Anuladas</h3>
-                    <div class="value"><?= $total_anuladas ?></div>
+
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-red-100 text-red-500">
+                            <i class="fas fa-ban text-xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <h3 class="text-gray-500 text-sm">Ventas Anuladas</h3>
+                            <p class="text-2xl font-semibold text-gray-800"><?= $total_anuladas ?></p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div class="filters-section">
-                <div class="search-box">
-                    <i class="fas fa-search"></i>
-                    <input type="text" id="searchInput" placeholder="Buscar por cliente o número de factura...">
-                </div>
-                <select class="filter-dropdown" id="estadoFilter">
-                    <option value="">Todos los estados</option>
-                    <option value="activa">Activas</option>
-                    <option value="anulada">Anuladas</option>
-                </select>
-                <div class="date-filter">
-                    <input type="date" id="fechaDesde" placeholder="Desde">
-                    <input type="date" id="fechaHasta" placeholder="Hasta">
+            <!-- Filtros -->
+            <div class="bg-white rounded-lg shadow p-6 mb-8">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">
+                            <i class="fas fa-search"></i>
+                        </span>
+                        <input type="text" 
+                               id="searchInput" 
+                               class="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="Buscar por cliente o factura...">
+                    </div>
+
+                    <select id="estadoFilter" 
+                            class="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Todos los estados</option>
+                        <option value="activa">Activas</option>
+                        <option value="anulada">Anuladas</option>
+                    </select>
+
+                    <input type="date" 
+                           id="fechaDesde" 
+                           class="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+
+                    <input type="date" 
+                           id="fechaHasta" 
+                           class="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                 </div>
             </div>
 
-            <table class="ventas-table">
-                <thead>
-                    <tr>
-                        <th>ID Venta</th>
-                        <th>Fecha</th>
-                        <th>Cliente</th>
-                        <th>Total</th>
-                        <th>N° Factura</th>
-                        <th>Estado</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($ventas as $venta): ?>
-                        <tr class="venta-row" data-estado="<?= $venta['anulada'] ? 'anulada' : 'activa' ?>">
-                            <td><?= htmlspecialchars($venta['id']) ?></td>
-                            <td><?= date('d/m/Y H:i', strtotime($venta['fecha'])) ?></td>
-                            <td><?= htmlspecialchars($venta['cliente_nombre'] ?? 'N/A') ?></td>
-                            <td>$<?= number_format($venta['total'], 2) ?></td>
-                            <td><?= htmlspecialchars($venta['numero_factura']) ?></td>
-                            <td>
-                                <span class="estado-venta <?= $venta['anulada'] ? 'anulada' : 'activa' ?>">
+            <!-- Tabla de Ventas -->
+            <div class="bg-white rounded-lg shadow overflow-hidden">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">N° Factura</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        <?php foreach ($ventas as $venta): ?>
+                        <tr class="hover:bg-gray-50 venta-row" data-estado="<?= $venta['anulada'] ? 'anulada' : 'activa' ?>">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?= htmlspecialchars($venta['id']) ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?= date('d/m/Y H:i', strtotime($venta['fecha'])) ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?= htmlspecialchars($venta['cliente_nombre'] ?? 'N/A') ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$<?= number_format($venta['total'], 2) ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?= htmlspecialchars($venta['numero_factura']) ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                    <?= $venta['anulada'] ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800' ?>">
                                     <?= $venta['anulada'] ? 'Anulada' : 'Activa' ?>
                                 </span>
                             </td>
-                            <td>
-                                <div class="action-buttons">
-                                    <button class="action-button btn-imprimir" 
-                                            onclick="imprimirVenta(<?= $venta['id'] ?>)">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <div class="flex space-x-2">
+                                    <button onclick="imprimirVenta(<?= $venta['id'] ?>)" 
+                                            class="text-blue-600 hover:text-blue-900">
                                         <i class="fas fa-print"></i>
                                     </button>
-                                    <button class="action-button btn-modificar" 
-                                            onclick="editarVenta(<?= $venta['id'] ?>)">
+                                    <button onclick="editarVenta(<?= $venta['id'] ?>)" 
+                                            class="text-green-600 hover:text-green-900">
                                         <i class="fas fa-edit"></i>
                                     </button>
                                     <?php if (!$venta['anulada']): ?>
-                                        <button type="button" 
-                                                class="action-button btn-anular" 
-                                                onclick="confirmarAnulacion(<?= $venta['id'] ?>)">
-                                            <i class="fas fa-trash-alt"></i>
-                                        </button>
+                                    <button onclick="confirmarAnulacion(<?= $venta['id'] ?>)" 
+                                            class="text-red-600 hover:text-red-900">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
                                     <?php endif; ?>
                                 </div>
                             </td>
                         </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-
-            <div class="pagination">
-                <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                    <a href="?page=<?= $i ?>" class="<?= $i === $page ? 'active' : '' ?>">
-                        <?= $i ?>
-                    </a>
-                <?php endfor; ?>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
             </div>
-        </div>
+
+            <!-- Paginación -->
+            <div class="mt-6 flex justify-center">
+                <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                    <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                        <a href="?page=<?= $i ?>" 
+                           class="<?= $i === $page 
+                                    ? 'z-10 bg-blue-50 border-blue-500 text-blue-600' 
+                                    : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50' ?> 
+                                  relative inline-flex items-center px-4 py-2 border text-sm font-medium">
+                            <?= $i ?>
+                        </a>
+                    <?php endfor; ?>
+                </nav>
+            </div>
+        </main>
     </div>
 
     <script>
@@ -483,30 +354,57 @@ $total_anuladas = getTotalAnuladas($user_id);
         const fechaHasta = document.getElementById('fechaHasta');
         const ventasRows = document.querySelectorAll('.venta-row');
 
+        function parseLocalDate(dateStr) {
+            // Convierte el formato dd/mm/yyyy HH:mm a un objeto Date
+            const [datePart, timePart] = dateStr.split(' ');
+            const [day, month, year] = datePart.split('/');
+            const [hours, minutes] = timePart ? timePart.split(':') : ['00', '00'];
+            
+            return new Date(year, month - 1, day, hours, minutes);
+        }
+
         function filterVentas() {
             const searchTerm = searchInput.value.toLowerCase();
             const estadoSelected = estadoFilter.value;
-            const dateFrom = fechaDesde.value ? new Date(fechaDesde.value) : null;
-            const dateTo = fechaHasta.value ? new Date(fechaHasta.value) : null;
+            
+            // Convertir las fechas del filtro a objetos Date al inicio del día
+            const dateFrom = fechaDesde.value ? new Date(fechaDesde.value + 'T00:00:00') : null;
+            const dateTo = fechaHasta.value ? new Date(fechaHasta.value + 'T23:59:59') : null;
 
             ventasRows.forEach(row => {
                 const cliente = row.querySelector('td:nth-child(3)').textContent.toLowerCase();
                 const factura = row.querySelector('td:nth-child(5)').textContent.toLowerCase();
                 const estado = row.dataset.estado;
-                const fecha = new Date(row.querySelector('td:nth-child(2)').textContent);
+                
+                // Obtener y parsear la fecha de la venta
+                const fechaStr = row.querySelector('td:nth-child(2)').textContent;
+                const fechaVenta = parseLocalDate(fechaStr);
 
                 const matchesSearch = cliente.includes(searchTerm) || factura.includes(searchTerm);
                 const matchesEstado = !estadoSelected || estado === estadoSelected;
-                const matchesDate = (!dateFrom || fecha >= dateFrom) && (!dateTo || fecha <= dateTo);
+                
+                // Comparación de fechas
+                const matchesDate = (!dateFrom || fechaVenta >= dateFrom) && 
+                                  (!dateTo || fechaVenta <= dateTo);
 
                 row.style.display = matchesSearch && matchesEstado && matchesDate ? '' : 'none';
             });
         }
 
+        // Agregar placeholders y títulos a los inputs de fecha
+        fechaDesde.placeholder = 'Fecha desde';
+        fechaHasta.placeholder = 'Fecha hasta';
+        fechaDesde.title = 'Seleccionar fecha inicial';
+        fechaHasta.title = 'Seleccionar fecha final';
+
+        // Eventos para el filtrado
         searchInput.addEventListener('input', filterVentas);
         estadoFilter.addEventListener('change', filterVentas);
         fechaDesde.addEventListener('change', filterVentas);
         fechaHasta.addEventListener('change', filterVentas);
+
+        // Inicializar filtros
+        filterVentas();
     });
 
     // Función para imprimir venta
@@ -520,16 +418,20 @@ $total_anuladas = getTotalAnuladas($user_id);
     }
 
     function confirmarAnulacion(id) {
-        console.log('Iniciando confirmación de anulación para venta:', id); // Debug
         Swal.fire({
             title: '¿Estás seguro?',
             text: "¿Deseas anular esta venta? Esta acción no se puede deshacer",
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
+            confirmButtonColor: '#EF4444',
+            cancelButtonColor: '#6B7280',
             confirmButtonText: 'Sí, anular',
-            cancelButtonText: 'Cancelar'
+            cancelButtonText: 'Cancelar',
+            customClass: {
+                popup: 'rounded-lg',
+                confirmButton: 'px-4 py-2 rounded-md',
+                cancelButton: 'px-4 py-2 rounded-md'
+            }
         }).then((result) => {
             if (result.isConfirmed) {
                 realizarAnulacion(id);

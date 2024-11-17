@@ -15,6 +15,8 @@ if (!isset($_SESSION['user_id'])) {
 $user_id = $_SESSION['user_id'];
 $email = $_SESSION['email'];
 
+define('MAX_FILES', 10); // Máximo de imágenes permitidas por producto
+
 function obtenerCategorias()
 {
     global $pdo;
@@ -39,7 +41,10 @@ function obtenerProducto($codigo_barras, $user_id)
     $query = "SELECT i.*, 
                      GROUP_CONCAT(DISTINCT ip.id) as imagen_ids,
                      GROUP_CONCAT(DISTINCT ip.ruta) as imagen_rutas,
-                     GROUP_CONCAT(DISTINCT ip.es_principal) as imagen_principales
+                     GROUP_CONCAT(DISTINCT ip.es_principal) as imagen_principales,
+                     GROUP_CONCAT(DISTINCT ip.nombre_archivo) as imagen_nombres,
+                     GROUP_CONCAT(DISTINCT ip.tamano) as imagen_tamanos,
+                     GROUP_CONCAT(DISTINCT ip.tipo_mime) as imagen_tipos
               FROM inventario i
               LEFT JOIN imagenes_producto ip ON i.id = ip.producto_id
               WHERE i.codigo_barras = ? AND i.user_id = ?
@@ -174,13 +179,8 @@ function actualizarProducto($id, $codigo_barras, $nombre, $descripcion, $stock, 
                 }
 
                 $query = "INSERT INTO imagenes_producto (
-                    producto_id, 
-                    nombre_archivo, 
-                    ruta, 
-                    es_principal,
-                    tamano,
-                    tipo_mime,
-                    orden
+                    producto_id, nombre_archivo, ruta, es_principal,
+                    tamano, tipo_mime, orden
                 ) VALUES (
                     :producto_id,
                     :nombre_archivo,
@@ -204,22 +204,22 @@ function actualizarProducto($id, $codigo_barras, $nombre, $descripcion, $stock, 
             }
         }
 
-        // Registrar en historial
-        $query = "INSERT INTO historial_productos (producto_id, user_id, tipo_cambio, detalle) 
-                 VALUES (:producto_id, :user_id, 'modificacion', :detalle)";
-        
+        // Actualizar tiene_galeria basado en la existencia de imágenes
+        $query = "SELECT COUNT(*) FROM imagenes_producto WHERE producto_id = ?";
         $stmt = $pdo->prepare($query);
-        $stmt->execute([
-            ':producto_id' => $id,
-            ':user_id' => $user_id,
-            ':detalle' => json_encode([
-                'codigo_barras' => $codigo_barras,
-                'nombre' => $nombre,
-                'stock' => $stock,
-                'precio_costo' => $precio_costo,
-                'precio_venta' => $precio_venta
-            ])
-        ]);
+        $stmt->execute([$id]);
+        $tiene_galeria = (int)($stmt->fetchColumn() > 0);
+
+        $query = "UPDATE inventario SET tiene_galeria = ? WHERE id = ?";
+        $stmt = $pdo->prepare($query);
+        $stmt->execute([$tiene_galeria, $id]);
+
+        // Si no hay imágenes, limpiar imagen_principal
+        if ($tiene_galeria === 0) {
+            $query = "UPDATE inventario SET imagen_principal = NULL WHERE id = ?";
+            $stmt = $pdo->prepare($query);
+            $stmt->execute([$id]);
+        }
 
         $pdo->commit();
         return true;
@@ -301,14 +301,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['actualizar'])) {
             $_FILES['imagenes'] ?? [],
             $imagenes_eliminar,
             $user_id,
-            $precio_venta  // Pasar el precio_venta como parámetro
+            $precio_venta
         );
 
-        $message = "Producto actualizado exitosamente.";
-        $messageType = "success";
-        
-        // Recargar producto para mostrar cambios
-        $producto = obtenerProducto($codigo_barras, $user_id);
+        // Mostrar mensaje de éxito y redirigir
+        $_SESSION['message'] = "Producto actualizado exitosamente.";
+        $_SESSION['message_type'] = "success";
+        header("Location: index.php");
+        exit();
+
     } catch (Exception $e) {
         $message = $e->getMessage();
         $messageType = "error";
@@ -334,733 +335,582 @@ $imagenes = $producto ? obtenerImagenesProducto($producto['id']) : [];
     <title>Modificar Producto | VendEasy</title>
     <link rel="icon" type="image/png" href="/favicon/favicon.ico"/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="../../css/welcome.css">
     <link rel="stylesheet" href="../../css/modulos.css">
-    <style>
-        .producto-form {
-            background: #fff;
-            padding: 25px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .form-row {
-            display: flex;
-            flex-wrap: wrap;
-            margin: -10px;
-            margin-bottom: 15px;
-        }
-
-        .form-group {
-            padding: 10px;
-            margin-bottom: 15px;
-        }
-
-        .col-md-2 { width: 16.66%; }
-        .col-md-3 { width: 25%; }
-        .col-md-4 { width: 33.33%; }
-        .col-md-6 { width: 50%; }
-        .col-md-12 { width: 100%; }
-
-        .input-group {
-            display: flex;
-            align-items: center;
-        }
-
-        .input-group-text {
-            background: #f8f9fa;
-            padding: 8px 12px;
-            border: 1px solid #ced4da;
-            border-right: none;
-            border-radius: 4px 0 0 4px;
-        }
-
-        .input-group input {
-            border-radius: 0 4px 4px 0;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 8px 12px;
-            border: 1px solid #ced4da;
-            border-radius: 4px;
-            transition: border-color 0.15s ease-in-out;
-        }
-
-        .form-control:focus {
-            border-color: #80bdff;
-            outline: 0;
-            box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
-        }
-
-        .form-section {
-            background: #f8f9fa;
-            padding: 15px;
-            margin-bottom: 20px;
-            border-radius: 4px;
-            border-left: 4px solid #007bff;
-        }
-
-        .form-section-title {
-            margin: -15px -15px 15px -15px;
-            padding: 10px 15px;
-            background: #007bff;
-            color: white;
-            border-radius: 4px 4px 0 0;
-        }
-
-        .form-actions {
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #dee2e6;
-        }
-
-        .btn {
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.2s;
-        }
-
-        .btn i {
-            font-size: 16px;
-        }
-
-        .btn-primary {
-            background: #007bff;
-            color: white;
-            border: none;
-        }
-
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-            border: none;
-        }
-
-        .btn:hover {
-            opacity: 0.9;
-        }
-
-        .dropzone-container {
-            border: 2px dashed #ccc;
-            border-radius: 4px;
-            padding: 20px;
-            text-align: center;
-            background: #f8f9fa;
-            transition: all 0.3s ease;
-        }
-
-        .dropzone-container.dragover {
-            background: #e9ecef;
-            border-color: #007bff;
-        }
-
-        .dropzone-upload {
-            position: relative;
-            min-height: 150px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .file-input {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            opacity: 0;
-            cursor: pointer;
-        }
-
-        .upload-label {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-            color: #6c757d;
-        }
-
-        .upload-label i {
-            font-size: 2em;
-        }
-
-        .image-preview-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
-        .image-preview {
-            position: relative;
-            width: 150px;
-            height: 150px;
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        .image-preview img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .image-preview .remove-image {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            background: rgba(255, 255, 255, 0.8);
-            border-radius: 50%;
-            width: 25px;
-            height: 25px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            color: #dc3545;
-        }
-
-        .image-preview .main-image {
-            position: absolute;
-            top: 5px;
-            left: 5px;
-            background: rgba(255, 255, 255, 0.8);
-            border-radius: 3px;
-            padding: 2px 5px;
-            font-size: 0.8em;
-            color: #28a745;
-        }
-
-        .image-guidelines {
-            margin-top: 10px;
-            color: #6c757d;
-        }
-
-        .image-preview .image-size {
-            position: absolute;
-            bottom: 5px;
-            right: 5px;
-            background: rgba(255, 255, 255, 0.8);
-            border-radius: 3px;
-            padding: 2px 5px;
-            font-size: 0.8em;
-            color: #6c757d;
-        }
-
-        .dragover {
-            border-color: #28a745;
-            background-color: rgba(40, 167, 69, 0.1);
-        }
-
-        .image-preview {
-            transition: transform 0.2s ease;
-        }
-
-        .image-preview:hover {
-            transform: scale(1.05);
-        }
-
-        .remove-image:hover {
-            background: rgba(255, 255, 255, 1);
-            color: #dc3545;
-        }
-
-        .image-counter {
-            background: #f8f9fa;
-            padding: 8px;
-            border-radius: 4px;
-            margin-bottom: 10px;
-            border: 1px solid #dee2e6;
-            text-align: center;
-        }
-
-        .image-counter small {
-            color: #6c757d;
-            font-size: 0.9em;
-        }
-    </style>
 </head>
 
-<body>
-<?php include '../../includes/header.php'; ?>
-    <div class="container">
+<body class="bg-gray-50">
+    <?php include '../../includes/header.php'; ?>
+    
+    <div class="container mx-auto px-4">
         <?php include '../../includes/sidebar.php'; ?>
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                const currentUrl = window.location.pathname;
-                const sidebarLinks = document.querySelectorAll('.side_navbar a');
-                sidebarLinks.forEach(link => {
-                    if (link.getAttribute('href') === currentUrl) {
-                        link.classList.add('active');
-                    }
-                });
-            });
-        </script>
 
-        <div class="main-body">
-            <h2>Modificar Producto</h2>
-            <div class="promo_card">
-                <h1>Actualizar Información del Producto</h1>
-                <span>Modifique los detalles del producto seleccionado.</span>
+        <div class="main-body p-4">
+            <!-- Encabezado con breadcrumbs -->
+            <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-800 mb-2">Modificar Producto</h1>
+                        <nav class="text-gray-500 text-sm">
+                            <ol class="list-none p-0 inline-flex">
+                                <li class="flex items-center">
+                                    <a href="../inventario" class="hover:text-blue-600">Inventario</a>
+                                    <svg class="w-3 h-3 mx-2" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"/>
+                                    </svg>
+                                </li>
+                                <li class="text-gray-700">Modificar Producto</li>
+                            </ol>
+                        </nav>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm text-gray-600">Última modificación:</p>
+                        <p class="text-sm font-medium"><?= date('d/m/Y H:i', strtotime($producto['fecha_modificacion'])) ?></p>
+                    </div>
+                </div>
             </div>
 
             <?php if (!empty($message)): ?>
-                <div class="alert <?= $messageType === 'success' ? 'alert-success' : 'alert-danger' ?>">
-                    <?= htmlspecialchars($message); ?>
+                <div class="<?= $messageType === 'success' ? 'bg-green-100 border-l-4 border-green-500 text-green-700' : 'bg-red-100 border-l-4 border-red-500 text-red-700' ?> p-4 mb-6 rounded-r">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <?php if ($messageType === 'success'): ?>
+                                <svg class="h-5 w-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"/>
+                                </svg>
+                            <?php else: ?>
+                                <svg class="h-5 w-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"/>
+                                </svg>
+                            <?php endif; ?>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm font-medium"><?= htmlspecialchars($message); ?></p>
+                        </div>
+                    </div>
                 </div>
             <?php endif; ?>
 
             <?php if ($producto): ?>
-                <div class="history_lists">
-                    <div class="list1">
-                        <form method="POST" action="" class="producto-form" enctype="multipart/form-data">
-                            <input type="hidden" name="id" value="<?= htmlspecialchars($producto['id']) ?>">
-                            <input type="hidden" name="actualizar" value="1">
-                            <input type="hidden" name="imagenes_eliminar" id="imagenes_eliminar" value="">
+                <form method="POST" action="" class="space-y-6" enctype="multipart/form-data">
+                    <input type="hidden" name="id" value="<?= htmlspecialchars($producto['id']) ?>">
+                    <input type="hidden" name="actualizar" value="1">
+                    <input type="hidden" name="imagenes_eliminar" id="imagenes_eliminar" value="">
 
-                            <!-- Sección de Información Básica -->
-                            <div class="form-section">
-                                <div class="form-section-title">
-                                    <i class="fas fa-info-circle"></i> Información Básica
+                    <!-- Tarjeta de Información Básica -->
+                    <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                        <div class="border-b border-gray-200 bg-gray-50 px-4 py-3">
+                            <h2 class="text-lg font-medium text-gray-900 flex items-center">
+                                <i class="fas fa-info-circle text-blue-500 mr-2"></i>
+                                Información Básica
+                            </h2>
+                        </div>
+                        <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Código de Barras -->
+                            <div class="col-span-1">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Código de Barras *
+                                </label>
+                                <div class="flex rounded-md shadow-sm">
+                                    <input type="text" 
+                                           id="codigo_barras" 
+                                           name="codigo_barras"
+                                           value="<?= htmlspecialchars($producto['codigo_barras']) ?>"
+                                           class="flex-1 min-w-0 block w-full px-3 py-2 rounded-l-md border border-gray-300 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                           required>
+                                    <button type="button" 
+                                            class="inline-flex items-center px-4 py-2 border border-l-0 border-gray-300 text-sm font-medium rounded-r-md text-gray-700 bg-gray-50 hover:bg-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                            id="generarCodigo">
+                                        <i class="fas fa-barcode"></i>
+                                    </button>
                                 </div>
-                                <div class="form-row">
-                                    <div class="form-group col-md-4">
-                                        <label for="codigo_barras">Código de Barras: *</label>
-                                        <div class="input-group">
-                                            <input type="text" id="codigo_barras" name="codigo_barras" 
-                                                   value="<?= htmlspecialchars($producto['codigo_barras']) ?>" 
-                                                   required class="form-control" pattern="[0-9]{8,13}">
-                                            <button type="button" class="btn btn-outline-secondary" id="generarCodigo">
-                                                <i class="fas fa-barcode"></i>
-                                            </button>
+                                <p class="mt-1 text-xs text-gray-500">El código debe tener entre 8 y 13 dígitos</p>
+                            </div>
+
+                            <!-- Nombre del Producto -->
+                            <div class="col-span-1">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Nombre del Producto *
+                                </label>
+                                <input type="text" 
+                                       id="nombre" 
+                                       name="nombre"
+                                       value="<?= htmlspecialchars($producto['nombre']) ?>"
+                                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                       required>
+                            </div>
+
+                            <!-- Descripción -->
+                            <div class="col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Descripción
+                                </label>
+                                <textarea id="descripcion" 
+                                          name="descripcion"
+                                          rows="3"
+                                          class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                                          placeholder="Describe las características del producto..."><?= htmlspecialchars($producto['descripcion']) ?></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tarjeta de Inventario -->
+                    <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                        <div class="border-b border-gray-200 bg-gray-50 px-4 py-3">
+                            <h2 class="text-lg font-medium text-gray-900 flex items-center">
+                                <i class="fas fa-box text-blue-500 mr-2"></i>
+                                Control de Inventario
+                            </h2>
+                        </div>
+                        <div class="p-6">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <!-- Stock Actual -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                                        Stock Actual *
+                                    </label>
+                                    <div class="mt-1 relative rounded-md shadow-sm">
+                                        <input type="number"
+                                               id="stock"
+                                               name="stock"
+                                               value="<?= htmlspecialchars($producto['stock']) ?>"
+                                               class="block w-full pr-10 border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                               required
+                                               min="0">
+                                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                            <span class="text-gray-500 sm:text-sm">
+                                                unid
+                                            </span>
                                         </div>
                                     </div>
-                                    
-                                    <div class="form-group col-md-8">
-                                        <label for="nombre">Nombre del Producto: *</label>
-                                        <input type="text" id="nombre" name="nombre" 
-                                               value="<?= htmlspecialchars($producto['nombre']) ?>" 
-                                               required class="form-control">
+                                </div>
+
+                                <!-- Stock Mínimo -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                                        Stock Mínimo *
+                                    </label>
+                                    <div class="mt-1 relative rounded-md shadow-sm">
+                                        <input type="number"
+                                               id="stock_minimo"
+                                               name="stock_minimo"
+                                               value="<?= htmlspecialchars($producto['stock_minimo']) ?>"
+                                               class="block w-full pr-10 border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                               required
+                                               min="0">
+                                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                            <span class="text-gray-500 sm:text-sm">
+                                                unid
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div class="form-row">
-                                    <div class="form-group col-md-12">
-                                        <label for="descripcion">Descripción:</label>
-                                        <textarea id="descripcion" name="descripcion" class="form-control" 
-                                                  rows="3"><?= htmlspecialchars($producto['descripcion']) ?></textarea>
+                                <!-- Unidad de Medida -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                                        Unidad de Medida *
+                                    </label>
+                                    <select id="unidad_medida"
+                                            name="unidad_medida"
+                                            class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md sm:text-sm"
+                                            required>
+                                        <option value="">Seleccione...</option>
+                                        <?php foreach (['UNIDAD', 'KG', 'GR', 'LT', 'MT', 'CM'] as $unidad): ?>
+                                            <option value="<?= $unidad ?>" 
+                                                <?= $producto['unidad_medida'] === $unidad ? 'selected' : '' ?>>
+                                                <?= $unidad ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Indicador de Stock -->
+                            <div class="mt-6">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-sm font-medium text-gray-700">Nivel de Stock</span>
+                                    <span class="text-sm text-gray-500">
+                                        <?= $producto['stock'] ?> de <?= max($producto['stock'], $producto['stock_minimo'] * 2) ?>
+                                    </span>
+                                </div>
+                                <?php
+                                $stockLevel = ($producto['stock'] / max($producto['stock_minimo'] * 2, 1)) * 100;
+                                $barColor = $stockLevel > 50 ? 'bg-green-500' : ($stockLevel > 25 ? 'bg-yellow-500' : 'bg-red-500');
+                                ?>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="<?= $barColor ?> h-2 rounded-full" style="width: <?= min($stockLevel, 100) ?>%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tarjeta de Precios -->
+                    <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                        <div class="border-b border-gray-200 bg-gray-50 px-4 py-3">
+                            <h2 class="text-lg font-medium text-gray-900 flex items-center">
+                                <i class="fas fa-dollar-sign text-blue-500 mr-2"></i>
+                                Información de Precios
+                            </h2>
+                        </div>
+                        <div class="p-6">
+                            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                <!-- Precio Costo -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                                        Precio Costo *
+                                    </label>
+                                    <div class="mt-1 relative rounded-md shadow-sm">
+                                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <span class="text-gray-500 sm:text-sm">$</span>
+                                        </div>
+                                        <input type="number" 
+                                               step="0.01" 
+                                               id="precio_costo" 
+                                               name="precio_costo"
+                                               value="<?= htmlspecialchars($producto['precio_costo']) ?>"
+                                               class="block w-full pl-7 pr-12 border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                               required>
+                                    </div>
+                                </div>
+
+                                <!-- Margen de Ganancia -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                                        Margen (%) *
+                                    </label>
+                                    <div class="mt-1 relative rounded-md shadow-sm">
+                                        <input type="number" 
+                                               step="0.01" 
+                                               id="margen_ganancia" 
+                                               name="margen_ganancia"
+                                               value="<?= htmlspecialchars($producto['margen_ganancia']) ?>"
+                                               class="block w-full pr-10 border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                               required>
+                                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                            <span class="text-gray-500 sm:text-sm">%</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- IVA -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                                        IVA (%) *
+                                    </label>
+                                    <div class="mt-1 relative rounded-md shadow-sm">
+                                        <input type="number" 
+                                               step="0.01" 
+                                               id="impuesto" 
+                                               name="impuesto"
+                                               value="<?= htmlspecialchars($producto['impuesto']) ?>"
+                                               class="block w-full pr-10 border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                               required>
+                                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                            <span class="text-gray-500 sm:text-sm">%</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Precio Venta -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                                        Precio Venta
+                                    </label>
+                                    <div class="mt-1 relative rounded-md shadow-sm">
+                                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <span class="text-gray-500 sm:text-sm">$</span>
+                                        </div>
+                                        <input type="number" 
+                                               step="0.01" 
+                                               id="precio_venta" 
+                                               name="precio_venta"
+                                               value="<?= htmlspecialchars($producto['precio_venta']) ?>"
+                                               class="block w-full pl-7 pr-12 border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Sección de Inventario -->
-                            <div class="form-section">
-                                <div class="form-section-title">
-                                    <i class="fas fa-box"></i> Información de Inventario
+                            <!-- Indicador de Margen -->
+                            <div class="mt-6">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-sm font-medium text-gray-700">Margen de Ganancia</span>
+                                    <span class="text-sm text-gray-500">
+                                        <?= number_format($producto['margen_ganancia'], 2) ?>%
+                                    </span>
                                 </div>
-                                <div class="form-row">
-                                    <div class="form-group col-md-4">
-                                        <label for="stock">Stock: *</label>
-                                        <input type="number" id="stock" name="stock" 
-                                               value="<?= htmlspecialchars($producto['stock']) ?>" 
-                                               required class="form-control" min="0">
-                                    </div>
-                                    
-                                    <div class="form-group col-md-4">
-                                        <label for="stock_minimo">Stock Mínimo: *</label>
-                                        <input type="number" id="stock_minimo" name="stock_minimo" 
-                                               value="<?= htmlspecialchars($producto['stock_minimo']) ?>" 
-                                               required class="form-control" min="0">
-                                    </div>
-
-                                    <div class="form-group col-md-4">
-                                        <label for="unidad_medida">Unidad de Medida: *</label>
-                                        <select id="unidad_medida" name="unidad_medida" required class="form-control">
-                                            <option value="">Seleccione...</option>
-                                            <?php
-                                            $unidades = ['UNIDAD', 'KG', 'GR', 'LT', 'MT', 'CM'];
-                                            foreach ($unidades as $unidad): ?>
-                                                <option value="<?= $unidad ?>" 
-                                                    <?= $producto['unidad_medida'] === $unidad ? 'selected' : '' ?>>
-                                                    <?= $unidad ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                        </select>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-blue-500 h-2 rounded-full" 
+                                         style="width: <?= min($producto['margen_ganancia'], 100) ?>%">
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
 
-                            <!-- Sección de Precios -->
-                            <div class="form-section">
-                                <div class="form-section-title">
-                                    <i class="fas fa-dollar-sign"></i> Información de Precios
+                    <!-- Tarjeta de Clasificación -->
+                    <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                        <div class="border-b border-gray-200 bg-gray-50 px-4 py-3">
+                            <h2 class="text-lg font-medium text-gray-900 flex items-center">
+                                <i class="fas fa-tags text-blue-500 mr-2"></i>
+                                Clasificación
+                            </h2>
+                        </div>
+                        <div class="p-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <!-- Categoría -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                                        Categoría *
+                                    </label>
+                                    <select id="categoria" 
+                                            name="categoria"
+                                            class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md sm:text-sm"
+                                            required>
+                                        <option value="">Seleccione una categoría...</option>
+                                        <?php foreach ($categorias as $categoria): ?>
+                                            <option value="<?= htmlspecialchars($categoria['id']) ?>" 
+                                                <?= $producto['categoria_id'] == $categoria['id'] ? 'selected' : '' ?>>
+                                                <?= htmlspecialchars($categoria['nombre']) ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
                                 </div>
-                                <div class="form-row">
-                                    <div class="form-group col-md-3">
-                                        <label for="precio_costo">Precio Costo: *</label>
-                                        <div class="input-group">
-                                            <span class="input-group-text">$</span>
-                                            <input type="number" step="0.01" id="precio_costo" name="precio_costo" 
-                                                   value="<?= htmlspecialchars($producto['precio_costo']) ?>" 
-                                                   required class="form-control" min="0">
-                                        </div>
-                                    </div>
 
-                                    <div class="form-group col-md-3">
-                                        <label for="margen_ganancia">Margen (%): *</label>
-                                        <div class="input-group">
-                                            <input type="number" step="0.01" id="margen_ganancia" name="margen_ganancia" 
-                                                   value="<?= htmlspecialchars($producto['margen_ganancia']) ?>" 
-                                                   required class="form-control" min="0">
-                                            <span class="input-group-text">%</span>
-                                        </div>
-                                    </div>
+                                <!-- Departamento -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                                        Departamento *
+                                    </label>
+                                    <select id="departamento" 
+                                            name="departamento"
+                                            class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md sm:text-sm"
+                                            required>
+                                        <option value="">Seleccione un departamento...</option>
+                                        <?php foreach ($departamentos as $departamento): ?>
+                                            <option value="<?= htmlspecialchars($departamento['id']) ?>" 
+                                                <?= $producto['departamento_id'] == $departamento['id'] ? 'selected' : '' ?>>
+                                                <?= htmlspecialchars($departamento['nombre']) ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
-                                    <div class="form-group col-md-3">
-                                        <label for="impuesto">IVA (%): *</label>
-                                        <div class="input-group">
-                                            <input type="number" step="0.01" id="impuesto" name="impuesto" 
-                                                   value="<?= htmlspecialchars($producto['impuesto']) ?>" 
-                                                   required class="form-control">
-                                            <span class="input-group-text">%</span>
-                                        </div>
-                                    </div>
+                    <!-- Tarjeta de Galería de Imágenes -->
+                    <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                        <div class="border-b border-gray-200 bg-gray-50 px-4 py-3">
+                            <h2 class="text-lg font-medium text-gray-900 flex items-center">
+                                <i class="fas fa-images text-blue-500 mr-2"></i>
+                                Galería de Imágenes
+                            </h2>
+                        </div>
+                        <div class="p-6">
+                            <!-- Contador de Imágenes -->
+                            <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm font-medium text-gray-700">
+                                        Imágenes actuales: <span class="font-bold"><?= count($imagenes) ?></span>
+                                    </span>
+                                    <span class="text-sm text-gray-500">
+                                        Máximo: <?= MAX_FILES ?> imágenes
+                                    </span>
+                                </div>
+                            </div>
 
-                                    <div class="form-group col-md-3">
-                                        <label for="precio_venta">Precio Venta:</label>
-                                        <div class="input-group">
-                                            <span class="input-group-text">$</span>
-                                            <input type="number" 
-                                                   step="0.01" 
-                                                   id="precio_venta" 
-                                                   name="precio_venta"
-                                                   value="<?= htmlspecialchars($producto['precio_venta']) ?>" 
-                                                   class="form-control">
+                            <!-- Imagen Principal -->
+                            <?php if ($producto['imagen_principal']): ?>
+                            <div class="mb-6">
+                                <label class="block text-sm font-medium text-gray-700 mb-4">
+                                    Imagen Principal
+                                </label>
+                                <div class="relative group">
+                                    <div class="aspect-w-16 aspect-h-9 w-full overflow-hidden rounded-lg bg-gray-200">
+                                        <img src="../../<?= htmlspecialchars($producto['imagen_principal']) ?>" 
+                                             alt="Imagen principal"
+                                             class="h-full w-full object-cover object-center">
+                                        <div class="absolute top-2 left-2">
+                                            <span class="px-2 py-1 bg-blue-500 text-white text-xs rounded-md">
+                                                Principal
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
                             </div>
+                            <?php endif; ?>
 
-                            <!-- Sección de Clasificación -->
-                            <div class="form-section">
-                                <div class="form-section-title">
-                                    <i class="fas fa-tags"></i> Clasificación
-                                </div>
-                                <div class="form-row">
-                                    <div class="form-group col-md-6">
-                                        <label for="categoria">Categoría: *</label>
-                                        <select id="categoria" name="categoria" required class="form-control">
-                                            <option value="">Seleccione una categoría...</option>
-                                            <?php foreach ($categorias as $categoria): ?>
-                                                <option value="<?= htmlspecialchars($categoria['id']) ?>" 
-                                                    <?= $producto['categoria_id'] == $categoria['id'] ? 'selected' : '' ?>>
-                                                    <?= htmlspecialchars($categoria['nombre']) ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </div>
-
-                                    <div class="form-group col-md-6">
-                                        <label for="departamento">Departamento: *</label>
-                                        <select id="departamento" name="departamento" required class="form-control">
-                                            <option value="">Seleccione un departamento...</option>
-                                            <?php foreach ($departamentos as $departamento): ?>
-                                                <option value="<?= htmlspecialchars($departamento['id']) ?>" 
-                                                    <?= $producto['departamento_id'] == $departamento['id'] ? 'selected' : '' ?>>
-                                                    <?= htmlspecialchars($departamento['nombre']) ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Sección de Imágenes -->
-                            <div class="form-section">
-                                <div class="form-section-title">
-                                    <i class="fas fa-images"></i> Galería de Imágenes
-                                </div>
-                                <div class="form-row">
-                                    <div class="form-group col-md-12">
-                                        <!-- Mostrar imágenes existentes -->
-                                        <div id="imagenesExistentes" class="image-preview-container">
-                                            <?php foreach ($imagenes as $imagen): ?>
-                                                <div class="image-preview" data-id="<?= $imagen['id'] ?>">
-                                                    <img src="../../<?= htmlspecialchars($imagen['ruta']) ?>" 
-                                                         alt="Imagen del producto">
-                                                    <span class="remove-image" onclick="marcarImagenParaEliminar(<?= $imagen['id'] ?>)">
-                                                        <i class="fas fa-times"></i>
-                                                    </span>
-                                                    <?php if ($imagen['es_principal']): ?>
-                                                        <span class="main-image">Principal</span>
+                            <!-- Galería de Imágenes -->
+                            <?php if ($producto['tiene_galeria']): ?>
+                            <div class="mb-6">
+                                <label class="block text-sm font-medium text-gray-700 mb-4">
+                                    Galería de Imágenes
+                                </label>
+                                <div id="imagenesExistentes" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                    <?php foreach ($imagenes as $imagen): ?>
+                                        <div class="relative group" data-id="<?= $imagen['id'] ?>">
+                                            <div class="aspect-w-1 aspect-h-1 w-full overflow-hidden rounded-lg bg-gray-200">
+                                                <img src="../../<?= htmlspecialchars($imagen['ruta']) ?>" 
+                                                     alt="<?= htmlspecialchars($imagen['nombre_archivo']) ?>"
+                                                     class="h-full w-full object-cover object-center">
+                                                
+                                                <!-- Overlay con acciones -->
+                                                <div class="absolute inset-0 bg-black bg-opacity-40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-2">
+                                                    <button type="button" 
+                                                            onclick="marcarImagenParaEliminar(<?= $imagen['id'] ?>)"
+                                                            class="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 focus:outline-none">
+                                                        <i class="fas fa-trash-alt"></i>
+                                                    </button>
+                                                    <?php if (!$imagen['es_principal']): ?>
+                                                        <button type="button"
+                                                                onclick="establecerImagenPrincipal(<?= $imagen['id'] ?>)"
+                                                                class="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600 focus:outline-none">
+                                                            <i class="fas fa-star"></i>
+                                                        </button>
                                                     <?php endif; ?>
-                                                    <span class="image-size">
-                                                        <?= round($imagen['tamano'] / (1024 * 1024), 2) ?>MB
+                                                </div>
+
+                                                <!-- Indicadores -->
+                                                <div class="absolute top-2 left-2 flex flex-col gap-1">
+                                                    <?php if ($imagen['es_principal']): ?>
+                                                        <span class="px-2 py-1 bg-blue-500 text-white text-xs rounded-md">
+                                                            Principal
+                                                        </span>
+                                                    <?php endif; ?>
+                                                    <span class="px-2 py-1 bg-gray-800 bg-opacity-75 text-white text-xs rounded-md">
+                                                        <?= number_format($imagen['tamano'] / (1024 * 1024), 2) ?> MB
                                                     </span>
                                                 </div>
-                                            <?php endforeach; ?>
-                                        </div>
-
-                                        <!-- Subir nuevas imágenes -->
-                                        <div class="dropzone-container">
-                                            <div id="imagePreviewContainer" class="image-preview-container"></div>
-                                            <div class="dropzone-upload">
-                                                <input type="file" id="imageUpload" name="imagenes[]" 
-                                                       multiple accept="image/*" class="file-input" />
-                                                <label for="imageUpload" class="upload-label">
-                                                    <i class="fas fa-cloud-upload-alt"></i>
-                                                    <span>Arrastra nuevas imágenes aquí o haz clic para seleccionar</span>
-                                                </label>
                                             </div>
                                         </div>
-                                        <div class="image-guidelines">
-                                            <small>
-                                                * Formatos permitidos: JPG, PNG, WEBP<br>
-                                                * Tamaño máximo por imagen: 25MB<br>
-                                                * Puedes tener hasta 10 imágenes en total<br>
-                                                * La primera imagen será la principal<br>
-                                                * Se permiten imágenes en alta resolución (4K)
-                                            </small>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                            <?php endif; ?>
+
+                            <!-- Subir Nuevas Imágenes -->
+                            <div class="mt-6">
+                                <label class="block text-sm font-medium text-gray-700 mb-4">
+                                    Agregar Nuevas Imágenes
+                                </label>
+                                <div class="dropzone-container border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-blue-500 transition-colors">
+                                    <div class="text-center">
+                                        <div class="mt-1 flex justify-center">
+                                            <div class="space-y-1 text-center">
+                                                <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                                                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                                </svg>
+                                                <div class="flex text-sm text-gray-600">
+                                                    <label for="imageUpload" class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500">
+                                                        <span>Seleccionar archivos</span>
+                                                        <input id="imageUpload" 
+                                                               name="imagenes[]" 
+                                                               type="file" 
+                                                               multiple 
+                                                               accept="image/*" 
+                                                               class="sr-only">
+                                                    </label>
+                                                    <p class="pl-1">o arrastrar y soltar</p>
+                                                </div>
+                                                <p class="text-xs text-gray-500">
+                                                    PNG, JPG, WEBP hasta <?= MAX_FILES ?> archivos
+                                                </p>
+                                            </div>
                                         </div>
+                                    </div>
+                                    <div id="imagePreviewContainer" class="mt-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                        <!-- Las previsualizaciones se agregarán aquí dinámicamente -->
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="form-actions">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-save"></i> Guardar Cambios
-                                </button>
-                                <a href="index.php" class="btn btn-secondary">
-                                    <i class="fas fa-times"></i> Cancelar
+                            <!-- Guía de Imágenes -->
+                            <div class="mt-4 bg-blue-50 rounded-lg p-4">
+                                <h4 class="text-sm font-medium text-blue-800 mb-2">Guía para las imágenes:</h4>
+                                <ul class="text-sm text-blue-700 space-y-1">
+                                    <li class="flex items-center">
+                                        <i class="fas fa-check-circle mr-2"></i>
+                                        Formatos permitidos: JPG, PNG, WEBP
+                                    </li>
+                                    <li class="flex items-center">
+                                        <i class="fas fa-check-circle mr-2"></i>
+                                        Tamaño máximo por imagen: 25MB
+                                    </li>
+                                    <li class="flex items-center">
+                                        <i class="fas fa-check-circle mr-2"></i>
+                                        Máximo <?= MAX_FILES ?> imágenes por producto
+                                    </li>
+                                    <li class="flex items-center">
+                                        <i class="fas fa-check-circle mr-2"></i>
+                                        La primera imagen será la principal por defecto
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Botones de Acción -->
+                    <div class="flex justify-end space-x-3 bg-gray-50 px-6 py-4 rounded-lg">
+                        <a href="index.php" 
+                           class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            <i class="fas fa-times mr-2"></i>
+                            Cancelar
+                        </a>
+                        <button type="submit" 
+                                class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            <i class="fas fa-save mr-2"></i>
+                            Guardar Cambios
+                        </button>
+                    </div>
+                </form>
+            <?php else: ?>
+                <div class="bg-red-50 border-l-4 border-red-400 p-4 rounded">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium text-red-800">
+                                No se encontró el producto
+                            </h3>
+                            <p class="mt-2 text-sm text-red-700">
+                                El producto solicitado no existe o no tienes permisos para modificarlo.
+                            </p>
+                            <div class="mt-4">
+                                <a href="index.php" class="text-sm font-medium text-red-800 hover:text-red-900">
+                                    Volver al inventario <span aria-hidden="true">&rarr;</span>
                                 </a>
                             </div>
-                        </form>
+                        </div>
                     </div>
-                </div>
-            <?php else: ?>
-                <div class="alert alert-danger">
-                    No se encontró el producto o no tiene permisos para modificarlo.
                 </div>
             <?php endif; ?>
         </div>
     </div>
 
+    <!-- Scripts -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Constantes
         const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
-        const MAX_FILES = 10;
+        const MAX_FILES = <?= MAX_FILES ?>; // Usar la constante PHP
         const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
         let imagenesToDelete = [];
+        let uploadedFiles = [];
         
         // Elementos del DOM
-        const elements = {
-            precioCosto: document.getElementById('precio_costo'),
-            margenGanancia: document.getElementById('margen_ganancia'),
-            impuesto: document.getElementById('impuesto'),
-            precioVenta: document.getElementById('precio_venta'),
-            imageUpload: document.getElementById('imageUpload'),
-            imagePreview: document.getElementById('imagePreviewContainer'),
-            dropzone: document.querySelector('.dropzone-container'),
-            form: document.querySelector('.producto-form'),
-            imagenesEliminar: document.getElementById('imagenes_eliminar')
-        };
+        const dropZone = document.querySelector('.dropzone-container');
+        const fileInput = document.getElementById('imageUpload');
+        const previewContainer = document.getElementById('imagePreviewContainer');
+        const imagenesEliminarInput = document.getElementById('imagenes_eliminar');
 
-        let uploadedFiles = [];
-
-        // Calculadora de precio
-        const calculadora = {
-            calcularPrecioVenta() {
-                const precioCosto = parseFloat(elements.precioCosto.value) || 0;
-                const margenGanancia = parseFloat(elements.margenGanancia.value) || 0;
-                const impuesto = parseFloat(elements.impuesto.value) || 0;
-                
-                if (precioCosto <= 0) return;
-                
-                // Solo calcular si no hay un precio de venta establecido
-                if (!elements.precioVenta.value) {
-                    const precioBase = precioCosto * (1 + (margenGanancia / 100));
-                    const precioVenta = precioBase * (1 + (impuesto / 100));
-                    elements.precioVenta.value = precioVenta.toFixed(2);
-                }
-            },
-
-            calcularMargenDesdeVenta() {
-                const precioCosto = parseFloat(elements.precioCosto.value) || 0;
-                const precioVenta = parseFloat(elements.precioVenta.value) || 0;
-                const impuesto = parseFloat(elements.impuesto.value) || 0;
-
-                if (precioCosto <= 0 || precioVenta <= 0) return;
-
-                // Calcular el margen necesario para llegar al precio de venta exacto
-                const precioSinImpuesto = precioVenta / (1 + (impuesto / 100));
-                const margen = ((precioSinImpuesto / precioCosto) - 1) * 100;
-                
-                // Actualizar solo el margen, manteniendo el precio de venta intacto
-                elements.margenGanancia.value = margen.toFixed(2);
-            },
-            
-            inicializar() {
-                // Remover el atributo readonly del campo precio_venta
-                elements.precioVenta.removeAttribute('readonly');
-
-                // Eventos para cálculo automático
-                elements.precioCosto.addEventListener('input', () => {
-                    if (!elements.precioVenta.value) {
-                        this.calcularPrecioVenta();
-                    } else {
-                        this.calcularMargenDesdeVenta();
-                    }
-                });
-
-                elements.margenGanancia.addEventListener('input', () => {
-                    if (!elements.precioVenta.value) {
-                        this.calcularPrecioVenta();
-                    }
-                });
-
-                elements.impuesto.addEventListener('input', () => {
-                    if (!elements.precioVenta.value) {
-                        this.calcularPrecioVenta();
-                    } else {
-                        this.calcularMargenDesdeVenta();
-                    }
-                });
-                
-                // Evento para calcular el margen cuando se modifica el precio de venta
-                elements.precioVenta.addEventListener('input', () => {
-                    this.calcularMargenDesdeVenta();
-                });
-            }
-        };
-
-        // Manejador de imágenes
-        const imageHandler = {
-            validarArchivo(file) {
-                if (!ALLOWED_TYPES.includes(file.type)) {
-                    throw new Error(`Tipo de archivo no permitido. Use: ${ALLOWED_TYPES.map(t => t.split('/')[1]).join(', ')}`);
-                }
-                if (file.size > MAX_FILE_SIZE) {
-                    throw new Error(`El archivo excede el tamaño máximo de ${MAX_FILE_SIZE/1024/1024}MB`);
-                }
-            },
-
-            async procesarArchivo(file) {
-                return new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = e => resolve(e.target.result);
-                    reader.onerror = () => reject(new Error('Error al leer el archivo'));
-                    reader.readAsDataURL(file);
-                });
-            },
-
-            crearPreview(src, index) {
-                const div = document.createElement('div');
-                div.className = 'image-preview';
-                div.innerHTML = `
-                    <img src="${src}" alt="Preview ${index + 1}">
-                    <span class="remove-image" data-index="${index}">
-                        <i class="fas fa-times"></i>
-                    </span>
-                    <span class="image-size">${(uploadedFiles[index].size / (1024 * 1024)).toFixed(2)}MB</span>
-                `;
-                return div;
-            },
-
-            async actualizarPreviews() {
-                elements.imagePreview.innerHTML = '';
-                for (let i = 0; i < uploadedFiles.length; i++) {
-                    try {
-                        const src = await this.procesarArchivo(uploadedFiles[i]);
-                        const preview = this.crearPreview(src, i);
-                        elements.imagePreview.appendChild(preview);
-                        
-                        preview.querySelector('.remove-image').addEventListener('click', () => {
-                            uploadedFiles.splice(i, 1);
-                            this.actualizarPreviews();
-                        });
-                    } catch (error) {
-                        console.error('Error al procesar imagen:', error);
-                    }
-                }
-            },
-
-            async manejarArchivos(files) {
-                // Obtener el número actual de imágenes existentes (no marcadas para eliminar)
-                const imagenesExistentes = document.querySelectorAll('#imagenesExistentes .image-preview:not([style*="display: none"])').length;
-                
-                // Calcular el total de imágenes después de agregar las nuevas
-                const totalImagenes = imagenesExistentes + uploadedFiles.length + files.length;
-                
-                if (totalImagenes > MAX_FILES) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Límite de imágenes excedido',
-                        text: `Solo puedes tener hasta ${MAX_FILES} imágenes en total. Actualmente tienes ${imagenesExistentes} imagen(es) y estás intentando agregar ${files.length} más.`,
-                        footer: `Puedes eliminar algunas imágenes existentes antes de agregar nuevas.`
-                    });
-                    return;
-                }
-
-                let errores = [];
-                for (const file of files) {
-                    try {
-                        this.validarArchivo(file);
-                        uploadedFiles.push(file);
-                    } catch (error) {
-                        errores.push(`${file.name}: ${error.message}`);
-                    }
-                }
-
-                if (errores.length > 0) {
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Algunas imágenes no se pudieron agregar',
-                        html: errores.join('<br>'),
-                        footer: 'Solo se agregaron las imágenes válidas'
-                    });
-                }
-
-                await this.actualizarPreviews();
-            }
-        };
-
-        // Manejador de Drag & Drop
-        const dragDropHandler = {
-            inicializar() {
-                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(event => {
-                    elements.dropzone.addEventListener(event, this.prevenirDefecto);
-                    document.body.addEventListener(event, this.prevenirDefecto);
-                });
-
-                ['dragenter', 'dragover'].forEach(event => {
-                    elements.dropzone.addEventListener(event, () => elements.dropzone.classList.add('dragover'));
-                });
-
-                ['dragleave', 'drop'].forEach(event => {
-                    elements.dropzone.addEventListener(event, () => elements.dropzone.classList.remove('dragover'));
-                });
-
-                elements.dropzone.addEventListener('drop', e => {
-                    imageHandler.manejarArchivos(e.dataTransfer.files);
-                });
-            },
-
-            prevenirDefecto(e) {
-                e.preventDefault();
-                e.stopPropagation();
-            }
-        };
-
-        // Marcar imágenes para eliminar
+        // Función para manejar la eliminación de imágenes existentes
         window.marcarImagenParaEliminar = function(imagenId) {
             Swal.fire({
                 title: '¿Eliminar imagen?',
@@ -1073,19 +923,23 @@ $imagenes = $producto ? obtenerImagenesProducto($producto['id']) : [];
                 cancelButtonText: 'Cancelar'
             }).then((result) => {
                 if (result.isConfirmed) {
+                    const imagen = document.querySelector(`[data-id="${imagenId}"]`);
+                    if (imagen) {
+                        imagen.style.opacity = '0.5';
+                        imagen.style.pointerEvents = 'none';
                     imagenesToDelete.push(imagenId);
-                    elements.imagenesEliminar.value = JSON.stringify(imagenesToDelete);
-                    document.querySelector(`.image-preview[data-id="${imagenId}"]`).style.display = 'none';
+                        imagenesEliminarInput.value = JSON.stringify(imagenesToDelete);
                     actualizarContadorImagenes();
+                    }
                 }
             });
         };
 
-        // Establecer imagen principal
+        // Función para establecer imagen principal
         window.establecerImagenPrincipal = function(imagenId) {
             Swal.fire({
                 title: '¿Establecer como principal?',
-                text: "Esta imagen será la que se muestre primero",
+                text: "Esta será la imagen destacada del producto",
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#3085d6',
@@ -1094,158 +948,145 @@ $imagenes = $producto ? obtenerImagenesProducto($producto['id']) : [];
                 cancelButtonText: 'Cancelar'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    $.ajax({
-                        url: 'actualizar_imagen_principal.php',
+                    const formData = new FormData();
+                    formData.append('imagen_id', imagenId);
+                    formData.append('producto_id', document.querySelector('[name="id"]').value);
+
+                    fetch('actualizar_imagen_principal.php', {
                         method: 'POST',
-                        data: {
-                            producto_id: document.querySelector('[name="id"]').value,
-                            imagen_id: imagenId
-                        },
-                        success: function(response) {
-                            if (response.success) {
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
                                 location.reload();
                             } else {
-                                Swal.fire('Error', response.message, 'error');
-                            }
-                        },
-                        error: function() {
-                            Swal.fire('Error', 'No se pudo actualizar la imagen principal', 'error');
+                            throw new Error(data.message || 'Error al actualizar');
                         }
+                    })
+                    .catch(error => {
+                        Swal.fire('Error', error.message, 'error');
                     });
                 }
             });
         };
 
-        // Validación del formulario
-        const formValidator = {
-            inicializar() {
-                elements.form.addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    if (this.validarFormulario()) {
-                        Swal.fire({
-                            title: '¿Guardar cambios?',
-                            text: "¿Está seguro de actualizar la información del producto?",
-                            icon: 'question',
-                            showCancelButton: true,
-                            confirmButtonColor: '#3085d6',
-                            cancelButtonColor: '#d33',
-                            confirmButtonText: 'Sí, guardar',
-                            cancelButtonText: 'Cancelar'
-                        }).then((result) => {
-                            if (result.isConfirmed) {
-                                elements.form.submit();
-                            }
-                        });
-                    }
-                });
-            },
-
-            validarFormulario() {
-                // Contar imágenes existentes no marcadas para eliminar
-                const imagenesExistentes = document.querySelectorAll('#imagenesExistentes .image-preview:not([style*="display: none"])').length;
-                // Contar nuevas imágenes a subir
-                const imagenesNuevas = uploadedFiles.length;
-                const totalImagenes = imagenesExistentes + imagenesNuevas;
-
-                if (totalImagenes > MAX_FILES) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Demasiadas imágenes',
-                        text: `El número total de imágenes (${totalImagenes}) supera el límite permitido de ${MAX_FILES}.`,
-                        footer: 'Elimina algunas imágenes antes de guardar.'
-                    });
-                    return false;
-                }
-
-                if (totalImagenes === 0) {
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Sin imágenes',
-                        text: 'El producto debe tener al menos una imagen.',
-                        footer: 'Agrega al menos una imagen antes de guardar.'
-                    });
-                    return false;
-                }
-
-                return true;
+        // Función para validar archivos
+        function validarArchivo(file) {
+            if (!ALLOWED_TYPES.includes(file.type)) {
+                throw new Error(`Tipo de archivo no permitido: ${file.type}`);
             }
-        };
+            if (file.size > MAX_FILE_SIZE) {
+                throw new Error(`El archivo excede ${MAX_FILE_SIZE/1024/1024}MB`);
+            }
+        }
 
-        // Agregar un contador visual de imágenes (opcional)
+        // Función para crear preview de imagen
+        function crearPreviewImagen(file) {
+            const reader = new FileReader();
+            const preview = document.createElement('div');
+            preview.className = 'relative group';
+
+            reader.onload = function(e) {
+                preview.innerHTML = `
+                    <div class="aspect-w-1 aspect-h-1 w-full overflow-hidden rounded-lg bg-gray-200">
+                        <img src="${e.target.result}" class="h-full w-full object-cover object-center">
+                        <div class="absolute inset-0 bg-black bg-opacity-40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <button type="button" class="p-2 bg-red-500 text-white rounded-full hover:bg-red-600 focus:outline-none">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                        <div class="absolute top-2 left-2">
+                            <span class="px-2 py-1 bg-gray-800 bg-opacity-75 text-white text-xs rounded-md">
+                                ${(file.size / (1024 * 1024)).toFixed(2)} MB
+                            </span>
+                        </div>
+                    </div>
+                `;
+
+                preview.querySelector('button').onclick = function() {
+                    const index = uploadedFiles.indexOf(file);
+                    if (index > -1) {
+                        uploadedFiles.splice(index, 1);
+                        preview.remove();
+                        actualizarContadorImagenes();
+                    }
+                };
+            };
+
+            reader.readAsDataURL(file);
+            return preview;
+        }
+
+        // Función para actualizar contador de imágenes
         function actualizarContadorImagenes() {
-            const imagenesExistentes = document.querySelectorAll('#imagenesExistentes .image-preview:not([style*="display: none"])').length;
+            const imagenesExistentes = document.querySelectorAll('#imagenesExistentes .relative:not([style*="opacity: 0.5"])').length;
             const imagenesNuevas = uploadedFiles.length;
             const total = imagenesExistentes + imagenesNuevas;
             
-            const contadorHtml = `
-                <div class="image-counter">
-                    <small>
-                        Imágenes: ${total}/${MAX_FILES}
-                        (${imagenesExistentes} existentes + ${imagenesNuevas} nuevas)
-                    </small>
-                </div>
-            `;
-            
-            // Actualizar el contador en el DOM
-            const contadorElement = document.querySelector('.image-counter') || document.createElement('div');
-            contadorElement.innerHTML = contadorHtml;
-            document.querySelector('.image-guidelines').insertAdjacentElement('beforebegin', contadorElement);
+            document.querySelector('.text-sm.font-medium.text-gray-700 span').textContent = total;
         }
 
-        // Llamar a la función cada vez que cambie el número de imágenes
-        elements.imageUpload.addEventListener('change', () => {
-            setTimeout(actualizarContadorImagenes, 100);
+        // Event Listeners para Drag & Drop
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+            document.body.addEventListener(eventName, preventDefaults, false);
         });
 
-        // También actualizar cuando se elimine una imagen
-        window.marcarImagenParaEliminar = function(imagenId) {
-            Swal.fire({
-                title: '¿Eliminar imagen?',
-                text: "Esta acción no se puede deshacer",
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#d33',
-                cancelButtonColor: '#3085d6',
-                confirmButtonText: 'Sí, eliminar',
-                cancelButtonText: 'Cancelar'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    imagenesToDelete.push(imagenId);
-                    elements.imagenesEliminar.value = JSON.stringify(imagenesToDelete);
-                    document.querySelector(`.image-preview[data-id="${imagenId}"]`).style.display = 'none';
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight(e) {
+            dropZone.classList.add('border-blue-500', 'bg-blue-50');
+        }
+
+        function unhighlight(e) {
+            dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+        }
+
+        // Manejar archivos soltados
+        dropZone.addEventListener('drop', handleDrop, false);
+        fileInput.addEventListener('change', handleFiles, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles({ target: { files: files } });
+        }
+
+        function handleFiles(e) {
+            const files = [...e.target.files];
+            const imagenesExistentes = document.querySelectorAll('#imagenesExistentes .relative:not([style*="opacity: 0.5"])').length;
+            
+            if (files.length + imagenesExistentes + uploadedFiles.length > MAX_FILES) {
+                Swal.fire('Error', `Solo puedes tener hasta ${MAX_FILES} imágenes en total`, 'error');
+                return;
+            }
+
+            files.forEach(file => {
+                try {
+                    validarArchivo(file);
+                    uploadedFiles.push(file);
+                    previewContainer.appendChild(crearPreviewImagen(file));
                     actualizarContadorImagenes();
+                } catch (error) {
+                    Swal.fire('Error', error.message, 'error');
                 }
             });
-        };
+        }
 
         // Inicialización
-        calculadora.inicializar();
-        dragDropHandler.inicializar();
-        formValidator.inicializar();
-
-        elements.imageUpload.addEventListener('change', (e) => {
-            imageHandler.manejarArchivos(e.target.files);
-        });
-
-        // Ordenamiento de imágenes (opcional)
-        if (typeof Sortable !== 'undefined') {
-            new Sortable(document.getElementById('imagenesExistentes'), {
-                animation: 150,
-                onEnd: function(evt) {
-                    const imageIds = Array.from(evt.to.children).map(el => el.dataset.id);
-                    $.ajax({
-                        url: 'reordenar_imagenes.php',
-                        method: 'POST',
-                        data: { orden: imageIds },
-                        success: function(response) {
-                            if (!response.success) {
-                                Swal.fire('Error', 'No se pudo actualizar el orden', 'error');
-                            }
-                        }
-                    });
-                }
-            });
-        }
+        actualizarContadorImagenes();
     });
     </script>
 </body>

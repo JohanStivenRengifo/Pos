@@ -160,107 +160,156 @@ $proveedores = getUserProveedores($user_id);
 
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Proveedores | VendEasy</title>
     <link rel="icon" type="image/png" href="/favicon/favicon.ico"/>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
     <link rel="stylesheet" href="../../css/welcome.css">
-    <link rel="stylesheet" href="../../css/modulos.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.all.min.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-material-ui/material-ui.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 
-<body>
-<?php include '../../includes/header.php'; ?>
-    <div class="container">
+<body class="bg-gray-50">
+    <?php include '../../includes/header.php'; ?>
+    <div class="container flex">
         <?php include '../../includes/sidebar.php'; ?>
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                const currentUrl = window.location.pathname;
-                const sidebarLinks = document.querySelectorAll('.side_navbar a');
-                sidebarLinks.forEach(link => {
-                    if (link.getAttribute('href') === currentUrl) {
-                        link.classList.add('active');
-                    }
-                });
-            });
-        </script>
 
-        <div class="main-body">
-            <h2>Gestionar Proveedores</h2>
-            <div class="promo_card">
-                <h1>Proveedores</h1>
-                <span>Aquí puedes agregar y gestionar tus proveedores.</span>
+        <div class="main-body p-6 w-full">
+            <!-- Encabezado -->
+            <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                <h1 class="text-2xl font-bold text-gray-800 mb-2">Gestión de Proveedores</h1>
+                <p class="text-gray-600">Administra tus proveedores de manera eficiente</p>
             </div>
 
-            <?php if (!empty($message)): ?>
-                <div class="alert <?= strpos($message, 'exitosamente') !== false ? 'alert-success' : 'alert-danger' ?>">
-                    <?= htmlspecialchars($message); ?>
-                </div>
-            <?php endif; ?>
+            <!-- Formulario de Nuevo Proveedor -->
+            <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                <h2 class="text-xl font-semibold text-gray-800 mb-4">
+                    <i class="fas fa-plus-circle mr-2 text-blue-500"></i>
+                    Nuevo Proveedor
+                </h2>
+                
+                <form method="POST" class="max-w-2xl mx-auto">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Nombre del Proveedor
+                            </label>
+                            <input type="text" name="nombre" required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500">
+                        </div>
 
-            <div class="history_lists">
-                <div class="list1">
-                    <div class="row">
-                        <h4>Agregar Nuevo Proveedor</h4>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Correo Electrónico
+                            </label>
+                            <input type="email" name="email" required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Teléfono
+                            </label>
+                            <input type="tel" name="telefono" required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Dirección
+                            </label>
+                            <input type="text" name="direccion" required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500">
+                        </div>
                     </div>
-                    <form method="POST" action="">
-                        <div class="form-group">
-                            <label for="nombre">Nombre del Proveedor:</label>
-                            <input type="text" id="nombre" name="nombre" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="email">Correo Electrónico:</label>
-                            <input type="email" id="email" name="email" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="telefono">Teléfono:</label>
-                            <input type="text" id="telefono" name="telefono" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="direccion">Dirección:</label>
-                            <input type="text" id="direccion" name="direccion" required>
-                        </div>
-                        <button type="submit" name="add_proveedor" class="btn btn-primary">Agregar Proveedor</button>
-                    </form>
+
+                    <div class="mt-4 text-right">
+                        <button type="submit" name="add_proveedor"
+                            class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-md transition duration-200">
+                            <i class="fas fa-save mr-2"></i>
+                            Guardar Proveedor
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Tabla de Proveedores -->
+            <div class="bg-white rounded-lg shadow-sm p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold text-gray-800">
+                        <i class="fas fa-list mr-2 text-blue-500"></i>
+                        Listado de Proveedores
+                    </h2>
+                    <span class="text-sm text-gray-500">
+                        Total: <?= count($proveedores) ?> proveedores
+                    </span>
                 </div>
 
-                <div class="list2">
-                    <div class="row">
-                        <h4>Listado de Proveedores</h4>
-                    </div>
-                    <table>
-                        <thead>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
                             <tr>
-                                <th>Nombre</th>
-                                <th>Correo Electrónico</th>
-                                <th>Teléfono</th>
-                                <th>Dirección</th>
-                                <th>Acciones</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Nombre
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Contacto
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Dirección
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Acciones
+                                </th>
                             </tr>
                         </thead>
-                        <tbody>
-                            <?php foreach ($proveedores as $proveedor): ?>
-                                <tr>
-                                    <td><?= htmlspecialchars($proveedor['nombre']); ?></td>
-                                    <td><?= htmlspecialchars($proveedor['email']); ?></td>
-                                    <td><?= htmlspecialchars($proveedor['telefono']); ?></td>
-                                    <td><?= htmlspecialchars($proveedor['direccion']); ?></td>
-                                    <td>
-                                        <button class="btn-edit" onclick="editProveedor(<?= htmlspecialchars(json_encode($proveedor)); ?>)">
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <?php if (empty($proveedores)): ?>
+                            <tr>
+                                <td colspan="4" class="px-6 py-4 text-center text-gray-500">
+                                    No hay proveedores registrados
+                                </td>
+                            </tr>
+                            <?php else: ?>
+                                <?php foreach ($proveedores as $proveedor): ?>
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4">
+                                        <div class="text-sm font-medium text-gray-900">
+                                            <?= htmlspecialchars($proveedor['nombre']); ?>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="text-sm text-gray-900">
+                                            <i class="fas fa-envelope mr-1 text-gray-400"></i>
+                                            <?= htmlspecialchars($proveedor['email']); ?>
+                                        </div>
+                                        <div class="text-sm text-gray-500">
+                                            <i class="fas fa-phone mr-1 text-gray-400"></i>
+                                            <?= htmlspecialchars($proveedor['telefono']); ?>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="text-sm text-gray-500">
+                                            <i class="fas fa-map-marker-alt mr-1 text-gray-400"></i>
+                                            <?= htmlspecialchars($proveedor['direccion']); ?>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 text-sm font-medium">
+                                        <button onclick="editProveedor(<?= htmlspecialchars(json_encode($proveedor)); ?>)"
+                                            class="text-blue-600 hover:text-blue-900 mr-3">
                                             <i class="fas fa-edit"></i>
                                         </button>
-                                        <button class="btn-delete" onclick="deleteProveedor(<?= $proveedor['id']; ?>)">
+                                        <button onclick="deleteProveedor(<?= $proveedor['id']; ?>)"
+                                            class="text-red-600 hover:text-red-900">
                                             <i class="fas fa-trash-alt"></i>
                                         </button>
                                     </td>
                                 </tr>
-                            <?php endforeach; ?>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
                         </tbody>
                     </table>
                 </div>
@@ -269,13 +318,22 @@ $proveedores = getUserProveedores($user_id);
     </div>
 
     <script>
-    // Configuración global de notificaciones
+    // Mantener el código JavaScript existente pero actualizar los estilos de SweetAlert2
+    const swalCustomClass = {
+        popup: 'rounded-lg shadow-lg',
+        confirmButton: 'bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-md transition duration-200',
+        cancelButton: 'bg-gray-500 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-md transition duration-200',
+        input: 'mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500'
+    };
+
+    // Actualizar la configuración de Toast
     const Toast = Swal.mixin({
         toast: true,
         position: 'top-end',
         showConfirmButton: false,
         timer: 3000,
         timerProgressBar: true,
+        customClass: swalCustomClass,
         didOpen: (toast) => {
             toast.addEventListener('mouseenter', Swal.stopTimer)
             toast.addEventListener('mouseleave', Swal.resumeTimer)
@@ -454,41 +512,6 @@ $proveedores = getUserProveedores($user_id);
             }
         }
     }
-
-    // Estilo personalizado para SweetAlert2
-    const style = document.createElement('style');
-    style.textContent = `
-        .swal2-popup {
-            font-family: 'Poppins', sans-serif;
-            border-radius: 12px;
-        }
-        .swal2-title {
-            color: #344767;
-        }
-        .swal2-html-container {
-            color: #495057;
-        }
-        .swal2-confirm {
-            background: linear-gradient(145deg, #007bff, #0056b3) !important;
-        }
-        .swal2-cancel {
-            background: linear-gradient(145deg, #6c757d, #495057) !important;
-        }
-        .form-group {
-            margin-bottom: 1rem;
-            text-align: left;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            color: #344767;
-        }
-        .swal2-input {
-            margin: 0.5rem 0 !important;
-        }
-    `;
-    document.head.appendChild(style);
     </script>
 </body>
-
 </html>

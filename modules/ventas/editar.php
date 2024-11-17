@@ -53,268 +53,160 @@ if (isset($_GET['id'])) {
     <title>Modificar Venta | VendEasy</title>
     <link rel="icon" type="image/png" href="/favicon/favicon.ico"/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
-    <link rel="stylesheet" href="../../css/welcome.css">
-    <link rel="stylesheet" href="../../css/modulos.css">
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <style>
-        .main-content {
-            background: #fff;
-            padding: 2rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin: 20px;
-        }
-
-        .venta-header {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
-            margin-bottom: 2rem;
-        }
-
-        .info-group {
-            background: #f8f9fa;
-            padding: 1rem;
-            border-radius: 6px;
-        }
-
-        .info-group label {
-            display: block;
-            color: #666;
-            margin-bottom: 0.5rem;
-            font-size: 0.9rem;
-        }
-
-        .info-group input {
-            width: 100%;
-            padding: 0.5rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 1rem;
-        }
-
-        .productos-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 1rem 0;
-        }
-
-        .productos-table th {
-            background: #f8f9fa;
-            padding: 1rem;
-            text-align: left;
-            font-weight: 600;
-            color: #344767;
-        }
-
-        .productos-table td {
-            padding: 0.75rem;
-            border-bottom: 1px solid #eee;
-        }
-
-        .productos-table select,
-        .productos-table input {
-            width: 100%;
-            padding: 0.5rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 0.9rem;
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 0.5rem;
-            justify-content: flex-end;
-            margin-top: 2rem;
-        }
-
-        .btn {
-            padding: 0.75rem 1.5rem;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: 500;
-            transition: all 0.3s ease;
-        }
-
-        .btn-primary {
-            background: #2196f3;
-            color: white;
-        }
-
-        .btn-secondary {
-            background: #f44336;
-            color: white;
-        }
-
-        .btn-success {
-            background: #4caf50;
-            color: white;
-        }
-
-        .btn:hover {
-            opacity: 0.9;
-            transform: translateY(-1px);
-        }
-
-        .eliminar-producto {
-            color: #f44336;
-            background: transparent;
-            border: none;
-            cursor: pointer;
-            padding: 0.5rem;
-            border-radius: 4px;
-            transition: all 0.3s ease;
-        }
-
-        .eliminar-producto:hover {
-            background: #ffebee;
-        }
-
-        .totales {
-            display: flex;
-            justify-content: flex-end;
-            align-items: center;
-            gap: 1rem;
-            margin-top: 1rem;
-            padding: 1rem;
-            background: #f8f9fa;
-            border-radius: 6px;
-        }
-
-        .totales label {
-            font-weight: 600;
-            color: #344767;
-        }
-
-        .totales input {
-            width: 200px;
-            padding: 0.5rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            text-align: right;
-        }
-
-        .stock-warning {
-            color: #f44336;
-            font-size: 0.85rem;
-            margin-top: 0.25rem;
-        }
-    </style>
 </head>
-<body>
-<?php include '../../includes/header.php'; ?>
-    <div class="container">
+<body class="bg-gray-50">
+    <?php include '../../includes/header.php'; ?>
+    <div class="flex">
         <?php include '../../includes/sidebar.php'; ?>
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                const currentUrl = window.location.pathname;
-                const sidebarLinks = document.querySelectorAll('.side_navbar a');
-                sidebarLinks.forEach(link => {
-                    if (link.getAttribute('href') === currentUrl) {
-                        link.classList.add('active');
-                    }
-                });
-            });
-        </script>
-
-        <div class="main-body">
-            <div class="main-content">
-                <h2><i class="fas fa-edit"></i> Modificar Venta #<?= htmlspecialchars($venta['id']) ?></h2>
+        
+        <main class="flex-1 p-8">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                        <i class="fas fa-edit text-blue-500"></i>
+                        Modificar Venta #<?= htmlspecialchars($venta['id']) ?>
+                    </h2>
+                </div>
                 
-                <form id="edit-form">
+                <form id="edit-form" class="space-y-6">
                     <input type="hidden" name="id" value="<?= htmlspecialchars($venta['id']) ?>">
                     
-                    <div class="venta-header">
-                        <div class="info-group">
-                            <label><i class="fas fa-user"></i> Cliente</label>
-                            <input type="text" value="<?= htmlspecialchars($venta['cliente_nombre'] ?? 'Cliente General') ?>" readonly>
+                    <!-- Información de la venta -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-user text-gray-400 mr-2"></i>Cliente
+                            </label>
+                            <input type="text" 
+                                   value="<?= htmlspecialchars($venta['cliente_nombre'] ?? 'Cliente General') ?>" 
+                                   class="w-full bg-white rounded-md border-gray-300 shadow-sm px-4 py-2" 
+                                   readonly>
                         </div>
                         
-                        <div class="info-group">
-                            <label><i class="fas fa-calendar"></i> Fecha</label>
-                            <input type="text" value="<?= date('d/m/Y H:i', strtotime($venta['fecha'])) ?>" readonly>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-calendar text-gray-400 mr-2"></i>Fecha
+                            </label>
+                            <input type="text" 
+                                   value="<?= date('d/m/Y H:i', strtotime($venta['fecha'])) ?>" 
+                                   class="w-full bg-white rounded-md border-gray-300 shadow-sm px-4 py-2" 
+                                   readonly>
                         </div>
                         
-                        <div class="info-group">
-                            <label><i class="fas fa-receipt"></i> N° Factura</label>
-                            <input type="text" value="<?= htmlspecialchars($venta['numero_factura']) ?>" readonly>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <i class="fas fa-receipt text-gray-400 mr-2"></i>N° Factura
+                            </label>
+                            <input type="text" 
+                                   value="<?= htmlspecialchars($venta['numero_factura']) ?>" 
+                                   class="w-full bg-white rounded-md border-gray-300 shadow-sm px-4 py-2" 
+                                   readonly>
                         </div>
                     </div>
 
-                    <table class="productos-table">
-                        <thead>
-                            <tr>
-                                <th>Producto</th>
-                                <th>Cantidad</th>
-                                <th>Precio Unitario</th>
-                                <th>Subtotal</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($productos as $producto): ?>
-                            <tr>
-                                <td>
-                                    <select name="productos[]" class="producto-select" required>
-                                        <?php foreach ($inventario as $item): ?>
-                                            <option value="<?= $item['id'] ?>" 
-                                                    data-precio="<?= $item['precio_venta'] ?>"
-                                                    data-stock="<?= $item['stock'] ?>"
-                                                    <?= $item['id'] == $producto['producto_id'] ? 'selected' : '' ?>>
-                                                <?= htmlspecialchars($item['nombre']) ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </td>
-                                <td>
-                                    <input type="number" name="cantidades[]" 
-                                           value="<?= $producto['cantidad'] ?>" 
-                                           min="1" max="<?= $producto['stock'] + $producto['cantidad'] ?>" 
-                                           class="cantidad-input" required>
-                                </td>
-                                <td>
-                                    <input type="number" name="precios[]" 
-                                           value="<?= $producto['precio_unitario'] ?>" 
-                                           step="0.01" class="precio-input" required>
-                                </td>
-                                <td class="subtotal">
-                                    <?= number_format($producto['cantidad'] * $producto['precio_unitario'], 2) ?>
-                                </td>
-                                <td>
-                                    <button type="button" class="eliminar-producto">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-
-                    <button type="button" class="btn btn-primary" id="agregar-producto">
-                        <i class="fas fa-plus"></i> Agregar Producto
-                    </button>
-
-                    <div class="totales">
-                        <label>Total:</label>
-                        <input type="number" name="total" id="total" 
-                               value="<?= $venta['total'] ?>" step="0.01" readonly>
+                    <!-- Tabla de productos -->
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio Unitario</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <?php foreach ($productos as $producto): ?>
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4">
+                                        <select name="productos[]" 
+                                                class="producto-select w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" 
+                                                required>
+                                            <?php foreach ($inventario as $item): ?>
+                                                <option value="<?= $item['id'] ?>" 
+                                                        data-precio="<?= $item['precio_venta'] ?>"
+                                                        data-stock="<?= $item['stock'] ?>"
+                                                        <?= $item['id'] == $producto['producto_id'] ? 'selected' : '' ?>>
+                                                    <?= htmlspecialchars($item['nombre']) ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <input type="number" 
+                                               name="cantidades[]" 
+                                               value="<?= $producto['cantidad'] ?>" 
+                                               min="1" 
+                                               max="<?= $producto['stock'] + $producto['cantidad'] ?>" 
+                                               class="cantidad-input w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" 
+                                               required>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <input type="number" 
+                                               name="precios[]" 
+                                               value="<?= $producto['precio_unitario'] ?>" 
+                                               step="0.01" 
+                                               class="precio-input w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" 
+                                               required>
+                                    </td>
+                                    <td class="px-6 py-4 subtotal font-medium">
+                                        <?= number_format($producto['cantidad'] * $producto['precio_unitario'], 2) ?>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <button type="button" 
+                                                class="eliminar-producto text-red-600 hover:text-red-900 transition-colors">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
                     </div>
 
-                    <div class="action-buttons">
-                        <button type="button" class="btn btn-secondary" onclick="window.location.href='index.php'">
-                            <i class="fas fa-times"></i> Cancelar
+                    <!-- Botón agregar producto -->
+                    <div class="flex justify-start">
+                        <button type="button" 
+                                id="agregar-producto"
+                                class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            <i class="fas fa-plus mr-2"></i>
+                            Agregar Producto
                         </button>
-                        <button type="submit" class="btn btn-success">
-                            <i class="fas fa-save"></i> Guardar Cambios
+                    </div>
+
+                    <!-- Total -->
+                    <div class="flex justify-end items-center space-x-4 bg-gray-50 p-4 rounded-lg">
+                        <label class="text-lg font-medium text-gray-700">Total:</label>
+                        <input type="number" 
+                               name="total" 
+                               id="total" 
+                               value="<?= $venta['total'] ?>" 
+                               step="0.01" 
+                               class="w-48 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-right font-bold" 
+                               readonly>
+                    </div>
+
+                    <!-- Botones de acción -->
+                    <div class="flex justify-end space-x-4 pt-4">
+                        <button type="button" 
+                                onclick="window.location.href='index.php'"
+                                class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                            <i class="fas fa-times mr-2"></i>
+                            Cancelar
+                        </button>
+                        <button type="submit"
+                                class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                            <i class="fas fa-save mr-2"></i>
+                            Guardar Cambios
                         </button>
                     </div>
                 </form>
             </div>
-        </div>
+        </main>
     </div>
 
     <script>
@@ -345,14 +237,18 @@ if (isset($_GET['id'])) {
                 Swal.fire({
                     icon: 'warning',
                     title: 'Stock insuficiente',
-                    text: `Solo hay ${stockDisponible} unidades disponibles`
+                    text: `Solo hay ${stockDisponible} unidades disponibles`,
+                    customClass: {
+                        popup: 'rounded-lg'
+                    }
                 });
                 cantidadInput.val(stockDisponible);
                 actualizarSubtotal(row);
             }
         }
 
-        $('.productos-table').on('input', '.cantidad-input, .precio-input', function() {
+        // Manejadores de eventos para elementos existentes y dinámicos
+        $(document).on('input', '.cantidad-input, .precio-input', function() {
             const row = $(this).closest('tr');
             actualizarSubtotal(row);
             if ($(this).hasClass('cantidad-input')) {
@@ -360,24 +256,30 @@ if (isset($_GET['id'])) {
             }
         });
 
-        $('.productos-table').on('change', '.producto-select', function() {
+        $(document).on('change', '.producto-select', function() {
             const row = $(this).closest('tr');
             const precio = $(this).find(':selected').data('precio');
             row.find('.precio-input').val(precio);
             actualizarSubtotal(row);
         });
 
-        $('.eliminar-producto').on('click', function() {
+        // Manejador para eliminar productos (existentes y nuevos)
+        $(document).on('click', '.eliminar-producto', function() {
             const row = $(this).closest('tr');
             Swal.fire({
                 title: '¿Eliminar producto?',
                 text: "Esta acción no se puede deshacer",
                 icon: 'warning',
                 showCancelButton: true,
-                confirmButtonColor: '#d33',
-                cancelButtonColor: '#3085d6',
+                confirmButtonColor: '#EF4444',
+                cancelButtonColor: '#6B7280',
                 confirmButtonText: 'Sí, eliminar',
-                cancelButtonText: 'Cancelar'
+                cancelButtonText: 'Cancelar',
+                customClass: {
+                    popup: 'rounded-lg',
+                    confirmButton: 'px-4 py-2 rounded-md',
+                    cancelButton: 'px-4 py-2 rounded-md'
+                }
             }).then((result) => {
                 if (result.isConfirmed) {
                     row.remove();
@@ -386,11 +288,14 @@ if (isset($_GET['id'])) {
             });
         });
 
+        // Agregar nuevo producto
         $('#agregar-producto').on('click', function() {
             const newRow = `
-                <tr>
-                    <td>
-                        <select name="productos[]" class="producto-select" required>
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4">
+                        <select name="productos[]" 
+                                class="producto-select w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" 
+                                required>
                             <option value="">Seleccione un producto</option>
                             <?php foreach ($inventario as $item): ?>
                                 <option value="<?= $item['id'] ?>" 
@@ -401,23 +306,32 @@ if (isset($_GET['id'])) {
                             <?php endforeach; ?>
                         </select>
                     </td>
-                    <td>
-                        <input type="number" name="cantidades[]" value="1" min="1" 
-                               class="cantidad-input" required>
+                    <td class="px-6 py-4">
+                        <input type="number" 
+                               name="cantidades[]" 
+                               value="1" 
+                               min="1" 
+                               class="cantidad-input w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" 
+                               required>
                     </td>
-                    <td>
-                        <input type="number" name="precios[]" value="0" step="0.01" 
-                               class="precio-input" required>
+                    <td class="px-6 py-4">
+                        <input type="number" 
+                               name="precios[]" 
+                               value="0" 
+                               step="0.01" 
+                               class="precio-input w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" 
+                               required>
                     </td>
-                    <td class="subtotal">0.00</td>
-                    <td>
-                        <button type="button" class="eliminar-producto">
+                    <td class="px-6 py-4 subtotal font-medium">0.00</td>
+                    <td class="px-6 py-4">
+                        <button type="button" 
+                                class="eliminar-producto text-red-600 hover:text-red-900 transition-colors">
                             <i class="fas fa-trash"></i>
                         </button>
                     </td>
                 </tr>
             `;
-            $('.productos-table tbody').append(newRow);
+            $('table tbody').append(newRow);
         });
 
         $('#edit-form').on('submit', function(e) {
@@ -450,34 +364,32 @@ if (isset($_GET['id'])) {
                         dataType: 'json',
                         success: function(response) {
                             if (response.success) {
-                                Swal.fire({
-                                    icon: 'success',
-                                    title: '¡Éxito!',
-                                    text: response.message,
-                                    showConfirmButton: false,
-                                    timer: 1500
-                                }).then(() => {
-                                    window.location.href = 'index.php';
-                                });
+                                mostrarAlerta('success', response.message);
                             } else {
-                                Swal.fire({
-                                    icon: 'error',
-                                    title: 'Error',
-                                    text: response.message
-                                });
+                                mostrarAlerta('error', response.message);
                             }
                         },
                         error: function() {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Error',
-                                text: 'Error al guardar los cambios'
-                            });
+                            mostrarAlerta('error', 'Error al guardar los cambios');
                         }
                     });
                 }
             });
         });
+
+        // Actualizar las clases de SweetAlert2 para mantener consistencia con Tailwind
+        function mostrarAlerta(tipo, mensaje) {
+            Swal.fire({
+                icon: tipo,
+                title: tipo === 'success' ? '¡Éxito!' : 'Error',
+                text: mensaje,
+                confirmButtonColor: tipo === 'success' ? '#10B981' : '#EF4444',
+                customClass: {
+                    popup: 'rounded-lg',
+                    confirmButton: 'px-4 py-2 rounded-md'
+                }
+            });
+        }
     });
     </script>
 </body>
@@ -489,7 +401,11 @@ if (isset($_GET['id'])) {
                 icon: 'error',
                 title: 'Error',
                 text: 'Venta no encontrada',
-                confirmButtonText: 'Volver'
+                confirmButtonColor: '#EF4444',
+                customClass: {
+                    popup: 'rounded-lg',
+                    confirmButton: 'px-4 py-2 rounded-md'
+                }
             }).then(() => {
                 window.location.href = 'index.php';
             });

@@ -187,631 +187,482 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     <title>Surtir Inventario | VendEasy</title>
     <link rel="icon" type="image/png" href="/favicon/favicon.ico"/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
-    <link rel="stylesheet" href="../../css/welcome.css">
-    <link rel="stylesheet" href="../../css/modulos.css">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.all.min.js"></script>
-    <style>
-        /* Estilos generales mejorados */
-        .producto-form {
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-            margin-bottom: 20px;
-        }
-
-        .form-section {
-            padding: 20px;
-            margin-bottom: 15px;
-            border-radius: 8px;
-            background: #f8f9fa;
-            border-left: 4px solid #007bff;
-            transition: all 0.3s ease;
-        }
-
-        .form-section:hover {
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            transform: translateY(-2px);
-        }
-
-        .form-section-title {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            color: #2c3e50;
-            font-size: 1.1em;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #e9ecef;
-        }
-
-        .form-section-title i {
-            color: #007bff;
-            font-size: 1.2em;
-        }
-
-        /* Campos de formulario mejorados */
-        .form-control {
-            border: 2px solid #e9ecef;
-            border-radius: 6px;
-            padding: 10px 15px;
-            transition: all 0.3s ease;
-        }
-
-        .form-control:focus {
-            border-color: #007bff;
-            box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.15);
-        }
-
-        .input-group {
-            position: relative;
-        }
-
-        .input-group-text {
-            background: #f8f9fa;
-            border: 2px solid #e9ecef;
-            border-right: none;
-            color: #6c757d;
-        }
-
-        /* Botones mejorados */
-        .btn {
-            padding: 10px 20px;
-            border-radius: 6px;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .btn-primary {
-            background: #007bff;
-            border: none;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #0056b3;
-            transform: translateY(-1px);
-        }
-
-        .btn-secondary {
-            background: #6c757d;
-            border: none;
-            color: white;
-        }
-
-        .btn-secondary:hover {
-            background: #5a6268;
-        }
-
-        /* Animaciones y estados */
-        .stock-changed {
-            animation: highlight 1s ease;
-        }
-
-        @keyframes highlight {
-            0% { background-color: #fff3cd; }
-            100% { background-color: transparent; }
-        }
-
-        .is-invalid {
-            border-color: #dc3545;
-            animation: shake 0.5s ease-in-out;
-        }
-
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
-        }
-
-        /* Indicadores visuales */
-        .stock-status {
-            padding: 8px;
-            border-radius: 6px;
-            font-weight: 500;
-            text-align: center;
-            margin-top: 5px;
-        }
-
-        .stock-normal { background: #d4edda; color: #155724; }
-        .stock-warning { background: #fff3cd; color: #856404; }
-        .stock-danger { background: #f8d7da; color: #721c24; }
-
-        /* Layout mejorado */
-        .form-row {
-            display: flex;
-            flex-wrap: wrap;
-            margin: -10px;
-        }
-
-        .form-group {
-            padding: 10px;
-            flex: 1;
-            min-width: 250px;
-        }
-
-        /* Resumen de operación */
-        .operation-summary {
-            background: #e9ecef;
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 20px;
-        }
-
-        .summary-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid #dee2e6;
-        }
-
-        .summary-item:last-child {
-            border-bottom: none;
-            font-weight: bold;
-        }
-
-        /* Tooltips y ayudas */
-        .help-text {
-            font-size: 0.85em;
-            color: #6c757d;
-            margin-top: 4px;
-        }
-
-        .field-icon {
-            position: absolute;
-            right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #6c757d;
-            cursor: pointer;
-        }
-
-        /* Responsive mejoras */
-        @media (max-width: 768px) {
-            .form-group {
-                min-width: 100%;
-            }
-
-            .btn {
-                width: 100%;
-                margin-bottom: 10px;
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#1e40af',
+                        secondary: '#1e293b',
+                        accent: '#3b82f6'
+                    }
+                }
             }
         }
-    </style>
+    </script>
 </head>
 
-<body>
-<?php include '../../includes/header.php'; ?>
-    <div class="container">
+<body class="bg-gray-50">
+    <?php include '../../includes/header.php'; ?>
+    
+    <div class="flex">
         <?php include '../../includes/sidebar.php'; ?>
-        <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                const currentUrl = window.location.pathname;
-                const sidebarLinks = document.querySelectorAll('.side_navbar a');
-                sidebarLinks.forEach(link => {
-                    if (link.getAttribute('href') === currentUrl) {
-                        link.classList.add('active');
-                    }
-                });
-            });
-        </script>
-
-        <div class="main-body">
-            <h2>Surtir Inventario</h2>
-            <div class="promo_card">
-                <h1>Actualizar Stock de Productos</h1>
-                <span>Ingrese el código de barras y la cantidad a agregar.</span>
-            </div>
-
-            <div class="history_lists">
-                <div class="list1">
-                    <div class="row">
-                        <h4>Buscar Producto</h4>
+        
+        <main class="flex-1 p-6">
+            <div class="max-w-7xl mx-auto">
+                <!-- Encabezado -->
+                <div class="flex items-center justify-between mb-8">
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-900">Surtir Inventario</h1>
+                        <p class="mt-2 text-sm text-gray-600">
+                            Actualiza el stock y precios de tus productos
+                        </p>
                     </div>
-                    <form id="buscarProductoForm" class="producto-form">
-                        <div class="form-section">
-                            <div class="form-section-title">
-                                <i class="fas fa-search"></i> 
-                                <span>Búsqueda Rápida</span>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group col-md-8">
-                                    <div class="input-group">
-                                        <span class="input-group-text">
-                                            <i class="fas fa-barcode"></i>
-                                        </span>
-                                        <input type="text" 
-                                               id="codigo_barras" 
-                                               name="codigo_barras" 
-                                               required 
-                                               class="form-control" 
-                                               placeholder="Escanee o ingrese el código de barras"
-                                               autofocus>
-                                    </div>
-                                    <div class="help-text">
-                                        Puede usar un escáner o ingresar el código manualmente
-                                    </div>
-                                </div>
-                                <div class="form-group col-md-4">
-                                    <button type="submit" class="btn btn-primary w-100">
-                                        <i class="fas fa-search"></i> Buscar Producto
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </form>
+                    <a href="index.php" 
+                       class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors">
+                        <i class="fas fa-arrow-left mr-2"></i>
+                        Volver
+                    </a>
                 </div>
 
-                <div class="list1" id="actualizarStockForm" style="display: none;">
-                    <div class="row">
-                        <h4>Actualizar Stock</h4>
+                <!-- Formulario de búsqueda mejorado -->
+                <form id="buscarProductoForm" class="bg-white rounded-xl shadow-lg p-6 mb-8 transform transition-all hover:shadow-xl">
+                    <div class="space-y-6">
+                        <div class="flex items-center gap-2 pb-2 border-b border-gray-200">
+                            <i class="fas fa-search text-blue-500 text-xl"></i>
+                            <h2 class="text-xl font-semibold text-gray-800">Buscar Producto</h2>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+                            <div class="col-span-2">
+                                <label for="codigo_barras" class="block text-sm font-medium text-gray-700 mb-2">
+                                    Código de Barras
+                                </label>
+                                <div class="relative rounded-lg shadow-sm">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <i class="fas fa-barcode text-gray-400"></i>
+                                    </div>
+                                    <input type="text" 
+                                           id="codigo_barras" 
+                                           name="codigo_barras" 
+                                           required
+                                           class="block w-full pl-10 pr-3 py-3 rounded-lg border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                                           placeholder="Escanea o ingresa el código de barras"
+                                           autofocus>
+                                </div>
+                                <p class="mt-1 text-sm text-gray-500">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    Puedes usar un escáner o ingresar el código manualmente
+                                </p>
+                            </div>
+                            <div>
+                                <button type="submit" 
+                                        class="w-full inline-flex items-center justify-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all transform hover:scale-105">
+                                    <i class="fas fa-search mr-2"></i>
+                                    Buscar Producto
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                    <form id="stockForm" class="producto-form">
+                </form>
+
+                <!-- Formulario de actualización mejorado -->
+                <div id="actualizarStockForm" style="display: none;">
+                    <form id="stockForm" class="bg-white rounded-xl shadow-lg p-8 space-y-8 transform transition-all">
                         <input type="hidden" id="producto_id" name="id">
                         
-                        <div class="form-section">
-                            <div class="form-section-title">
-                                <i class="fas fa-box"></i> 
-                                <span>Información del Producto</span>
+                        <!-- Información del Producto -->
+                        <div class="bg-blue-50 rounded-lg p-6 border border-blue-100">
+                            <div class="flex items-center gap-2 mb-4">
+                                <i class="fas fa-box text-blue-600 text-xl"></i>
+                                <h2 class="text-xl font-semibold text-gray-800">Información del Producto</h2>
                             </div>
-                            <div class="form-row">
-                                <div class="form-group col-md-6">
-                                    <label>Nombre del Producto</label>
-                                    <input type="text" id="nombre_producto" readonly class="form-control">
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-medium text-gray-700">
+                                        Nombre del Producto
+                                    </label>
+                                    <input type="text" 
+                                           id="nombre_producto" 
+                                           readonly 
+                                           class="block w-full px-4 py-3 rounded-lg border-gray-300 bg-white text-gray-700 font-medium shadow-sm">
                                 </div>
-                                <div class="form-group col-md-3">
-                                    <label>Stock Actual</label>
-                                    <input type="number" id="stock_actual" readonly class="form-control">
-                                    <div id="stockStatus" class="stock-status"></div>
+                                
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-medium text-gray-700">
+                                        Stock Actual
+                                    </label>
+                                    <div class="relative">
+                                        <input type="number" 
+                                               id="stock_actual" 
+                                               readonly 
+                                               class="block w-full px-4 py-3 rounded-lg border-gray-300 bg-white text-gray-700 font-medium shadow-sm">
+                                        <div id="stockStatus" class="absolute -top-1 right-0 transform translate-y-full"></div>
+                                    </div>
                                 </div>
-                                <div class="form-group col-md-3">
-                                    <label>Stock Mínimo</label>
-                                    <input type="number" id="stock_minimo" readonly class="form-control">
+                                
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-medium text-gray-700">
+                                        Stock Mínimo
+                                    </label>
+                                    <input type="number" 
+                                           id="stock_minimo" 
+                                           readonly 
+                                           class="block w-full px-4 py-3 rounded-lg border-gray-300 bg-white text-gray-700 font-medium shadow-sm">
                                 </div>
                             </div>
                         </div>
 
-                        <div class="form-section">
-                            <div class="form-section-title">
-                                <i class="fas fa-edit"></i> 
-                                <span>Actualización de Stock</span>
+                        <!-- Actualización de Stock -->
+                        <div class="bg-green-50 rounded-lg p-6 border border-green-100">
+                            <div class="flex items-center gap-2 mb-4">
+                                <i class="fas fa-edit text-green-600 text-xl"></i>
+                                <h2 class="text-xl font-semibold text-gray-800">Actualización de Stock</h2>
                             </div>
-                            <div class="form-row">
-                                <div class="form-group col-md-4">
-                                    <label>Tipo de Operación</label>
-                                    <select id="tipo_operacion" class="form-control">
-                                        <option value="agregar">
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-medium text-gray-700">
+                                        Tipo de Operación
+                                    </label>
+                                    <select id="tipo_operacion" 
+                                            class="block w-full px-4 py-3 rounded-lg border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500 shadow-sm">
+                                        <option value="agregar" class="py-2">
                                             <i class="fas fa-plus"></i> Agregar Stock
                                         </option>
-                                        <option value="restar">
+                                        <option value="restar" class="py-2">
                                             <i class="fas fa-minus"></i> Restar Stock
                                         </option>
                                     </select>
                                 </div>
-                                <div class="form-group col-md-4">
-                                    <label>Cantidad</label>
+                                
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-medium text-gray-700">
+                                        Cantidad
+                                    </label>
                                     <input type="number" 
                                            id="nueva_cantidad" 
-                                           class="form-control" 
                                            min="1" 
-                                           required>
-                                    <div class="help-text">
-                                        Ingrese la cantidad a modificar
-                                    </div>
+                                           required
+                                           class="block w-full px-4 py-3 rounded-lg border-gray-300 focus:ring-2 focus:ring-green-500 focus:border-green-500 shadow-sm">
+                                    <p class="text-sm text-gray-500">Ingrese la cantidad a modificar</p>
                                 </div>
-                                <div class="form-group col-md-4">
-                                    <label>Stock Resultante</label>
+                                
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-medium text-gray-700">
+                                        Stock Resultante
+                                    </label>
                                     <input type="number" 
                                            id="stock_resultante" 
                                            readonly 
-                                           class="form-control">
-                                    <div class="stock-warning" style="display: none;">
+                                           class="block w-full px-4 py-3 rounded-lg border-gray-300 bg-gray-50 text-gray-700 font-medium shadow-sm">
+                                    <div class="stock-warning hidden mt-1 text-sm text-red-600 font-medium">
+                                        <i class="fas fa-exclamation-triangle mr-1"></i>
                                         El stock no puede ser negativo
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="form-section">
-                            <div class="form-section-title">
-                                <i class="fas fa-dollar-sign"></i> 
-                                <span>Información de Precios</span>
+                        <!-- Precios -->
+                        <div class="bg-yellow-50 rounded-lg p-6 border border-yellow-100">
+                            <div class="flex items-center gap-2 mb-4">
+                                <i class="fas fa-dollar-sign text-yellow-600 text-xl"></i>
+                                <h2 class="text-xl font-semibold text-gray-800">Actualización de Precios</h2>
                             </div>
-                            <div class="form-row">
-                                <div class="form-group col-md-3">
-                                    <label>Precio Costo</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text">$</span>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-medium text-gray-700">
+                                        Precio de Costo
+                                    </label>
+                                    <div class="relative">
+                                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <span class="text-gray-500">$</span>
+                                        </div>
                                         <input type="number" 
-                                               step="0.01" 
                                                id="nuevo_precio_costo" 
-                                               class="form-control" 
-                                               required>
+                                               step="0.01" 
+                                               required
+                                               class="block w-full pl-8 pr-3 py-3 rounded-lg border-gray-300 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 shadow-sm">
                                     </div>
                                 </div>
-                                <div class="form-group col-md-3">
-                                    <label>Margen (%)</label>
-                                    <div class="input-group">
+                                
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-medium text-gray-700">
+                                        Margen (%)
+                                    </label>
+                                    <div class="relative">
                                         <input type="number" 
-                                               step="0.01" 
                                                id="nuevo_margen" 
-                                               class="form-control" 
-                                               required>
-                                        <span class="input-group-text">%</span>
+                                               step="0.01" 
+                                               required
+                                               class="block w-full px-4 py-3 rounded-lg border-gray-300 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 shadow-sm">
+                                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                            <span class="text-gray-500">%</span>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="form-group col-md-3">
-                                    <label>IVA (%)</label>
-                                    <div class="input-group">
+                                
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-medium text-gray-700">
+                                        IVA (%)
+                                    </label>
+                                    <div class="relative">
                                         <input type="number" 
-                                               step="0.01" 
                                                id="nuevo_impuesto" 
-                                               class="form-control" 
-                                               required>
-                                        <span class="input-group-text">%</span>
-                                    </div>
-                                </div>
-                                <div class="form-group col-md-3">
-                                    <label>Precio Venta</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text">$</span>
-                                        <input type="number" 
                                                step="0.01" 
+                                               required
+                                               value="18"
+                                               class="block w-full px-4 py-3 rounded-lg border-gray-300 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 shadow-sm">
+                                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                            <span class="text-gray-500">%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-medium text-gray-700">
+                                        Precio de Venta
+                                    </label>
+                                    <div class="relative">
+                                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <span class="text-gray-500">$</span>
+                                        </div>
+                                        <input type="number" 
                                                id="nuevo_precio_venta" 
-                                               class="form-control">
+                                               step="0.01"
+                                               class="block w-full pl-8 pr-3 py-3 rounded-lg border-gray-300 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500 shadow-sm">
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="form-section">
-                            <div class="form-section-title">
-                                <i class="fas fa-file-alt"></i> Información Adicional
+                        <!-- Descripción -->
+                        <div class="bg-purple-50 rounded-lg p-6 border border-purple-100">
+                            <div class="flex items-center gap-2 mb-4">
+                                <i class="fas fa-align-left text-purple-600 text-xl"></i>
+                                <h2 class="text-xl font-semibold text-gray-800">Descripción</h2>
                             </div>
-                            <div class="form-row">
-                                <div class="form-group col-md-12">
-                                    <label for="nueva_descripcion">Nueva Descripción:</label>
-                                    <textarea id="nueva_descripcion" name="nueva_descripcion" class="form-control" rows="3"></textarea>
-                                </div>
+                            
+                            <div class="space-y-2">
+                                <label class="block text-sm font-medium text-gray-700">
+                                    Nueva Descripción
+                                </label>
+                                <textarea id="nueva_descripcion" 
+                                          rows="4" 
+                                          class="block w-full px-4 py-3 rounded-lg border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 shadow-sm resize-none"
+                                          placeholder="Actualiza la descripción del producto..."></textarea>
                             </div>
                         </div>
 
-                        <div class="form-actions">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-save"></i> Actualizar Stock
+                        <!-- Botones de acción -->
+                        <div class="flex justify-end gap-4 pt-6">
+                            <button type="button" 
+                                    onclick="limpiarFormulario()"
+                                    class="inline-flex items-center px-6 py-3 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all">
+                                <i class="fas fa-undo mr-2"></i>
+                                Limpiar
                             </button>
-                            <button type="button" class="btn btn-secondary" onclick="limpiarFormulario()">
-                                <i class="fas fa-undo"></i> Limpiar
+                            <button type="submit"
+                                    class="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all transform hover:scale-105">
+                                <i class="fas fa-save mr-2"></i>
+                                Actualizar Stock
                             </button>
                         </div>
                     </form>
                 </div>
             </div>
-        </div>
+        </main>
     </div>
 
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- Mantener el JavaScript existente pero actualizar las clases CSS -->
     <script>
         $(document).ready(function() {
             // Elementos del DOM
             const elements = {
-                precioCosto: $('#nuevo_precio_costo'),
-                margenGanancia: $('#nuevo_margen'),
-                impuesto: $('#nuevo_impuesto'),
-                precioVenta: $('#nuevo_precio_venta'),
-                stockActual: $('#stock_actual'),
-                nuevaCantidad: $('#nueva_cantidad'),
-                tipoOperacion: $('#tipo_operacion'),
-                stockResultante: $('#stock_resultante'),
-                productoId: $('#producto_id'),
-                descripcion: $('#nueva_descripcion'),
+                buscarForm: $('#buscarProductoForm'),
+                actualizarForm: $('#actualizarStockForm'),
+                stockForm: $('#stockForm'),
                 codigoBarras: $('#codigo_barras'),
-                stockWarning: $('.stock-warning'),
-                actualizarStockForm: $('#actualizarStockForm')
+                // ... (resto de elementos)
             };
 
-            // Calculadora de precios
-            const calculadora = {
-                calcularPrecioVenta() {
-                    const precioCosto = elements.precioCosto.val();
-                    const margen = elements.margenGanancia.val();
-                    const impuesto = elements.impuesto.val();
-                    
-                    if (!precioCosto || !elements.precioVenta.val()) {
-                        const precioBase = parseFloat(precioCosto) * (1 + (parseFloat(margen) / 100));
-                        const precioVenta = precioBase * (1 + (parseFloat(impuesto) / 100));
-                        elements.precioVenta.val(precioVenta.toFixed(2));
+            // Manejar la búsqueda del producto
+            elements.buscarForm.on('submit', function(e) {
+                e.preventDefault();
+                
+                const codigo = elements.codigoBarras.val().trim();
+                if (!codigo) {
+                    Swal.fire('Error', 'Ingrese un código de barras', 'error');
+                    return;
+                }
+
+                $.ajax({
+                    url: 'surtir.php',
+                    method: 'POST',
+                    data: {
+                        action: 'buscar_producto',
+                        codigo_barras: codigo
+                    },
+                    dataType: 'json',
+                    success: function(response) {
+                        if (response.success) {
+                            // Mostrar el formulario de actualización
+                            elements.actualizarForm.show();
+                            
+                            // Llenar los campos con la información del producto
+                            $('#producto_id').val(response.producto.id);
+                            $('#nombre_producto').val(response.producto.nombre);
+                            $('#stock_actual').val(response.producto.stock);
+                            $('#stock_minimo').val(response.producto.stock_minimo);
+                            $('#nuevo_precio_costo').val(response.producto.precio_costo);
+                            $('#nuevo_margen').val(response.producto.margen_ganancia);
+                            $('#nuevo_impuesto').val(response.producto.impuesto);
+                            $('#nuevo_precio_venta').val(response.producto.precio_venta);
+                            $('#nueva_descripcion').val(response.producto.descripcion);
+
+                            // Actualizar el estado del stock
+                            actualizarEstadoStock(response.producto.stock, response.producto.stock_minimo);
+                            
+                            // Calcular stock resultante inicial
+                            calcularStockResultante();
+                        } else {
+                            Swal.fire('Error', response.message || 'Producto no encontrado', 'error');
+                            elements.actualizarForm.hide();
+                        }
+                    },
+                    error: function() {
+                        Swal.fire('Error', 'Error al buscar el producto', 'error');
+                        elements.actualizarForm.hide();
                     }
-                },
+                });
+            });
 
-                calcularMargenDesdeVenta() {
-                    const precioCosto = elements.precioCosto.val();
-                    const precioVenta = elements.precioVenta.val();
-                    const impuesto = elements.impuesto.val();
+            // Función para actualizar el estado visual del stock
+            function actualizarEstadoStock(stock, stockMinimo) {
+                const stockStatus = $('#stockStatus');
+                let clase = '';
+                let texto = '';
 
-                    if (!precioCosto || !precioVenta) return;
-
-                    const precioSinImpuesto = parseFloat(precioVenta) / (1 + (parseFloat(impuesto) / 100));
-                    const margen = ((precioSinImpuesto / parseFloat(precioCosto)) - 1) * 100;
-                    elements.margenGanancia.val(margen.toFixed(2));
+                if (stock === 0) {
+                    clase = 'bg-red-100 text-red-800';
+                    texto = 'Agotado';
+                } else if (stock <= stockMinimo) {
+                    clase = 'bg-yellow-100 text-yellow-800';
+                    texto = 'Stock Bajo';
+                } else {
+                    clase = 'bg-green-100 text-green-800';
+                    texto = 'Stock Normal';
                 }
-            };
 
-            // Manejador de stock
-            const stockHandler = {
-                calcularStockResultante() {
-                    const stockActual = parseInt(elements.stockActual.val()) || 0;
-                    const nuevaCantidad = parseInt(elements.nuevaCantidad.val()) || 0;
-                    const tipoOperacion = elements.tipoOperacion.val();
-                    
-                    const resultado = tipoOperacion === 'agregar' ? 
-                        stockActual + nuevaCantidad : 
-                        stockActual - nuevaCantidad;
-                    
-                    elements.stockResultante.val(resultado);
-                    this.validarStock(resultado);
-                },
-
-                validarStock(resultado) {
-                    const isValid = resultado >= 0;
-                    elements.stockResultante.toggleClass('is-invalid', !isValid);
-                    elements.nuevaCantidad.toggleClass('is-invalid', !isValid);
-                    elements.stockWarning.toggle(!isValid);
-                    return isValid;
-                }
-            };
-
-            // Event listeners
-            function setupEventListeners() {
-                // Eventos para cálculos de precio
-                elements.precioCosto.on('input', () => {
-                    elements.precioVenta.val() ? calculadora.calcularMargenDesdeVenta() : calculadora.calcularPrecioVenta();
-                });
-
-                elements.margenGanancia.on('input', () => {
-                    if (!elements.precioVenta.val()) calculadora.calcularPrecioVenta();
-                });
-
-                elements.impuesto.on('input', () => {
-                    elements.precioVenta.val() ? calculadora.calcularMargenDesdeVenta() : calculadora.calcularPrecioVenta();
-                });
-
-                elements.precioVenta.on('input', calculadora.calcularMargenDesdeVenta);
-
-                // Eventos para cálculos de stock
-                elements.nuevaCantidad.on('input', () => stockHandler.calcularStockResultante());
-                elements.tipoOperacion.on('change', () => stockHandler.calcularStockResultante());
+                stockStatus.attr('class', 'px-2 py-1 rounded-full text-xs font-medium ' + clase);
+                stockStatus.text(texto);
             }
 
-            // Manejador de formularios
-            const formHandler = {
-                buscarProducto(e) {
-                    e.preventDefault();
-                    const codigo_barras = elements.codigoBarras.val();
+            // Calcular stock resultante cuando cambie la cantidad o tipo de operación
+            $('#nueva_cantidad, #tipo_operacion').on('input change', calcularStockResultante);
 
-                    $.ajax({
-                        url: 'surtir.php',
-                        method: 'POST',
-                        data: { action: 'buscar_producto', codigo_barras },
-                        dataType: 'json',
-                        success: this.procesarRespuestaBusqueda,
-                        error: () => this.mostrarError('Hubo un problema al buscar el producto.')
-                    });
-                },
-
-                procesarRespuestaBusqueda(response) {
-                    if (response.success) {
-                        const producto = response.producto;
-                        formHandler.llenarFormulario(producto);
-                        elements.actualizarStockForm.show();
-                    } else {
-                        formHandler.mostrarError(response.message);
-                    }
-                },
-
-                llenarFormulario(producto) {
-                    elements.productoId.val(producto.id);
-                    $('#nombre_producto').val(producto.nombre);
-                    $('#categoria_producto').val(producto.categoria_nombre);
-                    $('#departamento_producto').val(producto.departamento_nombre);
-                    elements.stockActual.val(producto.stock);
-                    elements.precioCosto.val(producto.precio_costo);
-                    elements.margenGanancia.val(producto.margen_ganancia);
-                    elements.impuesto.val(producto.impuesto);
-                    elements.descripcion.val(producto.descripcion);
-                    calculadora.calcularPrecioVenta();
-                },
-
-                actualizarStock(e) {
-                    e.preventDefault();
-                    
-                    if (!stockHandler.validarStock(parseInt(elements.stockResultante.val()))) {
-                        this.mostrarError('El stock no puede quedar en negativo');
-                        return;
-                    }
-
-                    this.confirmarActualizacion();
-                },
-
-                confirmarActualizacion() {
-                    Swal.fire({
-                        title: '¿Confirmar actualización?',
-                        text: "¿Está seguro de actualizar el stock y precios del producto?",
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonColor: '#3085d6',
-                        cancelButtonColor: '#d33',
-                        confirmButtonText: 'Sí, actualizar',
-                        cancelButtonText: 'Cancelar'
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            this.enviarActualizacion();
-                        }
-                    });
-                },
-
-                enviarActualizacion() {
-                    const formData = {
-                        action: 'actualizar_stock',
-                        id: elements.productoId.val(),
-                        nueva_cantidad: elements.nuevaCantidad.val(),
-                        nuevo_precio_costo: elements.precioCosto.val(),
-                        nuevo_margen: elements.margenGanancia.val(),
-                        nuevo_impuesto: elements.impuesto.val(),
-                        nueva_descripcion: elements.descripcion.val(),
-                        tipo_operacion: elements.tipoOperacion.val(),
-                        nuevo_precio_venta: elements.precioVenta.val()
-                    };
-
-                    $.ajax({
-                        url: 'surtir.php',
-                        method: 'POST',
-                        data: formData,
-                        success: this.procesarRespuestaActualizacion,
-                        error: (xhr, status, error) => {
-                            console.error('Ajax error:', error);
-                            this.mostrarError('Hubo un problema al actualizar el stock.');
-                        }
-                    });
-                },
-
-                procesarRespuestaActualizacion(response) {
-                    try {
-                        const result = typeof response === 'string' ? JSON.parse(response) : response;
-                        if (result.success) {
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Éxito',
-                                text: result.message
-                            }).then(() => formHandler.limpiarFormulario());
-                        } else {
-                            formHandler.mostrarError(result.message || 'Error al actualizar');
-                        }
-                    } catch (e) {
-                        console.error('Error parsing response:', e);
-                        formHandler.mostrarError('Hubo un problema al procesar la respuesta del servidor');
-                    }
-                },
-
-                mostrarError(mensaje) {
-                    Swal.fire('Error', mensaje, 'error');
-                },
-
-                limpiarFormulario() {
-                    $('#buscarProductoForm')[0].reset();
-                    $('#stockForm')[0].reset();
-                    elements.actualizarStockForm.hide();
+            function calcularStockResultante() {
+                const stockActual = parseInt($('#stock_actual').val()) || 0;
+                const nuevaCantidad = parseInt($('#nueva_cantidad').val()) || 0;
+                const tipoOperacion = $('#tipo_operacion').val();
+                
+                const resultado = tipoOperacion === 'agregar' ? 
+                    stockActual + nuevaCantidad : 
+                    stockActual - nuevaCantidad;
+                
+                $('#stock_resultante').val(resultado);
+                
+                // Validar stock negativo
+                const stockWarning = $('.stock-warning');
+                if (resultado < 0) {
+                    stockWarning.removeClass('hidden').addClass('block');
+                    $('#stock_resultante').addClass('border-red-500');
+                } else {
+                    stockWarning.removeClass('block').addClass('hidden');
+                    $('#stock_resultante').removeClass('border-red-500');
                 }
-            };
+            }
 
-            // Inicialización
-            setupEventListeners();
-            $('#buscarProductoForm').on('submit', e => formHandler.buscarProducto(e));
-            $('#stockForm').on('submit', e => formHandler.actualizarStock(e));
+            // Manejar el envío del formulario de actualización
+            elements.stockForm.on('submit', function(e) {
+                e.preventDefault();
+                
+                const stockResultante = parseInt($('#stock_resultante').val());
+                if (stockResultante < 0) {
+                    Swal.fire('Error', 'El stock resultante no puede ser negativo', 'error');
+                    return;
+                }
+
+                const formData = {
+                    action: 'actualizar_stock',
+                    id: $('#producto_id').val(),
+                    nueva_cantidad: $('#nueva_cantidad').val(),
+                    nuevo_precio_costo: $('#nuevo_precio_costo').val(),
+                    nuevo_margen: $('#nuevo_margen').val(),
+                    nuevo_impuesto: $('#nuevo_impuesto').val(),
+                    nueva_descripcion: $('#nueva_descripcion').val(),
+                    tipo_operacion: $('#tipo_operacion').val(),
+                    nuevo_precio_venta: $('#nuevo_precio_venta').val()
+                };
+
+                Swal.fire({
+                    title: '¿Confirmar actualización?',
+                    text: "¿Está seguro de actualizar el stock y precios del producto?",
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33',
+                    confirmButtonText: 'Sí, actualizar',
+                    cancelButtonText: 'Cancelar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.ajax({
+                            url: 'surtir.php',
+                            method: 'POST',
+                            data: formData,
+                            success: function(response) {
+                                try {
+                                    const data = JSON.parse(response);
+                                    if (data.success) {
+                                        Swal.fire({
+                                            icon: 'success',
+                                            title: '¡Éxito!',
+                                            text: data.message,
+                                            showConfirmButton: false,
+                                            timer: 1500
+                                        }).then(() => {
+                                            limpiarFormulario();
+                                        });
+                                    } else {
+                                        Swal.fire('Error', data.message, 'error');
+                                    }
+                                } catch (e) {
+                                    Swal.fire('Error', 'Error al procesar la respuesta', 'error');
+                                }
+                            },
+                            error: function() {
+                                Swal.fire('Error', 'Error al enviar la solicitud', 'error');
+                            }
+                        });
+                    }
+                });
+            });
+
+            // Función para limpiar el formulario
+            window.limpiarFormulario = function() {
+                elements.buscarForm[0].reset();
+                elements.stockForm[0].reset();
+                elements.actualizarForm.hide();
+            };
         });
     </script>
 </body>
-
 </html>
