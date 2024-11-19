@@ -243,9 +243,16 @@ $proveedores = getUserProveedores($user_id);
                         <i class="fas fa-list mr-2 text-blue-500"></i>
                         Listado de Proveedores
                     </h2>
-                    <span class="text-sm text-gray-500">
-                        Total: <?= count($proveedores) ?> proveedores
-                    </span>
+                    <div class="flex items-center gap-2">
+                        <button onclick="exportToExcel()" 
+                                class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-md transition duration-200 flex items-center">
+                            <i class="fas fa-file-excel mr-2"></i>
+                            Exportar Excel
+                        </button>
+                        <span class="text-sm text-gray-500">
+                            Total: <?= count($proveedores) ?> proveedores
+                        </span>
+                    </div>
                 </div>
 
                 <div class="overflow-x-auto">
@@ -511,6 +518,36 @@ $proveedores = getUserProveedores($user_id);
                 showError('Error', 'Ocurrió un error al eliminar el proveedor');
             }
         }
+    }
+    </script>
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <script>
+    function exportToExcel() {
+        // Crear array con los datos
+        const data = [
+            ['Nombre', 'Email', 'Teléfono', 'Dirección'] // Encabezados
+        ];
+        
+        // Obtener todas las filas de la tabla
+        const rows = document.querySelectorAll('table tbody tr');
+        rows.forEach(row => {
+            if (!row.querySelector('td[colspan]')) { // Excluir fila de "No hay proveedores"
+                const nombre = row.querySelector('td:nth-child(1)').textContent.trim();
+                const email = row.querySelector('td:nth-child(2)').textContent.trim().split('\n')[0].trim();
+                const telefono = row.querySelector('td:nth-child(2)').textContent.trim().split('\n')[1].trim();
+                const direccion = row.querySelector('td:nth-child(3)').textContent.trim();
+                
+                data.push([nombre, email, telefono, direccion]);
+            }
+        });
+
+        // Crear libro de trabajo y hoja
+        const ws = XLSX.utils.aoa_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Proveedores");
+
+        // Generar archivo y descargarlo
+        XLSX.writeFile(wb, "Proveedores_VendEasy.xlsx");
     }
     </script>
 </body>

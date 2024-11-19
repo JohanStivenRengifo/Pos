@@ -527,6 +527,26 @@ $clientes = getClientes($user_id);
         
         document.getElementById('codigo_postal').value = codigosPostales[this.value] || '';
     });
+
+    function exportarClientes() {
+        Swal.fire({
+            title: 'Exportar Clientes',
+            text: 'Selecciona el formato de exportación',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Excel',
+            cancelButtonText: 'CSV',
+            showCloseButton: true,
+            showDenyButton: true,
+            denyButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.location.href = 'export.php?format=excel';
+            } else if (result.dismiss === Swal.DismissReason.cancel) {
+                window.location.href = 'export.php?format=csv';
+            }
+        });
+    }
     </script>
 
     <style>

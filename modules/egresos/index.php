@@ -789,6 +789,13 @@ function getProximoVencimiento($user_id) {
                                        class="form-input pl-10">
                                 <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
                             </div>
+                            
+                            <!-- Botón Exportar Excel -->
+                            <button onclick="exportarExcel()" 
+                                    class="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                                <i class="fas fa-file-excel"></i>
+                                <span>Exportar Excel</span>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -1377,6 +1384,89 @@ function getProximoVencimiento($user_id) {
                     text: 'Hubo un problema al procesar la solicitud'
                 });
             }
+        });
+    }
+    </script>
+
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <script>
+    function exportarExcel() {
+        // Mostrar indicador de carga
+        Swal.fire({
+            title: 'Generando Excel',
+            text: 'Por favor espere...',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        // Crear array para los datos
+        const datos = [];
+        
+        // Agregar encabezados
+        datos.push([
+            'Número Factura',
+            'Proveedor',
+            'Descripción',
+            'Monto',
+            'Fecha',
+            'Categoría',
+            'Estado',
+            'Método de Pago',
+            'Notas'
+        ]);
+
+        // Obtener todas las filas visibles
+        const filas = document.querySelectorAll('tbody tr:not([style*="display: none"])');
+        
+        filas.forEach(fila => {
+            const row = [
+                fila.cells[0].textContent.trim(),
+                fila.cells[1].textContent.trim(),
+                fila.cells[2].querySelector('p').textContent.trim(),
+                fila.cells[3].textContent.trim().replace('$', '').replace(',', ''),
+                fila.cells[4].textContent.trim(),
+                fila.cells[5].textContent.trim(),
+                fila.cells[6].textContent.trim(),
+                fila.cells[3].querySelector('.text-gray-400').getAttribute('title'),
+                '' // Notas (vacío por defecto)
+            ];
+            datos.push(row);
+        });
+
+        // Crear libro de trabajo
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(datos);
+
+        // Ajustar anchos de columna
+        const wscols = [
+            {wch: 15}, // Número Factura
+            {wch: 20}, // Proveedor
+            {wch: 30}, // Descripción
+            {wch: 12}, // Monto
+            {wch: 12}, // Fecha
+            {wch: 15}, // Categoría
+            {wch: 12}, // Estado
+            {wch: 15}, // Método de Pago
+            {wch: 30}  // Notas
+        ];
+        ws['!cols'] = wscols;
+
+        // Agregar la hoja al libro
+        XLSX.utils.book_append_sheet(wb, ws, "Egresos");
+
+        // Generar el archivo
+        const fechaActual = new Date().toLocaleDateString().replace(/\//g, '-');
+        XLSX.writeFile(wb, `Egresos_${fechaActual}.xlsx`);
+
+        // Cerrar el indicador de carga
+        Swal.close();
+
+        // Mostrar mensaje de éxito
+        Toast.fire({
+            icon: 'success',
+            title: 'Excel generado correctamente'
         });
     }
     </script>

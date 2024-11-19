@@ -138,6 +138,7 @@ if (isset($_SESSION['user_id'])) {
             margin-bottom: 1.5rem;
             background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
             -webkit-background-clip: text;
+            background-clip: text;
             -webkit-text-fill-color: transparent;
             max-width: 800px;
             margin: 0 auto 2rem;

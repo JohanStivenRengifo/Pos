@@ -241,7 +241,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
     <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <!-- XLSX -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
 </head>
@@ -599,46 +600,129 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
             }
         });
 
-        // Función para exportar a Excel
+        // Reemplazar la función actual del botón exportar con esta nueva implementación
+
         document.getElementById('exportExcel').addEventListener('click', function() {
-            Swal.fire({
-                title: 'Exportar Ingresos',
-                html: `
-                <div class="p-4">
-                    <div class="mb-4">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Rango de fechas</label>
-                        <select id="dateRange" class="w-full px-3 py-2 border rounded-lg">
-                            <option value="all">Todos los registros</option>
-                            <option value="today">Hoy</option>
-                            <option value="week">Esta semana</option>
-                            <option value="month">Este mes</option>
-                        </select>
-                    </div>
-                </div>
-            `,
-                showCancelButton: true,
-                confirmButtonText: 'Exportar',
-                cancelButtonText: 'Cancelar',
-                confirmButtonColor: '#10B981',
-                cancelButtonColor: '#6B7280',
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    // Obtener la tabla y convertirla a Excel
-                    const table = document.querySelector('.modern-table');
-                    const ws = XLSX.utils.table_to_sheet(table);
-                    const wb = XLSX.utils.book_new();
-                    XLSX.utils.book_append_sheet(wb, ws, "Ingresos");
-
-                    // Generar el archivo
-                    const fileName = `Ingresos_${new Date().toISOString().split('T')[0]}.xlsx`;
-                    XLSX.writeFile(wb, fileName);
-
-                    Toast.fire({
-                        icon: 'success',
-                        title: 'Archivo exportado correctamente'
-                    });
-                }
+            // Obtener los datos de la tabla actual
+            const rows = document.querySelectorAll('table tbody tr');
+            const data = [];
+            
+            // Agregar encabezados con formato
+            data.push([
+                'REPORTE DE INGRESOS',
+                '', '', '', '', ''  // Columnas vacías para el merge
+            ]);
+            data.push([]); // Fila vacía para espaciado
+            
+            // Agregar fecha de generación
+            data.push([
+                'Fecha de generación:',
+                new Date().toLocaleDateString('es-CO', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                }),
+                '', '', '', ''
+            ]);
+            data.push([]); // Fila vacía para espaciado
+            
+            // Agregar encabezados de columnas
+            data.push([
+                'Descripción',
+                'Categoría',
+                'Monto',
+                'Método de Pago',
+                'Fecha',
+                'Notas'
+            ]);
+            
+            // Agregar datos
+            rows.forEach(row => {
+                const cells = Array.from(row.cells).slice(0, -1); // Excluir columna de acciones
+                const rowData = cells.map(cell => cell.textContent.trim());
+                data.push(rowData);
             });
+            
+            // Crear libro y hoja de trabajo
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            
+            // Estilos y formato
+            ws['!merges'] = [
+                // Merge para el título
+                {s: {r: 0, c: 0}, e: {r: 0, c: 5}},
+                // Merge para la fecha
+                {s: {r: 2, c: 1}, e: {r: 2, c: 5}}
+            ];
+            
+            // Definir anchos de columna
+            ws['!cols'] = [
+                {wch: 35}, // Descripción
+                {wch: 15}, // Categoría
+                {wch: 15}, // Monto
+                {wch: 15}, // Método de Pago
+                {wch: 20}, // Fecha
+                {wch: 35}  // Notas
+            ];
+            
+            // Aplicar estilos a las celdas
+            const titleCell = XLSX.utils.encode_cell({r: 0, c: 0});
+            const headerRow = XLSX.utils.encode_range({r: 4, c: 0}, {r: 4, c: 5});
+            
+            // Estilo para el título
+            ws[titleCell].s = {
+                font: {bold: true, size: 14},
+                alignment: {horizontal: 'center'}
+            };
+            
+            // Estilo para los encabezados
+            for(let col = 0; col <= 5; col++) {
+                const cell = XLSX.utils.encode_cell({r: 4, c: col});
+                ws[cell].s = {
+                    font: {bold: true},
+                    fill: {fgColor: {rgb: "E2E8F0"}},
+                    alignment: {horizontal: 'center'},
+                    border: {
+                        top: {style: 'thin'},
+                        bottom: {style: 'thin'},
+                        left: {style: 'thin'},
+                        right: {style: 'thin'}
+                    }
+                };
+            }
+            
+            // Aplicar formato de moneda a la columna de monto
+            for(let row = 5; row < data.length; row++) {
+                const montoCell = XLSX.utils.encode_cell({r: row, c: 2});
+                if(ws[montoCell]) {
+                    ws[montoCell].z = '"$"#,##0.00';
+                }
+            }
+            
+            // Agregar la hoja al libro
+            XLSX.utils.book_append_sheet(wb, ws, "Ingresos");
+            
+            // Generar nombre del archivo
+            const fecha = new Date().toLocaleDateString('es-CO').replace(/\//g, '-');
+            const fileName = `Reporte_Ingresos_${fecha}.xlsx`;
+            
+            try {
+                // Guardar el archivo
+                XLSX.writeFile(wb, fileName);
+                
+                Toast.fire({
+                    icon: 'success',
+                    title: 'Reporte exportado correctamente'
+                });
+            } catch (error) {
+                console.error('Error al exportar:', error);
+                Toast.fire({
+                    icon: 'error',
+                    title: 'Error al exportar el reporte'
+                });
+            }
         });
 
         // Función para ver detalles
