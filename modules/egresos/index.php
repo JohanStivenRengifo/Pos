@@ -539,11 +539,26 @@ function getProximoVencimiento($user_id) {
             }
             
             .form-input {
-                @apply w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200;
+                width: 100%;
+                border-radius: 0.5rem;
+                border: 1px solid #D1D5DB;
+                background-color: #F9FAFB;
+                padding: 0.625rem 1rem;
+                transition: all 0.2s;
+            }
+            .form-input:focus {
+                background-color: white;
+                border-color: #3B82F6;
+                box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
             }
 
             .form-select {
-                @apply w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200;
+                width: 100%;
+                border-radius: 0.5rem;
+                border: 1px solid #D1D5DB;
+                background-color: #F9FAFB;
+                padding: 0.625rem 1rem;
+                transition: all 0.2s;
             }
 
             .form-label {
