@@ -848,44 +848,9 @@ $productos = obtenerProductos($pdo, $user_id);
                                 <label for="metodo-pago">
                                     <i class="fas fa-money-bill-wave mr-1"></i>Método de pago
                                 </label>
-                                <select id="metodo-pago" class="custom-select custom-select-sm">
-                                    <option value="efectivo">Efectivo</option>
-                                    <option value="tarjeta">Tarjeta</option>
-                                    <option value="transferencia">Transferencia</option>
-                                    <option value="credito">Crédito</option>
+                                <select id="metodo-pago" class="custom-select custom-select-sm" disabled>
+                                    <option value="efectivo" selected>Efectivo</option>
                                 </select>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Opciones de crédito en dos columnas -->
-                    <div id="campos-credito" class="credito-options" style="display: none;">
-                        <div class="row">
-                            <div class="col-6">
-                                <div class="form-group">
-                                    <label for="plazo-credito">
-                                        <i class="fas fa-calendar-alt mr-1"></i>Plazo
-                                    </label>
-                                    <div class="input-group input-group-sm">
-                                        <input type="number" id="plazo-credito" class="form-control" min="1" value="1">
-                                        <div class="input-group-append">
-                                            <span class="input-group-text">meses</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="form-group">
-                                    <label for="interes-credito">
-                                        <i class="fas fa-percentage mr-1"></i>Interés
-                                    </label>
-                                    <div class="input-group input-group-sm">
-                                        <input type="number" id="interes-credito" class="form-control" min="0" step="0.01" value="0">
-                                        <div class="input-group-append">
-                                            <span class="input-group-text">%</span>
-                                        </div>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>

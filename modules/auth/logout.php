@@ -1,7 +1,7 @@
 <?php
 session_start();
-require_once 'config/db.php';
-require_once 'config/config.php';
+require_once '../../config/db.php';
+require_once '../../config/config.php';
 
 // Clase para manejar respuestas JSON
 class ApiResponse {
@@ -21,14 +21,34 @@ function logoutUser() {
     try {
         // Limpiar todas las variables de sesión
         $_SESSION = array();
+        
+        // Obtener todos los nombres de cookies
+        $cookies = array_keys($_COOKIE);
+        $path = parse_url(APP_URL, PHP_URL_PATH);
+        $path = $path ?: '/';
+        
+        // Eliminar todas las cookies del dominio
+        foreach($cookies as $cookie) {
+            setcookie($cookie, '', time() - 3600, $path);
+            setcookie($cookie, '', time() - 3600, '/');
+            // También eliminar para todos los subdominios posibles
+            setcookie($cookie, '', time() - 3600, $path, '.' . $_SERVER['HTTP_HOST']);
+            setcookie($cookie, '', time() - 3600, '/', '.' . $_SERVER['HTTP_HOST']);
+        }
 
-        // Destruir la cookie de sesión si existe
+        // Destruir la cookie de sesión específicamente
         if (isset($_COOKIE[session_name()])) {
             setcookie(session_name(), '', time() - 3600, '/');
+            setcookie(session_name(), '', time() - 3600, $path);
         }
 
         // Destruir la sesión
         session_destroy();
+        
+        // Limpiar la caché del navegador
+        header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
+        header("Cache-Control: post-check=0, pre-check=0", false);
+        header("Pragma: no-cache");
 
         // Verificar si es una petición AJAX
         if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && 
@@ -118,6 +138,16 @@ logoutUser();
     function noBack() {
         window.history.forward();
     }
+
+    // Limpiar el almacenamiento local y de sesión
+    localStorage.clear();
+    sessionStorage.clear();
+    
+    // Limpiar todas las cookies del lado del cliente
+    document.cookie.split(";").forEach(function(c) { 
+        document.cookie = c.replace(/^ +/, "")
+            .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
+    });
     </script>
 </body>
 </html>

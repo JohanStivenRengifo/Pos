@@ -188,101 +188,162 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     <title>Registro | VendEasy</title>
     <link rel="icon" type="image/png" href="../../favicon/favicon.ico"/>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link rel="stylesheet" href="../../css/auth.css">
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
-<body>
-    <div class="auth-container">
-        <div class="auth-header">
-            <h2>Crear cuenta nueva</h2>
-            <p>Únete a VendEasy y empieza a gestionar tu negocio</p>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-lg bg-white rounded-xl shadow-lg p-8">
+        <div class="text-center mb-8">
+            <h2 class="text-3xl font-bold text-gray-800 mb-2">Crear cuenta nueva</h2>
+            <p class="text-gray-600">Únete a VendEasy y empieza a gestionar tu negocio</p>
         </div>
 
         <?php if (isset($error)): ?>
-            <div class="alert alert-error">
-                <i class="fas fa-exclamation-circle"></i>
+            <div class="mb-6 p-4 rounded-lg bg-red-50 text-red-700 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"></path>
+                </svg>
                 <?= htmlspecialchars($error) ?>
             </div>
         <?php endif; ?>
 
-        <form id="registerForm" method="POST" action="">
+        <form id="registerForm" method="POST" action="" class="space-y-6">
             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
             
-            <div class="form-group">
-                <label for="nombre">Nombre Completo</label>
-                <div class="input-container">
-                    <i class="fas fa-user input-icon"></i>
+            <div>
+                <label for="nombre" class="block text-sm font-medium text-gray-700 mb-1">
+                    Nombre Completo
+                </label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                    </div>
                     <input type="text" id="nombre" name="nombre" required 
+                           class="pl-10 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                            minlength="3" maxlength="100"
                            placeholder="Ingresa tu nombre completo">
                 </div>
             </div>
 
-            <div class="form-group">
-                <label for="email">Correo Electrónico</label>
-                <div class="input-container">
-                    <i class="fas fa-envelope input-icon"></i>
+            <div>
+                <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
+                    Correo Electrónico
+                </label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                    </div>
                     <input type="email" id="email" name="email" required 
+                           class="pl-10 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                            autocomplete="email" spellcheck="false"
                            placeholder="ejemplo@correo.com">
                 </div>
             </div>
 
-            <div class="form-group">
-                <label for="password">Contraseña</label>
-                <div class="input-container password-container">
-                    <i class="fas fa-lock input-icon"></i>
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-700 mb-1">
+                    Contraseña
+                </label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                    </div>
                     <input type="password" id="password" name="password" required 
+                           class="pl-10 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                            minlength="8"
                            placeholder="Mínimo 8 caracteres">
-                    <button type="button" class="toggle-password">
-                        <i class="fas fa-eye"></i>
+                    <button type="button" 
+                            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                            aria-label="Toggle password visibility">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
                     </button>
                 </div>
-                <div class="password-strength">
-                    <div class="strength-bar">
-                        <div class="strength-progress"></div>
+                <div class="mt-2 space-y-2">
+                    <div class="h-1.5 w-full bg-gray-200 rounded-full overflow-hidden">
+                        <div class="strength-progress h-full transition-all duration-300"></div>
                     </div>
-                    <small class="strength-text">La contraseña debe contener:</small>
-                    <ul class="password-requirements">
-                        <li data-requirement="length"><i class="fas fa-circle"></i> Mínimo 8 caracteres</li>
-                        <li data-requirement="uppercase"><i class="fas fa-circle"></i> Una letra mayúscula</li>
-                        <li data-requirement="lowercase"><i class="fas fa-circle"></i> Una letra minúscula</li>
-                        <li data-requirement="number"><i class="fas fa-circle"></i> Un número</li>
+                    <p class="text-sm text-gray-600">La contraseña debe contener:</p>
+                    <ul class="space-y-1 text-sm text-gray-600">
+                        <li data-requirement="length" class="flex items-center">
+                            <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20"></svg>
+                            Mínimo 8 caracteres
+                        </li>
+                        <li data-requirement="uppercase" class="flex items-center">
+                            <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20"></svg>
+                            Una letra mayúscula
+                        </li>
+                        <li data-requirement="lowercase" class="flex items-center">
+                            <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20"></svg>
+                            Una letra minúscula
+                        </li>
+                        <li data-requirement="number" class="flex items-center">
+                            <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20"></svg>
+                            Un número
+                        </li>
                     </ul>
                 </div>
             </div>
 
-            <div class="form-group">
-                <label for="confirm_password">Confirmar Contraseña</label>
-                <div class="input-container password-container">
-                    <i class="fas fa-lock input-icon"></i>
-                    <input type="password" id="confirm_password" name="confirm_password" 
-                           required minlength="8"
+            <div>
+                <label for="confirm_password" class="block text-sm font-medium text-gray-700 mb-1">
+                    Confirmar Contraseña
+                </label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                    </div>
+                    <input type="password" id="confirm_password" name="confirm_password" required
+                           class="pl-10 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                           minlength="8"
                            placeholder="Repite tu contraseña">
-                    <button type="button" class="toggle-password">
-                        <i class="fas fa-eye"></i>
+                    <button type="button" 
+                            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                            aria-label="Toggle password visibility">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
                     </button>
                 </div>
             </div>
 
-            <div class="form-group checkbox-container">
-                <input type="checkbox" id="terms" name="terms" required>
-                <label for="terms">
-                    Acepto los <a href="../../terminos-y-condiciones.php" class="btn-link">términos y condiciones</a>
+            <div class="flex items-center">
+                <input type="checkbox" id="terms" name="terms" required
+                       class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                <label for="terms" class="ml-2 block text-sm text-gray-700">
+                    Acepto los <a href="../../terminos-y-condiciones.php" class="text-blue-600 hover:text-blue-800 font-medium">términos y condiciones</a>
                 </label>
             </div>
 
-            <button type="submit" class="btn-auth">
+            <button type="submit" 
+                    class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors relative">
                 <span>Crear Cuenta</span>
-                <div class="spinner"></div>
+                <div class="absolute right-4 top-1/2 -translate-y-1/2 hidden spinner">
+                    <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </div>
             </button>
         </form>
 
-        <div class="auth-footer">
-            <p>¿Ya tienes una cuenta?</p>
-            <a href="login.php" class="btn-link">Iniciar Sesión</a>
+        <div class="mt-6 text-center">
+            <p class="text-sm text-gray-600">¿Ya tienes una cuenta?
+                <a href="login.php" class="text-blue-600 hover:text-blue-800 font-medium transition-colors">
+                    Iniciar Sesión
+                </a>
+            </p>
         </div>
     </div>
 
@@ -290,10 +351,22 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     document.addEventListener('DOMContentLoaded', function() {
         const form = document.getElementById('registerForm');
         const submitButton = form.querySelector('button[type="submit"]');
+        const spinner = submitButton.querySelector('.spinner');
         const passwordInput = document.getElementById('password');
         const confirmPasswordInput = document.getElementById('confirm_password');
-        const strengthBar = document.querySelector('.strength-progress');
-        const requirementItems = document.querySelectorAll('.password-requirements li');
+        const strengthProgress = document.querySelector('.strength-progress');
+        const requirementItems = document.querySelectorAll('[data-requirement]');
+
+        // Función para actualizar el ícono de requisito
+        function updateRequirementIcon(element, met) {
+            const svg = element.querySelector('svg');
+            svg.innerHTML = met ? 
+                '<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"></path>' :
+                '<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z"></path>';
+            
+            element.classList.toggle('text-green-600', met);
+            element.classList.toggle('text-gray-400', !met);
+        }
 
         // Función para verificar requisitos de contraseña
         function checkPasswordStrength(password) {
@@ -304,27 +377,20 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 number: /\d/.test(password)
             };
 
-            // Actualizar indicadores visuales
             requirementItems.forEach(item => {
                 const requirement = item.dataset.requirement;
-                const icon = item.querySelector('i');
-                if (requirements[requirement]) {
-                    item.classList.add('met');
-                    icon.className = 'fas fa-check-circle';
-                } else {
-                    item.classList.remove('met');
-                    icon.className = 'fas fa-circle';
-                }
+                updateRequirementIcon(item, requirements[requirement]);
             });
 
-            // Calcular fortaleza
             const strength = Object.values(requirements).filter(Boolean).length;
             const percentage = (strength / 4) * 100;
-            strengthBar.style.width = `${percentage}%`;
-            strengthBar.className = 'strength-progress ' + 
-                (percentage <= 25 ? 'weak' : 
-                 percentage <= 50 ? 'fair' : 
-                 percentage <= 75 ? 'good' : 'strong');
+            
+            strengthProgress.style.width = `${percentage}%`;
+            strengthProgress.className = `strength-progress h-full transition-all duration-300 ${
+                percentage <= 25 ? 'bg-red-500' : 
+                percentage <= 50 ? 'bg-yellow-500' : 
+                percentage <= 75 ? 'bg-blue-500' : 'bg-green-500'
+            }`;
 
             return requirements;
         }
@@ -334,6 +400,11 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
             const requirements = checkPasswordStrength(this.value);
             const isValid = Object.values(requirements).every(Boolean);
             this.setCustomValidity(isValid ? '' : 'La contraseña no cumple con los requisitos');
+            
+            // Validar confirmación si ya hay valor
+            if (confirmPasswordInput.value) {
+                confirmPasswordInput.dispatchEvent(new Event('input'));
+            }
         });
 
         // Validación en tiempo real de confirmación de contraseña
@@ -343,13 +414,12 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
         });
 
         // Toggle password visibility
-        document.querySelectorAll('.toggle-password').forEach(button => {
+        document.querySelectorAll('button[aria-label="Toggle password visibility"]').forEach(button => {
             button.addEventListener('click', function() {
                 const input = this.parentElement.querySelector('input');
                 const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
                 input.setAttribute('type', type);
-                this.querySelector('i').classList.toggle('fa-eye');
-                this.querySelector('i').classList.toggle('fa-eye-slash');
+                this.querySelector('svg').classList.toggle('opacity-50');
             });
         });
 
@@ -361,7 +431,8 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
 
-            submitButton.classList.add('loading');
+            submitButton.disabled = true;
+            spinner.classList.remove('hidden');
 
             try {
                 const formData = new FormData(this);
@@ -395,7 +466,8 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                     text: error.message || 'Ocurrió un error al procesar la solicitud'
                 });
             } finally {
-                submitButton.classList.remove('loading');
+                submitButton.disabled = false;
+                spinner.classList.add('hidden');
             }
         });
     });

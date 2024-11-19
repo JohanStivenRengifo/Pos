@@ -64,13 +64,31 @@ $ventasUltimos7Dias = executeQuery("
 
 // Obtener totales por método de pago
 $ventasPorMetodoPago = executeQuery("
-    SELECT COALESCE(metodo_pago, 'No especificado') as metodo_pago, 
-           COALESCE(SUM(total), 0) as total
+    SELECT 
+        CASE 
+            WHEN metodo_pago IS NULL OR metodo_pago = '' THEN 'No especificado'
+            ELSE metodo_pago 
+        END as metodo_pago,
+        COALESCE(SUM(total), 0) as total
     FROM ventas
     WHERE user_id = ? AND DATE(fecha) = CURDATE()
-    GROUP BY metodo_pago",
+    GROUP BY 
+        CASE 
+            WHEN metodo_pago IS NULL OR metodo_pago = '' THEN 'No especificado'
+            ELSE metodo_pago 
+        END",
     [$user_id]
 );
+
+// Si no hay datos, agregar un valor por defecto
+if (empty($ventasPorMetodoPago)) {
+    $ventasPorMetodoPago = [
+        [
+            'metodo_pago' => 'Sin ventas',
+            'total' => 0
+        ]
+    ];
+}
 
 // Obtener las últimas 5 ventas
 $ultimasVentas = executeQuery("
@@ -94,11 +112,11 @@ $empresa_info = $empresa_info[0] ?? [];
 
 // Obtener total de ingresos del mes actual
 $totalIngresosMes = getTotal("
-    SELECT COALESCE(SUM(monto), 0) as total
-    FROM ingresos 
+    SELECT COALESCE(SUM(total), 0) as total
+    FROM ventas 
     WHERE user_id = ? 
-    AND MONTH(created_at) = MONTH(CURRENT_DATE())
-    AND YEAR(created_at) = YEAR(CURRENT_DATE())",
+    AND MONTH(fecha) = MONTH(CURRENT_DATE())
+    AND YEAR(fecha) = YEAR(CURRENT_DATE())",
     [$user_id]
 );
 
@@ -198,13 +216,10 @@ $promedioVentasDiarias = getTotal("
 
 // Obtener número promedio de transacciones por día
 $promedioTransaccionesDiarias = getTotal("
-    SELECT COALESCE(AVG(num_transacciones), 0) as promedio
-    FROM (
-        SELECT DATE(fecha) as dia, COUNT(*) as num_transacciones
-        FROM ventas 
-        WHERE user_id = ? AND fecha >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-        GROUP BY DATE(fecha)
-    ) as transacciones_diarias",
+    SELECT COALESCE(COUNT(*) / DATEDIFF(CURDATE(), MIN(fecha)), 0) as promedio
+    FROM ventas 
+    WHERE user_id = ? 
+    AND fecha >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)",
     [$user_id]
 );
 
@@ -241,7 +256,8 @@ if (isset($_POST['logout'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Sistema Contable</title>
+    <title>Dashboard - VendEasy</title>
+    <link rel="icon" type="image/png" href="/favicon/favicon.ico" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -319,8 +335,9 @@ if (isset($_POST['logout'])) {
                     </div>
                     <div class="mt-4">
                         <div class="flex items-center">
-                            <span class="text-green-500 text-sm font-medium">
-                                <i class="fas fa-arrow-up mr-1"></i>8%
+                            <span class="<?= $porcentajeCambioIngresos >= 0 ? 'text-green-500' : 'text-red-500' ?> text-sm font-medium">
+                                <i class="fas fa-arrow-<?= $porcentajeCambioIngresos >= 0 ? 'up' : 'down' ?> mr-1"></i>
+                                <?= abs(round($porcentajeCambioIngresos, 1)) ?>%
                             </span>
                             <span class="text-gray-500 text-sm ml-2">vs mes anterior</span>
                         </div>
@@ -340,8 +357,9 @@ if (isset($_POST['logout'])) {
                     </div>
                     <div class="mt-4">
                         <div class="flex items-center">
-                            <span class="text-red-500 text-sm font-medium">
-                                <i class="fas fa-arrow-down mr-1"></i>5%
+                            <span class="<?= $porcentajeCambioEgresos <= 0 ? 'text-green-500' : 'text-red-500' ?> text-sm font-medium">
+                                <i class="fas fa-arrow-<?= $porcentajeCambioEgresos <= 0 ? 'down' : 'up' ?> mr-1"></i>
+                                <?= abs(round($porcentajeCambioEgresos, 1)) ?>%
                             </span>
                             <span class="text-gray-500 text-sm ml-2">vs mes anterior</span>
                         </div>
@@ -521,6 +539,7 @@ if (isset($_POST['logout'])) {
 
     <script>
         // Configuración global de Chart.js
+        
         Chart.defaults.font.family = 'Inter var, system-ui, -apple-system, sans-serif';
         Chart.defaults.color = '#64748b';
 
@@ -598,31 +617,38 @@ if (isset($_POST['logout'])) {
 
         // Gráfico de métodos de pago
         const ctxMetodoPago = document.getElementById('metodoPagoChart').getContext('2d');
-        new Chart(ctxMetodoPago, {
+        const metodoPagoChart = new Chart(ctxMetodoPago, {
             type: 'doughnut',
             data: {
                 labels: <?= json_encode(array_column($ventasPorMetodoPago, 'metodo_pago')) ?>,
                 datasets: [{
                     data: <?= json_encode(array_column($ventasPorMetodoPago, 'total')) ?>,
                     backgroundColor: [
-                        '#4f46e5',
-                        '#06b6d4',
-                        '#10b981',
-                        '#f59e0b'
+                        '#4f46e5', // Indigo
+                        '#06b6d4', // Cyan
+                        '#10b981', // Emerald
+                        '#f59e0b', // Amber
+                        '#ef4444', // Red
+                        '#8b5cf6'  // Violet
                     ],
-                    borderWidth: 0,
+                    borderWidth: 2,
+                    borderColor: '#ffffff',
                     hoverOffset: 4
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                cutout: '60%',
                 plugins: {
                     legend: {
                         position: 'bottom',
                         labels: {
                             usePointStyle: true,
-                            padding: 20
+                            padding: 20,
+                            font: {
+                                size: 12
+                            }
                         }
                     },
                     tooltip: {
@@ -630,11 +656,12 @@ if (isset($_POST['logout'])) {
                         titleColor: '#e2e8f0',
                         bodyColor: '#e2e8f0',
                         padding: 12,
+                        displayColors: true,
                         callbacks: {
                             label: function(context) {
                                 const total = context.dataset.data.reduce((a, b) => a + b, 0);
                                 const percentage = ((context.parsed / total) * 100).toFixed(1);
-                                return `${formatCurrency(context.parsed)} (${percentage}%)`;
+                                return `${context.label}: ${formatCurrency(context.parsed)} (${percentage}%)`;
                             }
                         }
                     }

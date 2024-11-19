@@ -526,7 +526,16 @@ function getProximoVencimiento($user_id) {
     <style type="text/tailwindcss">
         @layer components {
             .card-dashboard {
-                @apply bg-white rounded-xl shadow-md p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg border border-gray-100;
+                background-color: white;
+                border-radius: 0.75rem;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                padding: 1.5rem;
+                transition: all 0.3s;
+                &:hover {
+                    transform: translateY(-0.25rem);
+                    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.2);
+                }
+                border: 1px solid #e5e7eb;
             }
             
             .form-input {

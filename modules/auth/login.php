@@ -135,74 +135,99 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     <title>Login | VendEasy</title>
     <link rel="icon" type="image/png" href="../../favicon/favicon.ico"/>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link rel="stylesheet" href="../../css/auth.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Agregamos Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-    <div class="auth-container">
-        <div class="auth-header">
-            <h2>Bienvenido de nuevo</h2>
-            <p>Ingresa tus credenciales para continuar</p>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white rounded-xl shadow-lg p-8">
+        <div class="text-center mb-8">
+            <h2 class="text-3xl font-bold text-gray-800 mb-2">Bienvenido de nuevo</h2>
+            <p class="text-gray-600">Ingresa tus credenciales para continuar</p>
         </div>
 
         <?php if (isset($_SESSION['success_message'])): ?>
-            <div class="alert alert-success">
-                <i class="fas fa-check-circle"></i>
+            <div class="mb-4 p-4 rounded-lg bg-green-50 text-green-700 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"></path>
+                </svg>
                 <?= htmlspecialchars($_SESSION['success_message']) ?>
             </div>
             <?php unset($_SESSION['success_message']); ?>
         <?php endif; ?>
 
         <?php if (isset($error)): ?>
-            <div class="alert alert-error">
-                <i class="fas fa-exclamation-circle"></i>
+            <div class="mb-4 p-4 rounded-lg bg-red-50 text-red-700 flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"></path>
+                </svg>
                 <?= htmlspecialchars($error) ?>
             </div>
         <?php endif; ?>
 
-        <form id="loginForm" method="POST" action="">
+        <form id="loginForm" method="POST" action="" class="space-y-6">
             <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
             
-            <div class="form-group">
-                <label for="email">Correo Electrónico</label>
+            <div>
+                <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
+                    Correo Electrónico
+                </label>
                 <input type="email" id="email" name="email" required 
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                        autocomplete="email" spellcheck="false"
                        placeholder="ejemplo@correo.com">
             </div>
 
-            <div class="form-group">
-                <label for="password">Contraseña</label>
-                <div class="password-container">
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-700 mb-1">
+                    Contraseña
+                </label>
+                <div class="relative">
                     <input type="password" id="password" name="password" required
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                            placeholder="••••••••">
-                    <button type="button" class="toggle-password" aria-label="Toggle password visibility">
-                        <i class="fas fa-eye"></i>
+                    <button type="button" 
+                            class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                            aria-label="Toggle password visibility">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
                     </button>
                 </div>
             </div>
 
-            <div class="form-group checkbox-container">
-                <input type="checkbox" name="remember_me" id="remember_me">
-                <label for="remember_me">Mantener sesión iniciada</label>
-            </div>
-
-            <div class="form-group text-right">
-                <a href="recuperar-password.php" class="btn-link">
-                    <i class="fas fa-key"></i>
+            <div class="flex items-center justify-between">
+                <label class="flex items-center">
+                    <input type="checkbox" name="remember_me" id="remember_me" 
+                           class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                    <span class="ml-2 text-sm text-gray-600">Mantener sesión iniciada</span>
+                </label>
+                
+                <a href="recuperar-password.php" 
+                   class="text-sm text-blue-600 hover:text-blue-800 transition-colors">
                     ¿Olvidaste tu contraseña?
                 </a>
             </div>
 
-            <button type="submit" class="btn-auth">
+            <button type="submit" 
+                    class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors relative">
                 <span>Iniciar Sesión</span>
-                <div class="spinner"></div>
+                <div class="absolute right-4 top-1/2 -translate-y-1/2 hidden spinner">
+                    <svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </div>
             </button>
         </form>
 
-        <div class="auth-footer">
-            <p>¿No tienes una cuenta?</p>
-            <a href="register.php" class="btn-link">Crear cuenta</a>
+        <div class="mt-6 text-center">
+            <p class="text-sm text-gray-600">¿No tienes una cuenta?
+                <a href="register.php" class="text-blue-600 hover:text-blue-800 font-medium transition-colors">
+                    Crear cuenta
+                </a>
+            </p>
         </div>
     </div>
 
@@ -210,11 +235,13 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     document.addEventListener('DOMContentLoaded', function() {
         const form = document.getElementById('loginForm');
         const submitButton = form.querySelector('button[type="submit"]');
+        const spinner = submitButton.querySelector('.spinner');
 
         // Manejar envío del formulario
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
-            submitButton.classList.add('loading');
+            submitButton.disabled = true;
+            spinner.classList.remove('hidden');
 
             try {
                 const formData = new FormData(this);
@@ -252,19 +279,19 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                     text: 'Ocurrió un error al procesar la solicitud'
                 });
             } finally {
-                submitButton.classList.remove('loading');
+                submitButton.disabled = false;
+                spinner.classList.add('hidden');
             }
         });
 
         // Toggle password visibility
-        const togglePassword = document.querySelector('.toggle-password');
+        const togglePassword = document.querySelector('button[aria-label="Toggle password visibility"]');
         const passwordInput = document.getElementById('password');
         
         togglePassword?.addEventListener('click', function() {
             const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
             passwordInput.setAttribute('type', type);
-            this.querySelector('i').classList.toggle('fa-eye');
-            this.querySelector('i').classList.toggle('fa-eye-slash');
+            this.querySelector('svg').classList.toggle('hidden');
         });
     });
     </script>

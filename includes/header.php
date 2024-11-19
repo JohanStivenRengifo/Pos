@@ -96,12 +96,16 @@ $rutaBase = $rutaBase ?? '';
                     <a href="https://wa.me/+573116035791" target="_blank" 
                        class="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50">
                         <span class="text-sm text-gray-700">Contactar Soporte</span>
-                        <svg class="w-5 h-5 text-gray-400" /* ... mantener SVG ... */></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                        </svg>
                     </a>
-                    <a href="<?= $rutaBase ?>ayuda.php" 
+                    <a href="/ayuda.php" 
                        class="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50">
                         <span class="text-sm text-gray-700">Blog de Ayuda</span>
-                        <svg class="w-5 h-5 text-gray-400" /* ... mantener SVG ... */></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                        </svg>
                     </a>
                 </div>
             </div>
@@ -131,21 +135,25 @@ $rutaBase = $rutaBase ?? '';
                 </div>
                 
                 <div class="p-2">
-                    <a href="<?= $rutaBase ?>modules/reportes/index.php" 
+                    <a href="/modules/reportes/index.php" 
                        class="flex items-center justify-between p-3 rounded-lg hover:bg-gray-50 group">
                         <div class="flex items-center gap-3">
-                            <svg class="w-5 h-5 text-gray-400 group-hover:text-blue-500" /* ... mantener SVG ... */></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-gray-400 group-hover:text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+                            </svg>
                             <span class="text-sm text-gray-700">Resumen de Ventas</span>
                         </div>
-                        <svg class="w-5 h-5 text-gray-400 opacity-0 group-hover:opacity-100" /* ... mantener SVG ... */></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-gray-400 opacity-0 group-hover:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                        </svg>
                     </a>
                     
-                    <!-- Repetir estructura para Configuraciones -->
-                    
-                    <form action="" method="POST" class="mt-2 border-t border-gray-200">
+                    <form action="/modules/auth/logout.php" method="POST" class="mt-2 border-t border-gray-200">
                         <button type="submit" name="logout" 
                                 class="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 text-left">
-                            <svg class="w-5 h-5 text-gray-400" /* ... mantener SVG ... */></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+                            </svg>
                             <span class="text-sm text-gray-700">Cerrar sesión</span>
                         </button>
                     </form>
