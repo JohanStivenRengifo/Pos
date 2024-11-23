@@ -274,6 +274,11 @@ if (isset($_POST['logout'])) {
             <div class="mb-8">
                 <h1 class="text-2xl font-bold text-gray-800">Dashboard</h1>
                 <p class="text-gray-600">Bienvenido al panel de control de <?= htmlspecialchars($empresa_info['nombre_empresa'] ?? 'su empresa') ?></p>
+                
+                <!-- Banner de versión -->
+                <div class="mt-2 inline-block px-3 py-1 bg-indigo-100 text-indigo-700 text-sm font-medium rounded-full">
+                    Versión v3.0.0Alpha
+                </div>
             </div>
 
             <!-- Tarjetas de Resumen -->
