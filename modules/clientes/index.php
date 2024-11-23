@@ -420,7 +420,35 @@ $clientes = getClientes($user_id);
                                     <option value="Antioquia">Antioquia</option>
                                     <option value="Arauca">Arauca</option>
                                     <option value="Atlántico">Atlántico</option>
-                                    <!-- ... resto de departamentos ... -->
+                                    <option value="Bogotá D.C.">Bogotá D.C.</option>
+                                    <option value="Bolívar">Bolívar</option>
+                                    <option value="Boyacá">Boyacá</option>
+                                    <option value="Caldas">Caldas</option>
+                                    <option value="Caquetá">Caquetá</option>
+                                    <option value="Casanare">Casanare</option>
+                                    <option value="Cauca">Cauca</option>
+                                    <option value="Cesar">Cesar</option>
+                                    <option value="Chocó">Chocó</option>
+                                    <option value="Córdoba">Córdoba</option>
+                                    <option value="Cundinamarca">Cundinamarca</option>
+                                    <option value="Guainía">Guainía</option>
+                                    <option value="Guaviare">Guaviare</option>
+                                    <option value="Huila">Huila</option>
+                                    <option value="La Guajira">La Guajira</option>
+                                    <option value="Magdalena">Magdalena</option>
+                                    <option value="Meta">Meta</option>
+                                    <option value="Nariño">Nariño</option>
+                                    <option value="Norte de Santander">Norte de Santander</option>
+                                    <option value="Putumayo">Putumayo</option>
+                                    <option value="Quindío">Quindío</option>
+                                    <option value="Risaralda">Risaralda</option>
+                                    <option value="San Andrés y Providencia">San Andrés y Providencia</option>
+                                    <option value="Santander">Santander</option>
+                                    <option value="Sucre">Sucre</option>
+                                    <option value="Tolima">Tolima</option>
+                                    <option value="Valle del Cauca">Valle del Cauca</option>
+                                    <option value="Vaupés">Vaupés</option>
+                                    <option value="Vichada">Vichada</option>
                                 </select>
                             </div>
                             <div>
@@ -469,8 +497,6 @@ $clientes = getClientes($user_id);
     }
 
     function showNotification(type, message) {
-        const bgColor = type === 'success' ? 'bg-green-500' : 'bg-red-500';
-        
         Swal.fire({
             toast: true,
             position: 'top-end',
@@ -479,9 +505,15 @@ $clientes = getClientes($user_id);
             showConfirmButton: false,
             timer: 3000,
             timerProgressBar: true,
+            background: type === 'success' ? '#10B981' : '#EF4444',
+            color: '#ffffff',
             customClass: {
-                popup: `${bgColor} text-white rounded-lg`,
+                popup: 'rounded-lg',
                 title: 'text-white'
+            },
+            didOpen: (toast) => {
+                toast.addEventListener('mouseenter', Swal.stopTimer)
+                toast.addEventListener('mouseleave', Swal.resumeTimer)
             }
         });
     }
@@ -522,10 +554,45 @@ $clientes = getClientes($user_id);
             'Amazonas': '910001',
             'Antioquia': '050001',
             'Arauca': '810001',
-            // ... agregar el resto de códigos postales
+            'Atlántico': '080001',
+            'Bogotá D.C.': '110111',
+            'Bolívar': '130001',
+            'Boyacá': '150001',
+            'Caldas': '170001',
+            'Caquetá': '180001',
+            'Casanare': '850001',
+            'Cauca': '190001',
+            'Cesar': '200001',
+            'Chocó': '270001',
+            'Córdoba': '230001',
+            'Cundinamarca': '250001',
+            'Guainía': '940001',
+            'Guaviare': '950001',
+            'Huila': '410001',
+            'La Guajira': '440001',
+            'Magdalena': '470001',
+            'Meta': '500001',
+            'Nariño': '520001',
+            'Norte de Santander': '540001',
+            'Putumayo': '860001',
+            'Quindío': '630001',
+            'Risaralda': '660001',
+            'San Andrés y Providencia': '880001',
+            'Santander': '680001',
+            'Sucre': '700001',
+            'Tolima': '730001',
+            'Valle del Cauca': '760001',
+            'Vaupés': '970001',
+            'Vichada': '990001'
         };
         
-        document.getElementById('codigo_postal').value = codigosPostales[this.value] || '';
+        const codigoPostalInput = document.getElementById('codigo_postal');
+        codigoPostalInput.value = codigosPostales[this.value] || '';
+        
+        // Hacer el campo de solo lectura pero con apariencia normal
+        codigoPostalInput.readOnly = true;
+        codigoPostalInput.style.backgroundColor = '#f3f4f6';
+        codigoPostalInput.style.cursor = 'default';
     });
 
     function exportarClientes() {
@@ -534,11 +601,16 @@ $clientes = getClientes($user_id);
             text: 'Selecciona el formato de exportación',
             icon: 'question',
             showCancelButton: true,
-            confirmButtonText: 'Excel',
-            cancelButtonText: 'CSV',
             showCloseButton: true,
             showDenyButton: true,
-            denyButtonText: 'Cancelar'
+            confirmButtonText: 'Excel',
+            cancelButtonText: 'CSV',
+            denyButtonText: 'Cancelar',
+            confirmButtonColor: '#059669',
+            cancelButtonColor: '#6B7280',
+            denyButtonColor: '#EF4444',
+            background: '#ffffff',
+            color: '#1F2937'
         }).then((result) => {
             if (result.isConfirmed) {
                 window.location.href = 'export.php?format=excel';
@@ -547,6 +619,100 @@ $clientes = getClientes($user_id);
             }
         });
     }
+
+    async function editCliente(cliente) {
+        // Mostrar el modal
+        const modal = document.getElementById('clienteModal');
+        modal.classList.remove('hidden');
+        
+        // Actualizar el título del modal
+        document.getElementById('modalTitle').textContent = 'Editar Cliente';
+        
+        // Actualizar el formulario para edición
+        const form = document.getElementById('clienteForm');
+        form.action.value = 'update';
+        
+        // Agregar el ID del cliente
+        const clienteIdInput = document.createElement('input');
+        clienteIdInput.type = 'hidden';
+        clienteIdInput.name = 'cliente_id';
+        clienteIdInput.value = cliente.id;
+        form.appendChild(clienteIdInput);
+        
+        // Rellenar los campos del formulario
+        form.primer_nombre.value = cliente.primer_nombre;
+        form.segundo_nombre.value = cliente.segundo_nombre;
+        form.apellidos.value = cliente.apellidos;
+        form.nombre.value = cliente.nombre;
+        form.tipo_identificacion.value = cliente.tipo_identificacion;
+        form.identificacion.value = cliente.identificacion;
+        form.email.value = cliente.email;
+        form.telefono.value = cliente.telefono;
+        form.municipio_departamento.value = cliente.municipio_departamento;
+        form.codigo_postal.value = cliente.codigo_postal;
+    }
+
+    async function deleteCliente(clienteId) {
+        const result = await Swal.fire({
+            title: '¿Estás seguro?',
+            text: "Esta acción no se puede deshacer",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#EF4444',
+            cancelButtonColor: '#6B7280',
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar',
+            background: '#ffffff',
+            color: '#1F2937'
+        });
+
+        if (result.isConfirmed) {
+            const formData = new FormData();
+            formData.append('action', 'delete');
+            formData.append('cliente_id', clienteId);
+
+            try {
+                const response = await fetch('', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                const result = await response.json();
+                
+                if (result.status) {
+                    showNotification('success', result.message);
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    if (result.hasReferences) {
+                        Swal.fire({
+                            title: 'No se puede eliminar',
+                            text: result.message,
+                            icon: 'error',
+                            confirmButtonText: 'Entendido'
+                        });
+                    } else {
+                        showNotification('error', result.message);
+                    }
+                }
+            } catch (error) {
+                showNotification('error', 'Error al procesar la solicitud');
+            }
+        }
+    }
+
+    // Función para filtrar clientes
+    document.getElementById('searchCliente').addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase();
+        const rows = document.querySelectorAll('tbody tr');
+        
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            row.style.display = text.includes(searchTerm) ? '' : 'none';
+        });
+    });
     </script>
 
     <style>

@@ -48,10 +48,10 @@ function deleteProveedor($id, $user_id) {
         $stmt = $pdo->prepare($query);
         $result = $stmt->execute([$id, $user_id]);
         
-        if ($result) {
+        if ($result && $stmt->rowCount() > 0) {
             return ['status' => true, 'message' => 'Proveedor eliminado exitosamente'];
         }
-        return ['status' => false, 'message' => 'Error al eliminar el proveedor'];
+        return ['status' => false, 'message' => 'No se pudo eliminar el proveedor o no se encontró el registro'];
     } catch (PDOException $e) {
         return ['status' => false, 'message' => 'Error en la base de datos: ' . $e->getMessage()];
     }
@@ -64,10 +64,10 @@ function updateProveedor($id, $user_id, $nombre, $email, $telefono, $direccion) 
         $stmt = $pdo->prepare($query);
         $result = $stmt->execute([$nombre, $email, $telefono, $direccion, $id, $user_id]);
         
-        if ($result) {
+        if ($result && $stmt->rowCount() > 0) {
             return ['status' => true, 'message' => 'Proveedor actualizado exitosamente'];
         }
-        return ['status' => false, 'message' => 'Error al actualizar el proveedor'];
+        return ['status' => false, 'message' => 'No se pudo actualizar el proveedor o no se encontró el registro'];
     } catch (PDOException $e) {
         return ['status' => false, 'message' => 'Error en la base de datos: ' . $e->getMessage()];
     }
@@ -96,11 +96,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
             break;
 
         case 'update':
-            $id = (int)$_POST['id'];
+            $id = filter_var($_POST['id'], FILTER_VALIDATE_INT);
             $nombre = trim($_POST['nombre']);
             $email = filter_var(trim($_POST['email']), FILTER_SANITIZE_EMAIL);
             $telefono = trim($_POST['telefono']);
             $direccion = trim($_POST['direccion']);
+
+            if (!$id) {
+                ApiResponse::send(false, 'ID de proveedor inválido');
+            }
+
+            if (empty($nombre) || empty($email) || empty($telefono) || empty($direccion)) {
+                ApiResponse::send(false, 'Por favor, complete todos los campos.');
+            }
 
             if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
                 ApiResponse::send(false, 'Por favor, ingrese un correo electrónico válido.');
@@ -309,7 +317,7 @@ $proveedores = getUserProveedores($user_id);
                                             class="text-blue-600 hover:text-blue-900 mr-3">
                                             <i class="fas fa-edit"></i>
                                         </button>
-                                        <button onclick="deleteProveedor(<?= $proveedor['id']; ?>)"
+                                        <button onclick="deleteProveedor(<?= htmlspecialchars($proveedor['id']); ?>)"
                                             class="text-red-600 hover:text-red-900">
                                             <i class="fas fa-trash-alt"></i>
                                         </button>
@@ -498,7 +506,7 @@ $proveedores = getUserProveedores($user_id);
                 formData.append('action', 'delete');
                 formData.append('id', id);
 
-                const response = await fetch('', {
+                const response = await fetch(window.location.href, {
                     method: 'POST',
                     body: formData,
                     headers: {
@@ -506,16 +514,30 @@ $proveedores = getUserProveedores($user_id);
                     }
                 });
 
+                if (!response.ok) {
+                    throw new Error('Error en la respuesta del servidor');
+                }
+
                 const data = await response.json();
                 
                 if (data.status) {
-                    showNotification('success', data.message);
-                    setTimeout(() => location.reload(), 1500);
+                    await Swal.fire({
+                        icon: 'success',
+                        title: 'Éxito',
+                        text: data.message,
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                    location.reload();
                 } else {
-                    showError('Error', data.message);
+                    throw new Error(data.message);
                 }
             } catch (error) {
-                showError('Error', 'Ocurrió un error al eliminar el proveedor');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: error.message || 'Ocurrió un error al eliminar el proveedor'
+                });
             }
         }
     }

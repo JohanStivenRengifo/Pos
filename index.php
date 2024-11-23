@@ -449,6 +449,128 @@ if (isset($_SESSION['user_id'])) {
                 grid-template-columns: 1fr;
             }
         }
+
+        /* Actualizar estilos del header y nav para móviles */
+        @media (max-width: 768px) {
+            .nav {
+                padding: 0.5rem;
+            }
+            
+            .nav-links {
+                display: none;
+                position: fixed;
+                top: 70px;
+                left: 0;
+                right: 0;
+                background: white;
+                padding: 1rem;
+                flex-direction: column;
+                text-align: center;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+
+            .nav-links.active {
+                display: flex;
+            }
+
+            .nav-buttons {
+                display: none;
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: white;
+                padding: 1rem;
+                justify-content: center;
+                box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
+            }
+
+            .nav-buttons.active {
+                display: flex;
+            }
+
+            .menu-toggle {
+                display: block;
+                font-size: 1.5rem;
+                color: var(--primary-color);
+                cursor: pointer;
+            }
+
+            /* Ajustes para el hero en móviles */
+            .hero {
+                padding: 6rem 1rem 2rem;
+            }
+
+            .hero-title {
+                font-size: 2rem;
+                padding: 0 1rem;
+            }
+
+            .hero-subtitle {
+                font-size: 1rem;
+                padding: 0 1rem;
+            }
+
+            /* Ajustes para las features cards */
+            .features-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+                padding: 0 1rem;
+            }
+
+            /* Ajustes para stats section */
+            .stats-grid {
+                grid-template-columns: 1fr;
+                padding: 0 1rem;
+            }
+
+            .stat-item {
+                margin-bottom: 1rem;
+            }
+        }
+
+        /* Ajustes para tablets */
+        @media (min-width: 769px) and (max-width: 1024px) {
+            .hero-title {
+                font-size: 3rem;
+            }
+
+            .features-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* Ajustes para pantallas más grandes */
+        @media (min-width: 1025px) {
+            .section-container {
+                padding: 6rem 2rem;
+            }
+
+            .features-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        /* Mejoras generales de accesibilidad */
+        .btn:focus,
+        .nav-link:focus {
+            outline: 2px solid var(--primary-color);
+            outline-offset: 2px;
+        }
+
+        /* Mejoras de rendimiento */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
     </style>
 </head>
 
@@ -458,6 +580,9 @@ if (isset($_SESSION['user_id'])) {
             <a href="/" class="logo">
                 <i class="fas fa-calculator"></i> VendEasy
             </a>
+            <button class="menu-toggle" aria-label="Menú principal">
+                <i class="fas fa-bars"></i>
+            </button>
             <div class="nav-links">
                 <a href="#features" class="nav-link">Características</a>
                 <a href="#pricing" class="nav-link">Precios</a>
@@ -733,6 +858,45 @@ if (isset($_SESSION['user_id'])) {
                 }
             }
         });
+
+        // Funcionalidad del menú móvil
+        const menuToggle = document.querySelector('.menu-toggle');
+        const navLinks = document.querySelector('.nav-links');
+        const navButtons = document.querySelector('.nav-buttons');
+
+        menuToggle.addEventListener('click', function() {
+            navLinks.classList.toggle('active');
+            navButtons.classList.toggle('active');
+            
+            // Cambiar el ícono del menú
+            const icon = this.querySelector('i');
+            if (navLinks.classList.contains('active')) {
+                icon.classList.remove('fa-bars');
+                icon.classList.add('fa-times');
+            } else {
+                icon.classList.remove('fa-times');
+                icon.classList.add('fa-bars');
+            }
+        });
+
+        // Cerrar menú al hacer click en un enlace
+        document.querySelectorAll('.nav-link, .btn').forEach(link => {
+            link.addEventListener('click', () => {
+                navLinks.classList.remove('active');
+                navButtons.classList.remove('active');
+                menuToggle.querySelector('i').classList.remove('fa-times');
+                menuToggle.querySelector('i').classList.add('fa-bars');
+            });
+        });
+
+        // Ajustar altura en móviles (para el problema del vh en móviles)
+        function setVH() {
+            let vh = window.innerHeight * 0.01;
+            document.documentElement.style.setProperty('--vh', `${vh}px`);
+        }
+
+        setVH();
+        window.addEventListener('resize', setVH);
     });
     </script>
 </body>

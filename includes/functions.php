@@ -27,22 +27,74 @@ function getUserByEmail($pdo, $email)
 
 function loginUser($user)
 {
-    if (!$user || !isset($user['id']) || !isset($user['email'])) {
-        error_log("Datos de usuario inválidos en loginUser");
+    try {
+        // Asegurar que la sesión esté limpia antes de iniciar
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_regenerate_id(true);
+        } else {
+            session_start();
+        }
+
+        // Establecer las variables de sesión necesarias
+        $_SESSION = array(); // Limpiar cualquier dato anterior
+        $_SESSION['user_id'] = $user['id'];
+        $_SESSION['email'] = $user['email'];
+        $_SESSION['nombre'] = $user['nombre'] ?? '';
+        $_SESSION['empresa_id'] = $user['empresa_id'] ?? null;
+        $_SESSION['login_time'] = time();
+        $_SESSION['ip_address'] = $_SERVER['REMOTE_ADDR'];
+
+        // Registrar el login exitoso en el historial
+        global $pdo;
+        
+        try {
+            // Iniciar transacción
+            $pdo->beginTransaction();
+
+            // Actualizar último acceso del usuario
+            $stmt = $pdo->prepare("
+                UPDATE users 
+                SET ultimo_acceso = NOW() 
+                WHERE id = ?
+            ");
+            
+            if (!$stmt->execute([$user['id']])) {
+                throw new Exception("Error actualizando último acceso");
+            }
+
+            // Registrar en historial de login
+            $stmt = $pdo->prepare("
+                INSERT INTO login_history (
+                    user_id,
+                    ip_address,
+                    status,
+                    login_time
+                ) VALUES (?, ?, ?, NOW())
+            ");
+            
+            if (!$stmt->execute([
+                $user['id'],
+                $_SERVER['REMOTE_ADDR'],
+                'success'
+            ])) {
+                throw new Exception("Error registrando historial");
+            }
+
+            // Confirmar transacción
+            $pdo->commit();
+            return true;
+
+        } catch (Exception $e) {
+            // Revertir cambios si hay error
+            $pdo->rollBack();
+            error_log("Error en transacción de login: " . $e->getMessage());
+            return false;
+        }
+
+    } catch (Exception $e) {
+        error_log("Error en loginUser: " . $e->getMessage());
         return false;
     }
-
-    $_SESSION['user_id'] = $user['id'];
-    $_SESSION['email'] = $user['email'];
-    $_SESSION['nombre'] = $user['nombre'] ?? '';
-
-    // Regenerar ID de sesión por seguridad
-    if (!session_regenerate_id(true)) {
-        error_log("Error regenerando ID de sesión");
-        return false;
-    }
-
-    return true;
 }
 
 function setRememberMeCookie($pdo, $user)
