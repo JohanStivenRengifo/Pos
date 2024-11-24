@@ -249,6 +249,12 @@ if (isset($_POST['logout'])) {
     header("Location: index.php");
     exit();
 }
+
+// Agregar esta función para generar URLs seguras
+function getPOSUrl() {
+    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://';
+    return $protocol . 'pos.johanrengifo.cloud';
+}
 ?>
 
 <!DOCTYPE html>
@@ -528,10 +534,9 @@ if (isset($_POST['logout'])) {
                                         <i class="fas fa-receipt text-gray-400 text-2xl"></i>
                                     </div>
                                     <p class="text-gray-500">No hay ventas registradas</p>
-                                    <a href="/pos/index.php" 
-                                       class="mt-2 inline-flex items-center text-sm text-indigo-600 hover:text-indigo-800">
-                                        Realizar una venta
-                                        <i class="fas fa-arrow-right ml-1"></i>
+                                    <a href="<?php echo getPOSUrl(); ?>" class="module-link">
+                                        <i class="fas fa-cash-register"></i>
+                                        <span>POS</span>
                                     </a>
                                 </div>
                             <?php endif; ?>

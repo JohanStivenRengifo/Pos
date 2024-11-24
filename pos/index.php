@@ -10,16 +10,15 @@ define('BASE_PATH', dirname(dirname(__FILE__)));
 require_once BASE_PATH . '/config/db.php';
 require_once BASE_PATH . '/includes/functions.php';
 
-// Verificar que las funciones existen
-if (!function_exists('obtenerClientes')) {
-    die("Error: La función obtenerClientes() no está definida. Ruta: " . BASE_PATH . '/includes/functions.php');
-}
-
-if (!function_exists('obtenerProductos')) {
-    die("Error: La función obtenerProductos() no está definida. Ruta: " . BASE_PATH . '/includes/functions.php');
-}
-
 try {
+    // Función para redirigir al login
+    function redirectToLogin() {
+        $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://';
+        $loginUrl = $protocol . 'johanrengifo.cloud/modules/auth/login.php';
+        header("Location: " . $loginUrl);
+        exit();
+    }
+
     // Verifica si el usuario está autenticado
     if (!isset($_SESSION['user_id'])) {
         // Verificar si existe la cookie de autenticación
@@ -33,17 +32,14 @@ try {
                 if ($result) {
                     $_SESSION['user_id'] = $result['user_id'];
                 } else {
-                    header("Location: https://johanrengifo.cloud/modules/auth/login.php");
-                    exit();
+                    redirectToLogin();
                 }
             } catch (Exception $e) {
                 error_log("Error verificando token de autenticación: " . $e->getMessage());
-                header("Location: https://johanrengifo.cloud/modules/auth/login.php");
-                exit();
+                redirectToLogin();
             }
         } else {
-            header("Location: https://johanrengifo.cloud/modules/auth/login.php");
-            exit();
+            redirectToLogin();
         }
     }
 
