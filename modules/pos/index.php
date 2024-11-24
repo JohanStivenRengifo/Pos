@@ -20,7 +20,7 @@ if (!function_exists('obtenerProductos')) {
 try {
     // Verifica si el usuario está autenticado
     if (!isset($_SESSION['user_id'])) {
-        header("Location: https://johanrengifo.cloud/modules/auth/login.php");
+        header("Location: ../auth/login.php");
         exit();
     }
 
