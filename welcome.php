@@ -528,7 +528,7 @@ if (isset($_POST['logout'])) {
                                         <i class="fas fa-receipt text-gray-400 text-2xl"></i>
                                     </div>
                                     <p class="text-gray-500">No hay ventas registradas</p>
-                                    <a href="/modules/pos/index.php" 
+                                    <a href="/pos/index.php" 
                                        class="mt-2 inline-flex items-center text-sm text-indigo-600 hover:text-indigo-800">
                                         Realizar una venta
                                         <i class="fas fa-arrow-right ml-1"></i>

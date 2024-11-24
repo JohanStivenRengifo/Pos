@@ -14,7 +14,7 @@ $menu_items = [
     ],
     'pos' => [
         'name' => 'POS',
-        'url' => '/modules/pos/index.php',
+        'url' => 'pos/index.php',
         'icon' => 'fas fa-cash-register'
     ],
     'ingresos' => [
@@ -124,11 +124,11 @@ function getNotificationCount($module) {
                         <span class="flex-1">Dashboard</span>
                     </a>
                     
-                    <a href="/modules/pos/index.php" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200
-                              <?= isActive('/modules/pos/index.php') ? 'text-indigo-700 bg-indigo-50 hover:bg-indigo-100' : 'text-gray-700 hover:bg-gray-50' ?>">
+                    <a href="https://pos.johanrengifo.cloud/" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200
+                              <?= isActive('https://pos.johanrengifo.cloud/') ? 'text-indigo-700 bg-indigo-50 hover:bg-indigo-100' : 'text-gray-700 hover:bg-gray-50' ?>">
                         <i class="fas fa-cash-register w-5 h-5 mr-3"></i>
                         <span class="flex-1">POS</span>
-                    </a>
+                    </a> 
                 </div>
             </div>
 

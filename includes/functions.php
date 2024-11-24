@@ -616,3 +616,46 @@ function getBogotaDateTime($format = 'Y-m-d H:i:s') {
     $datetime = new DateTime('now', new DateTimeZone('America/Bogota'));
     return $datetime->format($format);
 }
+
+// Funciones para el POS
+function obtenerClientes($pdo, $user_id) {
+    try {
+        $stmt = $pdo->prepare("SELECT id, nombre, identificacion FROM clientes WHERE user_id = ? OR user_id IS NULL");
+        $stmt->execute([$user_id]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Error obteniendo clientes: " . $e->getMessage());
+        return [];
+    }
+}
+
+function obtenerProductos($pdo, $user_id) {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT 
+                i.id,
+                i.nombre,
+                i.precio_venta as precio,
+                i.stock as cantidad,
+                i.codigo_barras,
+                CASE 
+                    WHEN img.ruta IS NOT NULL THEN CONCAT('/', img.ruta)
+                    ELSE '/assets/img/no-image.png'
+                END as imagen_principal,
+                img.es_principal
+            FROM inventario i
+            LEFT JOIN imagenes_producto img ON i.id = img.producto_id 
+                AND img.es_principal = 1
+            WHERE i.user_id = ? 
+                AND i.estado = 1 
+                AND i.stock > 0
+            ORDER BY i.nombre ASC
+        ");
+        
+        $stmt->execute([$user_id]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Error obteniendo productos: " . $e->getMessage());
+        return [];
+    }
+}

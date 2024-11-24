@@ -256,7 +256,7 @@ if ($codigo_barras) {
             <div class="side_navbar">
                 <span>Menú Principal</span>
                 <a href="/welcome.php">Dashboard</a>
-                <a href="/modules/pos/index.php">POS</a>
+                <a href="/pos/index.php">POS</a>
                 <a href="/modules/ingresos/index.php">Ingresos</a>
                 <a href="/modules/egresos/index.php">Egresos</a>
                 <a href="/modules/ventas/index.php">Ventas</a>
