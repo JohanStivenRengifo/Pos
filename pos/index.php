@@ -24,7 +24,7 @@ ini_set('display_errors', 1);
 try {
     // Verifica si el usuario está autenticado
     if (!isset($_SESSION['user_id'])) {
-        header("Location: " . BASE_PATH . "/index.php");
+        header("Location: https://johanrengifo.cloud/modules/auth/login.php");
         exit();
     }
 
