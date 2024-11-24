@@ -1,4 +1,6 @@
 <?php
+// Incluir configuración de sesión antes de iniciar la sesión
+require_once dirname(dirname(__FILE__)) . '/config/session_config.php';
 session_start();
 
 // Definir la ruta base del proyecto
@@ -17,15 +19,32 @@ if (!function_exists('obtenerProductos')) {
     die("Error: La función obtenerProductos() no está definida. Ruta: " . BASE_PATH . '/includes/functions.php');
 }
 
-// Habilitar el reporte de errores para depuración
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-
 try {
     // Verifica si el usuario está autenticado
     if (!isset($_SESSION['user_id'])) {
-        header("Location: https://johanrengifo.cloud/modules/auth/login.php");
-        exit();
+        // Verificar si existe la cookie de autenticación
+        if (isset($_COOKIE['auth_token'])) {
+            try {
+                // Verificar el token en la base de datos
+                $stmt = $pdo->prepare("SELECT user_id FROM auth_tokens WHERE token = ? AND expires_at > NOW()");
+                $stmt->execute([$_COOKIE['auth_token']]);
+                $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($result) {
+                    $_SESSION['user_id'] = $result['user_id'];
+                } else {
+                    header("Location: https://johanrengifo.cloud/modules/auth/login.php");
+                    exit();
+                }
+            } catch (Exception $e) {
+                error_log("Error verificando token de autenticación: " . $e->getMessage());
+                header("Location: https://johanrengifo.cloud/modules/auth/login.php");
+                exit();
+            }
+        } else {
+            header("Location: https://johanrengifo.cloud/modules/auth/login.php");
+            exit();
+        }
     }
 
     $user_id = $_SESSION['user_id'];
