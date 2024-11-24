@@ -5,43 +5,6 @@ date_default_timezone_set('America/Bogota');
 session_start();
 require_once '../../config/db.php';
 require_once '../../includes/functions.php';
-require_once dirname(dirname(dirname(__FILE__))) . '/config/session_config.php';
-
-// Definir la función loginUser antes de usarla
-function loginUser($user) {
-    try {
-        $_SESSION['user_id'] = $user['id'];
-        $_SESSION['email'] = $user['email'];
-        
-        // Generar token único para autenticación entre dominios
-        $token = bin2hex(random_bytes(32));
-        $expires_at = date('Y-m-d H:i:s', strtotime('+24 hours'));
-        
-        global $pdo;
-        // Eliminar tokens antiguos del usuario
-        $stmt = $pdo->prepare("DELETE FROM auth_tokens WHERE user_id = ?");
-        $stmt->execute([$user['id']]);
-        
-        // Insertar nuevo token
-        $stmt = $pdo->prepare("INSERT INTO auth_tokens (user_id, token, expires_at) VALUES (?, ?, ?)");
-        $stmt->execute([$user['id'], $token, $expires_at]);
-        
-        // Establecer cookie con el token
-        setcookie('auth_token', $token, [
-            'expires' => time() + 86400,
-            'path' => '/',
-            'domain' => '.johanrengifo.cloud',
-            'secure' => true,
-            'httponly' => true,
-            'samesite' => 'Lax'
-        ]);
-        
-        return true;
-    } catch (Exception $e) {
-        error_log("Error en loginUser: " . $e->getMessage());
-        return false;
-    }
-}
 
 // Clase para manejar respuestas JSON
 class ApiResponse {
@@ -60,7 +23,7 @@ class ApiResponse {
 }
 
 // Verificar si el usuario ya está autenticado
-if (isset($_SESSION['user_id'])) {
+if (isUserLoggedIn($pdo)) {
     header("Location: ../../welcome.php");
     exit();
 }

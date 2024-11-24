@@ -94,13 +94,3 @@ php_value upload_max_filesize 25M
 php_value post_max_size 26M
 php_value memory_limit 256M
 php_value max_file_uploads 10
-
-# Permitir acceso desde el subdominio
-SetEnvIf Origin "^https?://(.+\.)?(johanrengifo\.cloud)$" CORS_ALLOW_ORIGIN=$0
-Header set Access-Control-Allow-Origin %{CORS_ALLOW_ORIGIN}e env=CORS_ALLOW_ORIGIN
-Header set Access-Control-Allow-Credentials true
-
-# Redirigir todas las solicitudes no-SSL a SSL
-RewriteEngine On
-RewriteCond %{HTTPS} off
-RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
