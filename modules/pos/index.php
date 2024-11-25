@@ -308,7 +308,7 @@ try {
                                     </option>
                                     <?php endforeach; ?>
                                 </select>
-                                <a href="../modules/clientes" 
+                                <a href="../clientes/index.php" 
                                    class="px-2 border border-gray-300 rounded-md hover:bg-gray-50 text-gray-600 transition-colors duration-200">
                                     <i class="fas fa-plus text-xs"></i>
                                 </a>
