@@ -20,7 +20,7 @@ try {
     }
 
     // Incluir la conexión a la base de datos
-    require_once '../../config/db.php';
+    require_once '../../../config/db.php';
 
     // Iniciar transacción
     $pdo->beginTransaction();
