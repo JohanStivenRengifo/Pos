@@ -10,7 +10,7 @@ try {
         throw new Exception('Datos incompletos');
     }
 
-    require_once '../../config/db.php';
+    require_once '../../../config/db.php';
     $pdo->beginTransaction();
 
     try {
