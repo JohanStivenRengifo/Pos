@@ -1,6 +1,6 @@
 <?php
 session_start();
-require_once '../../config/db.php';
+require_once '../../../config/db.php';
 
 if (!isset($_GET['venta_id'])) {
     die('ID de venta no proporcionado');
