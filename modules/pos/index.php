@@ -1,26 +1,27 @@
 <?php
 session_start();
 
-// Definir la ruta base del proyecto
-define('BASE_PATH', dirname(dirname(__FILE__)));
-
 // Incluir archivos necesarios usando rutas absolutas
-require_once BASE_PATH . '/config/db.php';
-require_once BASE_PATH . '/includes/functions.php';
+require_once '../../config/db.php';
+require_once '../../includes/functions.php';
 
 // Verificar que las funciones existen
 if (!function_exists('obtenerClientes')) {
-    die("Error: La función obtenerClientes() no está definida. Ruta: " . BASE_PATH . '/includes/functions.php');
+    die("Error: La función obtenerClientes() no está definida. Ruta: " .'/includes/functions.php');
 }
 
 if (!function_exists('obtenerProductos')) {
-    die("Error: La función obtenerProductos() no está definida. Ruta: " . BASE_PATH . '/includes/functions.php');
+    die("Error: La función obtenerProductos() no está definida. Ruta: " . '/includes/functions.php');
 }
+
+// Habilitar el reporte de errores para depuración
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
 try {
     // Verifica si el usuario está autenticado
     if (!isset($_SESSION['user_id'])) {
-        header("Location: ../auth/login.php");
+        header("Location: ../../index.php");
         exit();
     }
 
@@ -234,13 +235,13 @@ try {
                                 
                                 $rutaImagen = ($imagen && !empty($imagen['ruta'])) 
                                     ? '/' . ltrim($imagen['ruta'], '/') 
-                                    : '../assets/img/no-image.png';
+                                    : '../../assets/img/no-image.png';
                                 ?>
                                 <img src="<?= htmlspecialchars($rutaImagen) ?>"
                                      alt="<?= htmlspecialchars($producto['nombre']) ?>"
                                      class="product-image w-full h-full object-cover object-center transition-transform duration-200 group-hover:scale-105"
                                      loading="lazy"
-                                     onerror="this.src='../assets/img/no-image.png'">
+                                     onerror="this.src='../../assets/img/no-image.png'">
                             </div>
 
                             <div class="p-2 flex flex-col gap-1">
