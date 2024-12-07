@@ -7,6 +7,7 @@ try {
     $pdo->exec("SET time_zone = '-05:00'");
     $pdo->exec("SET NAMES utf8mb4");
 } catch(PDOException $e) {
+    error_log("Error de conexión a la base de datos: " . $e->getMessage());
     die("Error de conexión: " . $e->getMessage());
 }
 ?>

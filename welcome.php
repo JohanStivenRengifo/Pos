@@ -44,13 +44,117 @@ function executeQuery($query, $params = [])
 $user_id = $_SESSION['user_id'];
 $email = $_SESSION['email'];
 
-// Obtener el total de ventas del día actual
-$totalVentasDia = getTotal("
-    SELECT COALESCE(SUM(total), 0) as total 
-    FROM ventas 
-    WHERE user_id = ? AND DATE(fecha) = CURDATE()", 
+// Obtener el total de ventas del día actual con porcentaje de cambio
+$ventasHoy = executeQuery("
+    SELECT 
+        (SELECT COALESCE(SUM(total), 0)
+         FROM ventas 
+         WHERE user_id = ? 
+         AND DATE(fecha) = CURDATE()) as total_hoy,
+        (SELECT COALESCE(SUM(total), 0)
+         FROM ventas 
+         WHERE user_id = ? 
+         AND DATE(fecha) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)) as total_ayer,
+        (SELECT COUNT(*)
+         FROM ventas 
+         WHERE user_id = ? 
+         AND DATE(fecha) = CURDATE()) as num_ventas_hoy
+    FROM dual",
+    [$user_id, $user_id, $user_id]
+);
+
+// Agregar log para debug
+error_log("Ventas de hoy: " . print_r($ventasHoy, true));
+
+$totalVentasDia = $ventasHoy[0]['total_hoy'] ?? 0;
+$totalVentasAyer = $ventasHoy[0]['total_ayer'] ?? 0;
+$numVentasHoy = $ventasHoy[0]['num_ventas_hoy'] ?? 0;
+
+// Calcular el porcentaje de cambio
+$porcentajeCambioVentas = $totalVentasAyer > 0 ? 
+    (($totalVentasDia - $totalVentasAyer) / $totalVentasAyer) * 100 : 0;
+
+// Obtener el promedio de ventas diarias del último mes
+$promedioVentasDiarias = executeQuery("
+    SELECT 
+        COALESCE(AVG(total_diario), 0) as promedio,
+        COUNT(DISTINCT fecha) as dias_con_ventas
+    FROM (
+        SELECT 
+            DATE(fecha) as fecha,
+            SUM(total) as total_diario
+        FROM ventas 
+        WHERE user_id = ? 
+        AND fecha >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+        GROUP BY DATE(fecha)
+    ) as ventas_diarias",
     [$user_id]
 );
+
+$promedioVentas = $promedioVentasDiarias[0]['promedio'] ?? 0;
+$diasConVentas = $promedioVentasDiarias[0]['dias_con_ventas'] ?? 0;
+
+// Agregar más logs para debug
+error_log("User ID: " . $user_id);
+error_log("Fecha actual: " . date('Y-m-d'));
+error_log("Total ventas día: " . $totalVentasDia);
+error_log("Promedio ventas: " . $promedioVentas);
+
+// Obtener estadísticas mensuales
+$estadisticasMensuales = executeQuery("
+    SELECT 
+        COALESCE(SUM(CASE WHEN MONTH(fecha) = MONTH(CURRENT_DATE()) 
+                         AND YEAR(fecha) = YEAR(CURRENT_DATE()) 
+                    THEN total ELSE 0 END), 0) as mes_actual,
+        COALESCE(SUM(CASE WHEN MONTH(fecha) = MONTH(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH))
+                         AND YEAR(fecha) = YEAR(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH))
+                    THEN total ELSE 0 END), 0) as mes_anterior
+    FROM ventas 
+    WHERE user_id = ? 
+    AND fecha >= DATE_SUB(CURRENT_DATE(), INTERVAL 2 MONTH)",
+    [$user_id]
+);
+
+$totalIngresosMes = $estadisticasMensuales[0]['mes_actual'] ?? 0;
+$totalIngresosMesAnterior = $estadisticasMensuales[0]['mes_anterior'] ?? 0;
+$porcentajeCambioIngresos = $totalIngresosMesAnterior > 0 ? 
+    (($totalIngresosMes - $totalIngresosMesAnterior) / $totalIngresosMesAnterior) * 100 : 0;
+
+// Obtener estadísticas de egresos
+$estadisticasEgresos = executeQuery("
+    SELECT 
+        COALESCE(SUM(CASE WHEN MONTH(fecha) = MONTH(CURRENT_DATE()) 
+                         AND YEAR(fecha) = YEAR(CURRENT_DATE()) 
+                    THEN monto ELSE 0 END), 0) as mes_actual,
+        COALESCE(SUM(CASE WHEN MONTH(fecha) = MONTH(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH))
+                         AND YEAR(fecha) = YEAR(DATE_SUB(CURRENT_DATE(), INTERVAL 1 MONTH))
+                    THEN monto ELSE 0 END), 0) as mes_anterior
+    FROM egresos 
+    WHERE user_id = ? 
+    AND estado = 'pagado'
+    AND fecha >= DATE_SUB(CURRENT_DATE(), INTERVAL 2 MONTH)",
+    [$user_id]
+);
+
+$totalEgresosMes = $estadisticasEgresos[0]['mes_actual'] ?? 0;
+$totalEgresosMesAnterior = $estadisticasEgresos[0]['mes_anterior'] ?? 0;
+$porcentajeCambioEgresos = $totalEgresosMesAnterior > 0 ? 
+    (($totalEgresosMes - $totalEgresosMesAnterior) / $totalEgresosMesAnterior) * 100 : 0;
+
+// Calcular promedio real de transacciones diarias
+$promedioTransacciones = executeQuery("
+    SELECT 
+        COUNT(*) as total_transacciones,
+        COUNT(DISTINCT DATE(fecha)) as total_dias
+    FROM ventas 
+    WHERE user_id = ? 
+    AND fecha >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)",
+    [$user_id]
+);
+
+$totalTransacciones = $promedioTransacciones[0]['total_transacciones'] ?? 0;
+$totalDias = $promedioTransacciones[0]['total_dias'] ?? 1; // Evitar división por cero
+$promedioTransaccionesDiarias = $totalDias > 0 ? $totalTransacciones / $totalDias : 0;
 
 // Obtener ventas de los últimos 7 días
 $ventasUltimos7Dias = executeQuery("
@@ -242,6 +346,70 @@ $ventasPorDiaSemana = executeQuery("
     [$user_id]
 );
 
+// Obtener resumen de créditos activos
+$creditosActivos = executeQuery("
+    SELECT 
+        COUNT(*) as total_creditos,
+        COALESCE(SUM(monto_total), 0) as monto_total,
+        COALESCE(SUM(CASE 
+            WHEN estado IN ('Vencido', 'Atrasado') THEN saldo_pendiente 
+            ELSE 0 
+        END), 0) as monto_vencido,
+        COUNT(CASE 
+            WHEN estado IN ('Vencido', 'Atrasado') THEN 1 
+        END) as creditos_vencidos,
+        COALESCE(SUM(saldo_pendiente), 0) as total_pendiente
+    FROM creditos c
+    INNER JOIN ventas v ON c.venta_id = v.id 
+    WHERE v.user_id = ? 
+    AND c.estado != 'Pagado'",
+    [$user_id]
+);
+
+$creditosActivos = $creditosActivos[0] ?? [
+    'total_creditos' => 0,
+    'monto_total' => 0,
+    'monto_vencido' => 0,
+    'creditos_vencidos' => 0,
+    'total_pendiente' => 0
+];
+
+// Obtener últimos 5 créditos
+$ultimosCreditos = executeQuery("
+    SELECT 
+        c.id,
+        COALESCE(cl.nombre, 'Cliente General') as cliente,
+        c.monto_total,
+        c.saldo_pendiente as monto_pendiente,
+        c.fecha_vencimiento,
+        DATEDIFF(c.fecha_vencimiento, CURDATE()) as dias_restantes,
+        c.estado,
+        c.plazo,
+        c.valor_cuota,
+        v.user_id
+    FROM creditos c
+    INNER JOIN ventas v ON c.venta_id = v.id
+    LEFT JOIN clientes cl ON v.cliente_id = cl.id
+    WHERE v.user_id = ? 
+    AND c.estado != 'Pagado'
+    ORDER BY 
+        CASE c.estado
+            WHEN 'Vencido' THEN 1
+            WHEN 'Atrasado' THEN 2
+            WHEN 'Pendiente' THEN 3
+            WHEN 'Al día' THEN 4
+            ELSE 5
+        END,
+        c.fecha_vencimiento ASC
+    LIMIT 5",
+    [$user_id]
+);
+
+// Agregar debug para verificar
+error_log("User ID: " . $user_id);
+error_log("Créditos encontrados: " . print_r($creditosActivos, true));
+error_log("Últimos créditos: " . print_r($ultimosCreditos, true));
+
 // Cerrar sesión
 if (isset($_POST['logout'])) {
     session_unset();
@@ -256,11 +424,37 @@ if (isset($_POST['logout'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - VendEasy</title>
+    <title>Dashboard - Sistema Contable</title>
     <link rel="icon" type="image/png" href="/favicon/favicon.ico" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Agregar AOS para animaciones -->
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    
+    <style>
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .hover-scale {
+            transition: transform 0.2s;
+        }
+        
+        .hover-scale:hover {
+            transform: scale(1.02);
+        }
+
+        .gradient-bg {
+            background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
+        }
+    </style>
 </head>
 
 <body class="bg-gray-50">
@@ -270,37 +464,62 @@ if (isset($_POST['logout'])) {
         <?php include 'includes/sidebar.php'; ?>
         
         <main class="flex-1 p-8">
-            <!-- Encabezado -->
-            <div class="mb-8">
-                <h1 class="text-2xl font-bold text-gray-800">Dashboard</h1>
-                <p class="text-gray-600">Bienvenido al panel de control de <?= htmlspecialchars($empresa_info['nombre_empresa'] ?? 'su empresa') ?></p>
-                
-                <!-- Banner de versión -->
-                <div class="mt-2 inline-block px-3 py-1 bg-indigo-100 text-indigo-700 text-sm font-medium rounded-full">
-                    Versión v3.0.0Alpha
+            <!-- Banner de Bienvenida Mejorado -->
+            <div class="mb-8 p-6 rounded-xl gradient-bg text-white" data-aos="fade-up">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h1 class="text-3xl font-bold mb-2">
+                            ¡Bienvenido a VendEasy!
+                        </h1>
+                        <p class="text-gray-100">
+                            Panel de control de <?= htmlspecialchars($empresa_info['nombre_empresa'] ?? 'su empresa') ?>
+                        </p>
+                        <div class="mt-4 flex items-center space-x-4">
+                            <span class="px-3 py-1 bg-white/20 rounded-full text-sm">
+                                Versión v3.1.0Alpha
+                            </span>
+                            <span class="flex items-center">
+                                <i class="fas fa-clock mr-2"></i>
+                                <?= date('d M Y, H:i') ?>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="hidden md:block">
+                        <i class="fas fa-chart-line text-6xl opacity-50"></i>
+                    </div>
                 </div>
             </div>
 
-            <!-- Tarjetas de Resumen -->
+            <!-- Tarjetas de Resumen Mejoradas -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 <!-- Ventas del Día -->
-                <div class="bg-white rounded-lg shadow p-6">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-gray-600">Ventas del Día</p>
-                            <p class="text-2xl font-semibold text-gray-900">$<?= number_format($totalVentasDia, 2) ?></p>
+                <div class="bg-white rounded-xl shadow-lg p-6 hover-scale" data-aos="fade-up" data-aos-delay="100">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="p-3 bg-indigo-100 rounded-full">
+                            <i class="fas fa-dollar-sign text-indigo-600 text-xl"></i>
                         </div>
-                        <div class="p-3 bg-green-100 rounded-full">
-                            <i class="fas fa-dollar-sign text-green-600"></i>
-                        </div>
+                        <span class="text-xs font-medium text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full">
+                            <?= $numVentasHoy ?> ventas hoy
+                        </span>
                     </div>
-                    <div class="mt-4">
-                        <div class="flex items-center">
-                            <span class="text-sm text-gray-500">Promedio diario: </span>
-                            <span class="text-sm font-semibold text-gray-900 ml-2">
-                                $<?= number_format($promedioVentasDiarias, 2) ?>
+                    <h3 class="text-gray-600 text-sm font-medium">Ventas del Día</h3>
+                    <div class="flex items-center mt-2">
+                        <h2 class="text-3xl font-bold text-gray-900">
+                            $<?= number_format($totalVentasDia, 2) ?>
+                        </h2>
+                        <?php if ($porcentajeCambioVentas != 0): ?>
+                            <span class="text-<?= $porcentajeCambioVentas >= 0 ? 'green' : 'red' ?>-500 text-sm ml-2">
+                                <i class="fas fa-arrow-<?= $porcentajeCambioVentas >= 0 ? 'up' : 'down' ?>"></i>
+                                <?= abs(round($porcentajeCambioVentas, 1)) ?>%
                             </span>
-                        </div>
+                        <?php endif; ?>
+                    </div>
+                    <div class="mt-4 flex items-center text-sm text-gray-500">
+                        <i class="fas fa-chart-line mr-2"></i>
+                        <span>Promedio: $<?= number_format($promedioVentas, 2) ?></span>
+                        <?php if ($diasConVentas > 0): ?>
+                            <span class="ml-2 text-xs text-gray-400">(últimos <?= $diasConVentas ?> días)</span>
+                        <?php endif; ?>
                     </div>
                 </div>
 
@@ -321,7 +540,7 @@ if (isset($_POST['logout'])) {
                         <div class="flex items-center">
                             <span class="text-sm text-gray-500">Total mensual: </span>
                             <span class="text-sm font-semibold text-gray-900 ml-2">
-                                <?= number_format($promedioTransaccionesDiarias * 30, 0) ?>
+                                <?= number_format($totalTransacciones) ?>
                             </span>
                         </div>
                     </div>
@@ -392,25 +611,29 @@ if (isset($_POST['logout'])) {
                 </div>
             </div>
 
-            <!-- Gráficos y Tablas -->
+            <!-- Gráficos Mejorados -->
             <div class="grid grid-cols-1 xl:grid-cols-3 gap-8 mb-8">
                 <!-- Gráfico de Ventas -->
-                <div class="xl:col-span-2 bg-white rounded-lg shadow-sm border border-gray-200">
-                    <div class="p-6">
-                        <div class="flex justify-between items-center mb-4">
-                            <h3 class="text-lg font-semibold text-gray-800">
+                <div class="xl:col-span-2 bg-white rounded-xl shadow-lg p-6 hover-scale" data-aos="fade-up">
+                    <div class="flex justify-between items-center mb-6">
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-800">
                                 Ventas de los Últimos 7 Días
                             </h3>
-                            <div class="flex items-center space-x-2">
-                                <span class="text-sm text-gray-500">Total: </span>
-                                <span class="text-lg font-semibold text-indigo-600">
-                                    $<?= number_format(array_sum(array_column($ventasUltimos7Dias, 'total')), 2) ?>
-                                </span>
-                            </div>
+                            <p class="text-sm text-gray-500">Análisis detallado de ventas</p>
                         </div>
-                        <div class="h-[300px]">
-                            <canvas id="ventasChart"></canvas>
+                        <div class="flex items-center space-x-4">
+                            <select class="text-sm border-gray-300 rounded-lg focus:ring-indigo-500">
+                                <option>Últimos 7 días</option>
+                                <option>Último mes</option>
+                            </select>
+                            <button class="p-2 hover:bg-gray-100 rounded-lg">
+                                <i class="fas fa-download text-gray-500"></i>
+                            </button>
                         </div>
+                    </div>
+                    <div class="h-[300px]">
+                        <canvas id="ventasChart"></canvas>
                     </div>
                 </div>
 
@@ -460,6 +683,143 @@ if (isset($_POST['logout'])) {
                             <canvas id="diasSemanaChart"></canvas>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Sección de Créditos -->
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-8 mb-8">
+                <!-- Resumen de Créditos -->
+                <div class="xl:col-span-2 bg-white rounded-xl shadow-lg p-6 hover-scale" data-aos="fade-up">
+                    <div class="flex justify-between items-center mb-6">
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-800">Estado de Créditos</h3>
+                            <p class="text-sm text-gray-500">Resumen de créditos activos</p>
+                        </div>
+                        <a href="/modules/creditos/index.php" class="text-indigo-600 hover:text-indigo-800">
+                            Ver todos <i class="fas fa-arrow-right ml-1"></i>
+                        </a>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <!-- Total Créditos -->
+                        <div class="bg-indigo-50 rounded-lg p-4">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-indigo-600 font-medium">Total Créditos</p>
+                                    <h4 class="text-xl font-bold text-indigo-900">
+                                        <?= number_format($creditosActivos['total_creditos']) ?>
+                                    </h4>
+                                </div>
+                                <div class="p-2 bg-indigo-100 rounded-full">
+                                    <i class="fas fa-file-invoice-dollar text-indigo-600"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Monto Total -->
+                        <div class="bg-emerald-50 rounded-lg p-4">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-emerald-600 font-medium">Monto Total</p>
+                                    <h4 class="text-xl font-bold text-emerald-900">
+                                        $<?= number_format($creditosActivos['monto_total'], 2) ?>
+                                    </h4>
+                                </div>
+                                <div class="p-2 bg-emerald-100 rounded-full">
+                                    <i class="fas fa-dollar-sign text-emerald-600"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Créditos Vencidos -->
+                        <div class="bg-red-50 rounded-lg p-4">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-red-600 font-medium">Créditos Vencidos</p>
+                                    <h4 class="text-xl font-bold text-red-900">
+                                        <?= number_format($creditosActivos['creditos_vencidos']) ?>
+                                    </h4>
+                                </div>
+                                <div class="p-2 bg-red-100 rounded-full">
+                                    <i class="fas fa-exclamation-circle text-red-600"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lista de Últimos Créditos -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead>
+                                <tr class="text-left text-sm text-gray-500">
+                                    <th class="pb-3">Cliente</th>
+                                    <th class="pb-3">Monto Total</th>
+                                    <th class="pb-3">Pendiente</th>
+                                    <th class="pb-3">Vencimiento</th>
+                                    <th class="pb-3">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-sm">
+                                <?php foreach ($ultimosCreditos as $credito): ?>
+                                    <tr class="border-t border-gray-100">
+                                        <td class="py-3">
+                                            <?= htmlspecialchars($credito['cliente']) ?>
+                                        </td>
+                                        <td class="py-3">
+                                            $<?= number_format($credito['monto_total'], 2) ?>
+                                        </td>
+                                        <td class="py-3">
+                                            $<?= number_format($credito['monto_pendiente'], 2) ?>
+                                        </td>
+                                        <td class="py-3">
+                                            <?= date('d/m/Y', strtotime($credito['fecha_vencimiento'])) ?>
+                                        </td>
+                                        <td class="py-3">
+                                            <?php 
+                                                $estadoClases = [
+                                                    'Vencido' => 'bg-red-100 text-red-800',
+                                                    'Atrasado' => 'bg-yellow-100 text-yellow-800',
+                                                    'Pendiente' => 'bg-blue-100 text-blue-800',
+                                                    'Al día' => 'bg-green-100 text-green-800'
+                                                ];
+                                                $clase = $estadoClases[$credito['estado']] ?? 'bg-gray-100 text-gray-800';
+                                            ?>
+                                            <span class="px-2 py-1 text-xs rounded-full <?= $clase ?>">
+                                                <?= htmlspecialchars($credito['estado']) ?>
+                                            </span>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Widget de Alertas de Créditos -->
+                <div class="bg-white rounded-xl shadow-lg p-6" data-aos="fade-up" data-aos-delay="100">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">Alertas de Créditos</h3>
+                    
+                    <?php if ($creditosActivos['creditos_vencidos'] > 0): ?>
+                        <div class="mb-4 p-4 bg-red-50 rounded-lg border border-red-100">
+                            <div class="flex items-center">
+                                <i class="fas fa-exclamation-triangle text-red-500 mr-3"></i>
+                                <div>
+                                    <h4 class="text-sm font-semibold text-red-800">Créditos Vencidos</h4>
+                                    <p class="text-sm text-red-600">
+                                        Hay <?= $creditosActivos['creditos_vencidos'] ?> créditos vencidos por un total de 
+                                        $<?= number_format($creditosActivos['monto_vencido'], 2) ?>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+
+                    <!-- Botón de Acción -->
+                    <a href="/modules/creditos/crear.php" 
+                       class="block w-full text-center bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                        <i class="fas fa-plus mr-2"></i>
+                        Nuevo Crédito
+                    </a>
                 </div>
             </div>
 
@@ -543,9 +903,15 @@ if (isset($_POST['logout'])) {
     </div>
 
     <script>
+        // Inicializar AOS
+        AOS.init({
+            duration: 800,
+            once: true
+        });
+
         // Configuración global de Chart.js
         
-        Chart.defaults.font.family = 'Inter var, system-ui, -apple-system, sans-serif';
+        Chart.defaults.font.family = '"Inter var", system-ui, -apple-system, sans-serif';
         Chart.defaults.color = '#64748b';
 
         // Función para formatear moneda

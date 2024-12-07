@@ -15,6 +15,7 @@
         "phpoffice/phpspreadsheet": "^3.4",
         "tecnickcom/tcpdf": "^6.7",
         "phpmailer/phpmailer": "^6.8",
-        "dompdf/dompdf": "^3.0"
+        "dompdf/dompdf": "^3.0",
+        "setasign/fpdf": "^1.8"
     }
 }

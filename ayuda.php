@@ -24,152 +24,176 @@ $email = $_SESSION['email'];
     <link rel="stylesheet" href="css/welcome.css">
 </head>
 
-<body class="bg-gray-50">
+<body class="bg-gray-100">
     <?php include 'includes/header.php'; ?>
-    <div class="container">
+    
+    <div class="flex">
         <?php include 'includes/sidebar.php'; ?>
         
-        <div class="main-body">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <h2 class="text-3xl font-bold text-gray-900 mb-8">Centro de Ayuda - Sistema Contable</h2>
+        <div class="w-full p-4 md:p-6 lg:p-8 ml-[250px]">
+            <div class="max-w-7xl mx-auto">
+                <!-- Encabezado -->
+                <div class="mb-6">
+                    <h1 class="text-2xl md:text-3xl font-bold text-gray-800">
+                        Centro de Ayuda
+                    </h1>
+                    <p class="text-gray-600 mt-2">Encuentra respuestas a tus preguntas y recursos útiles</p>
+                </div>
 
-                <!-- Sección de Búsqueda -->
+                <!-- Barra de búsqueda -->
                 <div class="mb-8">
                     <div class="relative">
                         <input type="text" 
-                               placeholder="Buscar ayuda..." 
-                               class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <button class="absolute right-3 top-3 text-gray-400">
+                               placeholder="Buscar en la ayuda..." 
+                               class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent shadow-sm transition duration-200">
+                        <button class="absolute right-3 top-3 text-gray-400 hover:text-gray-600 transition-colors">
                             <i class="fas fa-search"></i>
                         </button>
                     </div>
                 </div>
 
-                <!-- Preguntas Frecuentes -->
-                <div class="bg-white rounded-xl shadow-sm mb-8 overflow-hidden">
-                    <div class="p-6">
-                        <h3 class="text-xl font-semibold text-gray-900 mb-6">
-                            Preguntas Frecuentes sobre Contabilidad
-                        </h3>
-                        
-                        <div class="space-y-4">
-                            <!-- Pregunta 1 -->
-                            <div class="border-b border-gray-200 pb-4">
-                                <button class="faq-question w-full flex justify-between items-center text-left">
-                                    <span class="text-lg font-medium text-gray-900">¿Cómo visualizar los reportes?</span>
-                                    <i class="fas fa-chevron-down text-gray-500 transition-transform duration-200"></i>
-                                </button>
-                                <div class="faq-answer mt-4 hidden">
-                                    <div class="prose prose-blue max-w-none">
-                                        <ol class="list-decimal pl-4 space-y-2 text-gray-600">
-                                            <li>Accede al módulo "Reportes"</li>
-                                            <li>El reporte se cargará en la pantalla</li>
-                                        </ol>
+                <!-- Grid de contenido principal -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Preguntas Frecuentes -->
+                    <div class="lg:col-span-2">
+                        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                            <div class="p-6">
+                                <h2 class="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+                                    <i class="fas fa-question-circle text-blue-500 mr-2"></i>
+                                    Preguntas Frecuentes
+                                </h2>
+                                
+                                <div class="space-y-4">
+                                    <!-- Pregunta 1 -->
+                                    <div class="border-b border-gray-200 pb-4 last:border-0">
+                                        <button class="faq-question w-full flex justify-between items-center text-left hover:bg-gray-50 p-3 rounded-lg transition-all duration-200">
+                                            <span class="text-lg font-medium text-gray-900">¿Cómo visualizar los reportes?</span>
+                                            <i class="fas fa-chevron-down text-gray-500 transition-transform duration-300"></i>
+                                        </button>
+                                        <div class="faq-answer hidden mt-4 px-3">
+                                            <div class="prose prose-blue max-w-none text-gray-600">
+                                                <ol class="list-decimal pl-4 space-y-2">
+                                                    <li>Accede al módulo "Reportes" desde el menú lateral</li>
+                                                    <li>Selecciona el tipo de reporte que deseas generar</li>
+                                                    <li>Configura los filtros según tus necesidades</li>
+                                                    <li>Haz clic en "Generar Reporte"</li>
+                                                </ol>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Pregunta 2 -->
+                                    <div class="border-b border-gray-200 pb-4 last:border-0">
+                                        <button class="faq-question w-full flex justify-between items-center text-left hover:bg-gray-50 p-3 rounded-lg transition-all duration-200">
+                                            <span class="text-lg font-medium text-gray-900">¿Cómo realizar un respaldo manual?</span>
+                                            <i class="fas fa-chevron-down text-gray-500 transition-transform duration-300"></i>
+                                        </button>
+                                        <div class="faq-answer hidden mt-4 px-3">
+                                            <div class="prose prose-blue max-w-none text-gray-600">
+                                                <p>Los respaldos se realizan automáticamente, pero si necesitas uno manual:</p>
+                                                <ol class="list-decimal pl-4 space-y-2 mt-2">
+                                                    <li>Ve a Configuración > Respaldos</li>
+                                                    <li>Haz clic en "Generar Respaldo Manual"</li>
+                                                    <li>Espera a que el proceso termine</li>
+                                                </ol>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-
-                            <!-- Más preguntas... -->
                         </div>
                     </div>
-                </div>
 
-                <!-- Guías y Tutoriales -->
-                <div class="grid md:grid-cols-2 gap-6 mb-8">
-                    <!-- Videos Tutoriales -->
-                    <div class="bg-white rounded-xl shadow-sm p-6">
-                        <h3 class="text-xl font-semibold text-gray-900 mb-6">
-                            Próximamente
-                        </h3>
-                        
-                        <div class="space-y-4">
-                            <div class="group hover:bg-gray-50 p-4 rounded-lg transition duration-200">
-                                <h4 class="text-lg font-medium text-gray-900 mb-2">
-                                    <i class="fas fa-play-circle text-blue-500 mr-2"></i>
-                                    Nuevos tutoriales en camino
-                                </h4>
-                                <p class="text-gray-600">Estamos trabajando en nuevos tutoriales para ti.</p>
-                                <button class="mt-3 text-blue-600 hover:text-blue-700 font-medium">
-                                    ¡Mantente atento! <i class="fas fa-arrow-right ml-1"></i>
-                                </button>
-                            </div>
+                    <!-- Sidebar de Ayuda Rápida -->
+                    <div class="lg:col-span-1 space-y-6">
+                        <!-- Videos Tutoriales -->
+                        <div class="bg-white rounded-xl shadow-sm p-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                <i class="fas fa-play-circle text-blue-500 mr-2"></i>
+                                Tutoriales
+                            </h3>
                             
-                            <!-- Más videos... -->
-                        </div>
-                    </div>
-
-                    <!-- Tips Contables -->
-                    <div class="bg-white rounded-xl shadow-sm p-6">
-                        <h3 class="text-xl font-semibold text-gray-900 mb-6">
-                            Tips Contables
-                        </h3>
-                        
-                        <div class="space-y-4">
-                            <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
-                                <ul class="space-y-2 text-gray-600">
-                                    <li class="flex items-center">
-                                        <i class="fas fa-check text-blue-500 mr-2"></i>
-                                        Mantén al día los registros contables
-                                    </li>
-                                    <li class="flex items-center">
-                                        <i class="fas fa-check text-blue-500 mr-2"></i>
-                                        Realiza conciliaciones bancarias mensualmente
-                                    </li>
-                                    <!-- Más tips... -->
-                                </ul>
+                            <div class="space-y-4">
+                                <div class="group hover:bg-gray-50 p-4 rounded-lg transition-all duration-200 cursor-pointer">
+                                    <h4 class="text-md font-medium text-gray-900">Nuevos tutoriales</h4>
+                                    <p class="text-sm text-gray-600 mt-1">Próximamente nuevos videos explicativos.</p>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </div>
 
-                <!-- Nota Importante -->
-                <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-lg mb-8">
-                    <div class="flex">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-exclamation-circle text-yellow-400 text-xl"></i>
-                        </div>
-                        <div class="ml-3">
-                            <h3 class="text-lg font-medium text-yellow-800">Nota Importante</h3>
-                            <p class="text-yellow-700 mt-2">
-                                Recuerda que los respaldos periódicos de tu información contable se realizan de forma automatica por <b>VendEasy</b>.
-                            </p>
+                        <!-- Tips Rápidos -->
+                        <div class="bg-white rounded-xl shadow-sm p-6">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                <i class="fas fa-lightbulb text-blue-500 mr-2"></i>
+                                Tips Útiles
+                            </h3>
+                            
+                            <div class="space-y-3">
+                                <div class="flex items-start space-x-3">
+                                    <i class="fas fa-check-circle text-green-500 mt-1"></i>
+                                    <p class="text-sm text-gray-600">Mantén actualizados tus registros diariamente</p>
+                                </div>
+                                <div class="flex items-start space-x-3">
+                                    <i class="fas fa-check-circle text-green-500 mt-1"></i>
+                                    <p class="text-sm text-gray-600">Revisa las conciliaciones bancarias mensualmente</p>
+                                </div>
+                                <div class="flex items-start space-x-3">
+                                    <i class="fas fa-check-circle text-green-500 mt-1"></i>
+                                    <p class="text-sm text-gray-600">Verifica los reportes de inventario semanalmente</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Contacto Soporte -->
-                <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl shadow-lg p-8 text-center">
-                    <h3 class="text-2xl font-bold text-white mb-4">¿Necesitas Soporte Contable?</h3>
-                    <p class="text-blue-100 mb-6">Nuestro equipo de contadores está disponible para resolver tus dudas</p>
-                    <a href="./contacto.php" 
-                       class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-blue-600 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-200">
-                        Contactar Soporte Contable
-                        <i class="fas fa-arrow-right ml-2"></i>
-                    </a>
+                <div class="mt-8">
+                    <div class="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl shadow-lg p-6 md:p-8">
+                        <div class="max-w-3xl mx-auto text-center">
+                            <h3 class="text-2xl font-bold text-white mb-4">¿Necesitas ayuda adicional?</h3>
+                            <p class="text-blue-100 mb-6">Nuestro equipo de soporte está disponible para ayudarte</p>
+                            <a href="./contacto.php" 
+                               class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg text-blue-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200">
+                                Contactar Soporte
+                                <i class="fas fa-arrow-right ml-2"></i>
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Script mejorado para el acordeón
+        // Mejorado el script del acordeón
         document.querySelectorAll('.faq-question').forEach(question => {
             question.addEventListener('click', () => {
                 const answer = question.nextElementSibling;
                 const icon = question.querySelector('i');
-                const isActive = question.classList.contains('active');
                 
-                // Cerrar todas las respuestas
-                document.querySelectorAll('.faq-question').forEach(q => {
-                    q.classList.remove('active');
-                    q.nextElementSibling.classList.add('hidden');
-                    q.querySelector('i').classList.remove('rotate-180');
-                });
-
-                if (!isActive) {
-                    question.classList.add('active');
-                    answer.classList.remove('hidden');
-                    icon.classList.add('rotate-180');
+                // Toggle de la pregunta actual
+                const isExpanding = answer.classList.contains('hidden');
+                
+                // Animación suave para el ícono
+                if (isExpanding) {
+                    icon.style.transform = 'rotate(180deg)';
+                    question.classList.add('bg-gray-50');
+                } else {
+                    icon.style.transform = 'rotate(0deg)';
+                    question.classList.remove('bg-gray-50');
+                }
+                
+                // Toggle del contenido
+                answer.classList.toggle('hidden');
+                
+                // Animación de altura
+                if (isExpanding) {
+                    answer.style.maxHeight = '0';
+                    setTimeout(() => {
+                        answer.style.maxHeight = answer.scrollHeight + 'px';
+                    }, 0);
+                } else {
+                    answer.style.maxHeight = '0';
                 }
             });
         });

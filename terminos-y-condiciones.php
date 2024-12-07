@@ -121,7 +121,7 @@
             <div class="terms-content">
                 <div class="terms-section">
                     <h2>1. Aceptación de los términos</h2>
-                    <p>Al acceder y utilizar VendEasy, ya sea en su versión de prueba o de uso completo, aceptas y reconoces estar sujeto a estos términos y condiciones. Estos términos incluyen el uso de la versión beta de VendEasy, la cual puede contener errores y estar sujeta a cambios o mejoras constantes. Si no estás de acuerdo con alguno de estos términos, te recomendamos no utilizar el servicio.</p>
+                    <p>Al acceder y utilizar VendEasy, ya sea en su versión de prueba o de uso completo, aceptas y reconoces estar sujeto a estos términos y condiciones. Estos términos incluyen el uso de la versión Alpha de VendEasy, la cual puede contener errores y estar sujeta a cambios o mejoras constantes. Si no estás de acuerdo con alguno de estos términos, te recomendamos no utilizar el servicio.</p>
                 </div>
 
                 <div class="terms-section">
@@ -133,7 +133,7 @@
                         <li>Administrar clientes y proveedores</li>
                         <li>Controlar gastos e ingresos</li>
                     </ul>
-                    <p>Como sistema en versión beta, el servicio podría presentar limitaciones en la precisión de ciertos cálculos o reportes financieros, los cuales estamos trabajando para mejorar.</p>
+                    <p>Como sistema en versión Alpha, el servicio podría presentar limitaciones en la precisión de ciertos cálculos o reportes financieros, los cuales estamos trabajando para mejorar.</p>
                 </div>
 
                 <div class="terms-section">
@@ -150,12 +150,12 @@
                         <li>Usar el servicio de manera ética y legal</li>
                         <li>No realizar actividades que puedan dañar el sistema</li>
                     </ul>
-                    <p>Durante la fase beta, te pedimos que informes sobre cualquier error o problema técnico que encuentres para contribuir a la mejora continua del sistema.</p>
+                    <p>Durante la fase Alpha, te pedimos que informes sobre cualquier error o problema técnico que encuentres para contribuir a la mejora continua del sistema.</p>
                 </div>
 
                 <div class="terms-section">
                     <h2>5. Limitación de responsabilidad</h2>
-                    <p>VendEasy se ofrece "tal cual" en su estado actual de desarrollo (versión beta) y, como tal, no garantizamos que el servicio esté libre de errores ni que funcione sin interrupciones. No nos hacemos responsables de pérdidas, daños o inconvenientes derivados del uso del servicio, incluyendo cualquier inconsistencia o interrupción temporal que pueda presentarse en la versión de prueba. Trabajamos activamente para mejorar el sistema, y agradecemos tu comprensión y retroalimentación.</p>
+                    <p>VendEasy se ofrece "tal cual" en su estado actual de desarrollo (versión Alpha) y, como tal, no garantizamos que el servicio esté libre de errores ni que funcione sin interrupciones. No nos hacemos responsables de pérdidas, daños o inconvenientes derivados del uso del servicio, incluyendo cualquier inconsistencia o interrupción temporal que pueda presentarse en la versión de prueba. Trabajamos activamente para mejorar el sistema, y agradecemos tu comprensión y retroalimentación.</p>
                 </div>
 
                 <div class="terms-section">
@@ -171,7 +171,7 @@
                         <li>Teléfono: +57 3116035791</li>
                         <li>Dirección: Popayán, Colombia</li>
                     </ul>
-                    <p>Durante la fase beta, nuestro equipo de soporte está disponible para responder consultas y recibir informes de errores en un horario de atención de lunes a viernes de 9:00 a.m. a 6:00 p.m. (hora de Colombia). Nos esforzamos en responder dentro de las 24 horas hábiles.</p>
+                    <p>Durante la fase Alpha, nuestro equipo de soporte está disponible para responder consultas y recibir informes de errores en un horario de atención de lunes a viernes de 9:00 a.m. a 6:00 p.m. (hora de Colombia). Nos esforzamos en responder dentro de las 24 horas hábiles.</p>
                 </div>
             </div>
         </div>

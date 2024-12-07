@@ -54,30 +54,44 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $hashed_password = password_hash($password, PASSWORD_DEFAULT);
         $pdo->beginTransaction();
 
-        // Actualizar contraseña del usuario
-        $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ?");
-        $stmt->execute([$hashed_password, $reset['user_id']]);
+        try {
+            // Actualizar contraseña del usuario
+            $stmt = $pdo->prepare("UPDATE users SET password = ? WHERE id = ?");
+            $stmt->execute([$hashed_password, $reset['user_id']]);
 
-        // Marcar token como usado
-        $stmt = $pdo->prepare("UPDATE password_resets SET used = 1 WHERE id = ?");
-        $stmt->execute([$reset['id']]);
+            // Marcar token como usado
+            $stmt = $pdo->prepare("UPDATE password_resets SET used = 1 WHERE id = ?");
+            $stmt->execute([$reset['id']]);
 
-        $pdo->commit();
+            $pdo->commit();
 
-        if (isAjaxRequest()) {
-            ApiResponse::send(true, 'Contraseña actualizada correctamente', [
-                'redirect' => 'login.php'
-            ]);
-        } else {
-            $_SESSION['success'] = "Tu contraseña ha sido actualizada. Por favor, inicia sesión.";
-            header("Location: login.php");
-            exit();
+            if (isAjaxRequest()) {
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'status' => true,
+                    'message' => 'Contraseña actualizada correctamente',
+                    'data' => ['redirect' => 'login.php']
+                ]);
+                exit();
+            } else {
+                $_SESSION['success'] = "Tu contraseña ha sido actualizada. Por favor, inicia sesión.";
+                header("Location: login.php");
+                exit();
+            }
+
+        } catch (PDOException $e) {
+            $pdo->rollBack();
+            throw new Exception('Error al actualizar la contraseña: ' . $e->getMessage());
         }
 
     } catch (Exception $e) {
-        $pdo->rollBack();
         if (isAjaxRequest()) {
-            ApiResponse::send(false, $e->getMessage());
+            header('Content-Type: application/json');
+            echo json_encode([
+                'status' => false,
+                'message' => $e->getMessage()
+            ]);
+            exit();
         } else {
             $error = $e->getMessage();
         }
@@ -285,7 +299,16 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                     }
                 });
 
-                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(`Error HTTP: ${response.status}`);
+                }
+
+                let data;
+                try {
+                    data = await response.json();
+                } catch (e) {
+                    throw new Error('Error al procesar la respuesta del servidor');
+                }
                 
                 if (data.status) {
                     Swal.fire({
@@ -298,7 +321,7 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                         window.location.href = data.data.redirect;
                     });
                 } else {
-                    throw new Error(data.message);
+                    throw new Error(data.message || 'Error desconocido');
                 }
             } catch (error) {
                 Swal.fire({

@@ -104,12 +104,14 @@ class InventoryManager
             SELECT 
                 inventario.*, 
                 (inventario.stock * inventario.precio_venta) AS valor_total,
-                departamentos.nombre AS departamento,
                 categorias.nombre AS categoria,
+                COALESCE(b.nombre, 'Sin asignar') as bodega,
                 COALESCE(ip.ruta, '') as imagen_principal
             FROM inventario
             LEFT JOIN departamentos ON inventario.departamento_id = departamentos.id
             LEFT JOIN categorias ON inventario.categoria_id = categorias.id
+            LEFT JOIN inventario_bodegas ib ON inventario.id = ib.producto_id
+            LEFT JOIN bodegas b ON ib.bodega_id = b.id
             LEFT JOIN imagenes_producto ip ON inventario.id = ip.producto_id AND ip.es_principal = 1
             WHERE {$where_clause}
             ORDER BY {$this->config->sort_column} {$this->config->sort_direction}
@@ -273,64 +275,6 @@ class InventoryManager
         }
     }
 
-    public function getProductosAgotados() {
-        try {
-            $stmt = $this->pdo->prepare("
-                SELECT COUNT(*) 
-                FROM inventario 
-                WHERE user_id = :user_id AND stock = 0
-            ");
-            $stmt->execute([':user_id' => $this->user_id]);
-            return $stmt->fetchColumn();
-        } catch (Exception $e) {
-            return 0;
-        }
-    }
-
-    public function getTotalCategorias() {
-        try {
-            $stmt = $this->pdo->prepare("
-                SELECT COUNT(DISTINCT categoria_id) 
-                FROM inventario 
-                WHERE user_id = :user_id AND categoria_id IS NOT NULL
-            ");
-            $stmt->execute([':user_id' => $this->user_id]);
-            return $stmt->fetchColumn();
-        } catch (Exception $e) {
-            return 0;
-        }
-    }
-
-    public function getValorPromedio() {
-        try {
-            $stmt = $this->pdo->prepare("
-                SELECT COALESCE(AVG(NULLIF(precio_venta, 0)), 0) 
-                FROM inventario 
-                WHERE user_id = :user_id
-            ");
-            $stmt->execute([':user_id' => $this->user_id]);
-            return $stmt->fetchColumn() ?: 0;
-        } catch (Exception $e) {
-            return 0;
-        }
-    }
-
-    public function getUltimaActualizacion() {
-        try {
-            $stmt = $this->pdo->prepare("
-                SELECT MAX(fecha_modificacion) 
-                FROM inventario 
-                WHERE user_id = :user_id
-            ");
-            $stmt->execute([':user_id' => $this->user_id]);
-            $fecha = $stmt->fetchColumn();
-            return $fecha ? date('d/m/Y H:i', strtotime($fecha)) : 'No hay datos';
-        } catch (Exception $e) {
-            // Si la columna no existe, retornar un valor por defecto
-            return 'No disponible';
-        }
-    }
-
     public function getTotalMasVendidos() {
         try {
             // Primero verificamos si la columna existe
@@ -360,22 +304,17 @@ class InventoryManager
         }
     }
 
-    public function getValorPorCategoria() {
+    public function getValorPromedio() {
         try {
             $stmt = $this->pdo->prepare("
-                SELECT c.nombre as categoria, SUM(i.stock * i.precio_venta) as valor_total
-                FROM inventario i
-                JOIN categorias c ON i.categoria_id = c.id
-                WHERE i.user_id = :user_id
-                GROUP BY c.id
-                ORDER BY valor_total DESC
-                LIMIT 1
+                SELECT COALESCE(AVG(NULLIF(precio_venta, 0)), 0) 
+                FROM inventario 
+                WHERE user_id = :user_id
             ");
             $stmt->execute([':user_id' => $this->user_id]);
-            $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
-            return $resultado ?: ['categoria' => 'Sin datos', 'valor_total' => 0];
+            return $stmt->fetchColumn() ?: 0;
         } catch (Exception $e) {
-            return ['categoria' => 'No disponible', 'valor_total' => 0];
+            return 0;
         }
     }
 }
@@ -425,20 +364,10 @@ try {
     $departamentos = $inventory_manager->getDepartments();
     $total_paginas = ceil($total_productos / $config->items_per_page);
 
-    // Obtener datos adicionales para las nuevas tarjetas
-    $productos_agotados = $inventory_manager->getProductosAgotados();
-    $total_categorias = $inventory_manager->getTotalCategorias();
     $valor_promedio = $inventory_manager->getValorPromedio();
-    $ultima_actualizacion = $inventory_manager->getUltimaActualizacion();
-    $total_mas_vendidos = $inventory_manager->getTotalMasVendidos();
-    $valor_categoria = $inventory_manager->getValorPorCategoria();
 } catch (Exception $e) {
     // Inicializar valores por defecto en caso de error
-    $productos_agotados = 0;
-    $total_categorias = 0;
     $valor_promedio = 0;
-    $ultima_actualizacion = 'No disponible';
-    $total_mas_vendidos = 0;
     
     // Opcional: Registrar el error
     error_log("Error al obtener datos del inventario: " . $e->getMessage());
@@ -480,128 +409,6 @@ try {
             <div class="max-w-7xl mx-auto">
                 <h1 class="text-3xl font-bold text-gray-900 mb-8">Gestión de Inventario</h1>
 
-                <!-- Tarjetas de resumen mejoradas -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    <!-- Tarjeta de Valor Total -->
-                    <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 p-6 border border-gray-100 transform hover:-translate-y-1">
-                        <div class="flex items-center">
-                            <div class="bg-blue-50 rounded-full p-3">
-                                <i class="fas fa-dollar-sign text-blue-600 text-2xl"></i>
-                            </div>
-                            <div class="ml-4 min-w-0 flex-1">
-                                <p class="text-sm font-medium text-gray-500">Valor Total</p>
-                                <h3 class="text-xl font-bold text-gray-900 truncate">
-                                    <?= formatoMoneda($valor_total_inventario) ?>
-                                </h3>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Tarjeta de Stock Bajo -->
-                    <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 p-6 border border-gray-100 transform hover:-translate-y-1">
-                        <div class="flex items-center">
-                            <div class="bg-yellow-50 rounded-full p-3">
-                                <i class="fas fa-exclamation-triangle text-yellow-600 text-2xl"></i>
-                            </div>
-                            <div class="ml-4">
-                                <p class="text-sm font-medium text-gray-500">Stock Bajo</p>
-                                <h3 class="text-2xl font-bold text-gray-900"><?= $cantidad_productos_bajos ?></h3>
-                                <p class="text-xs text-gray-500 mt-1">Productos por debajo del mínimo</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Tarjeta de Total Productos -->
-                    <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 p-6 border border-gray-100 transform hover:-translate-y-1">
-                        <div class="flex items-center">
-                            <div class="bg-green-50 rounded-full p-3">
-                                <i class="fas fa-box text-green-600 text-2xl"></i>
-                            </div>
-                            <div class="ml-4">
-                                <p class="text-sm font-medium text-gray-500">Total Productos</p>
-                                <h3 class="text-2xl font-bold text-gray-900"><?= $total_productos ?></h3>
-                                <p class="text-xs text-gray-500 mt-1">Productos en inventario</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Nueva Tarjeta: Productos Agotados -->
-                    <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 p-6 border border-gray-100 transform hover:-translate-y-1">
-                        <div class="flex items-center">
-                            <div class="bg-red-50 rounded-full p-3">
-                                <i class="fas fa-times-circle text-red-600 text-2xl"></i>
-                            </div>
-                            <div class="ml-4">
-                                <p class="text-sm font-medium text-gray-500">Agotados</p>
-                                <h3 class="text-2xl font-bold text-gray-900"><?= $productos_agotados ?></h3>
-                                <p class="text-xs text-gray-500 mt-1">Productos sin stock</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Nueva Tarjeta: Categorías Activas -->
-                    <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 p-6 border border-gray-100 transform hover:-translate-y-1">
-                        <div class="flex items-center">
-                            <div class="bg-purple-50 rounded-full p-3">
-                                <i class="fas fa-tags text-purple-600 text-2xl"></i>
-                            </div>
-                            <div class="ml-4">
-                                <p class="text-sm font-medium text-gray-500">Categorías</p>
-                                <h3 class="text-2xl font-bold text-gray-900"><?= $total_categorias ?></h3>
-                                <p class="text-xs text-gray-500 mt-1">Categorías activas</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Nueva Tarjeta: Valor Promedio -->
-                    <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 p-6 border border-gray-100 transform hover:-translate-y-1">
-                        <div class="flex items-center">
-                            <div class="bg-indigo-50 rounded-full p-3">
-                                <i class="fas fa-chart-line text-indigo-600 text-2xl"></i>
-                            </div>
-                            <div class="ml-4 min-w-0 flex-1">
-                                <p class="text-sm font-medium text-gray-500">Valor Promedio</p>
-                                <h3 class="text-xl font-bold text-gray-900 truncate">
-                                    <?= formatoMoneda($valor_promedio) ?>
-                                </h3>
-                                <p class="text-xs text-gray-500 mt-1">Por producto</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Nueva Tarjeta: Últimas Actualizaciones -->
-                    <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 p-6 border border-gray-100 transform hover:-translate-y-1">
-                        <div class="flex items-center">
-                            <div class="bg-pink-50 rounded-full p-3">
-                                <i class="fas fa-history text-pink-600 text-2xl"></i>
-                            </div>
-                            <div class="ml-4">
-                                <p class="text-sm font-medium text-gray-500">Última Actualización</p>
-                                <h3 class="text-sm font-bold text-gray-900"><?= $ultima_actualizacion ?></h3>
-                                <p class="text-xs text-gray-500 mt-1">del inventario</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Nueva Tarjeta: Valor por Categoría -->
-                    <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 p-6 border border-gray-100 transform hover:-translate-y-1">
-                        <div class="flex items-center">
-                            <div class="bg-emerald-50 rounded-full p-3">
-                                <i class="fas fa-chart-pie text-emerald-600 text-2xl"></i>
-                            </div>
-                            <div class="ml-4 min-w-0 flex-1">
-                                <p class="text-sm font-medium text-gray-500">Mayor Valor</p>
-                                <h3 class="text-xl font-bold text-gray-900 truncate">
-                                    <?= formatoMoneda($valor_categoria['valor_total']) ?>
-                                </h3>
-                                <p class="text-xs text-gray-500 mt-1 truncate">
-                                    <?= htmlspecialchars($valor_categoria['categoria']) ?>
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- Barra de acciones mejorada -->
                 <div class="flex flex-wrap gap-4 mb-8">
                     <div class="flex flex-wrap gap-3">
@@ -613,7 +420,7 @@ try {
                             class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all transform hover:scale-105 shadow-sm">
                             <i class="fas fa-boxes mr-2"></i> Surtir
                         </a>
-                        <a href="importar.php"
+                        <a href="import/index.php"
                             class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all transform hover:scale-105 shadow-sm">
                             <i class="fas fa-file-import mr-2"></i> Importar
                         </a>
@@ -843,7 +650,7 @@ try {
                                         Categoría
                                     </th>
                                     <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                        Departamento
+                                        Bodega
                                     </th>
                                     <th scope="col" class="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                         Acciones
@@ -910,7 +717,7 @@ try {
                                         </td>
                                         <td class="px-6 py-4">
                                             <div class="text-sm text-gray-600">
-                                                <?= htmlspecialchars($producto['departamento']) ?>
+                                                <?= htmlspecialchars($producto['bodega']) ?>
                                             </div>
                                         </td>
                                         <td class="px-6 py-4 text-center">

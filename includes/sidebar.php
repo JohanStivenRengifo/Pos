@@ -4,67 +4,153 @@ $current_page = basename(dirname($_SERVER['PHP_SELF']));
 if ($current_page === 'modules') {
     $current_page = basename(dirname(dirname($_SERVER['PHP_SELF'])));
 }
-
-// Definir el menú y sus rutas
-$menu_items = [
-    'dashboard' => [
-        'name' => 'Dashboard',
-        'url' => '/welcome.php',
-        'icon' => 'fas fa-tachometer-alt'
-    ],
-    'pos' => [
-        'name' => 'POS',
-        'url' => 'pos/index.php',
-        'icon' => 'fas fa-cash-register'
-    ],
-    'ingresos' => [
-        'name' => 'Ingresos',
-        'url' => '/modules/ingresos/index.php',
-        'icon' => 'fas fa-money-bill-wave'
-    ],
-    'egresos' => [
-        'name' => 'Egresos',
-        'url' => '/modules/egresos/index.php',
-        'icon' => 'fas fa-money-bill-wave-alt'
+// Definir las categorías y sus módulos
+$menu_categories = [
+    'operaciones' => [
+        'name' => 'Operaciones',
+        'icon' => 'fas fa-star',
+        'modules' => [
+            'dashboard' => [
+                'name' => 'Dashboard',
+                'url' => '/welcome.php',
+                'icon' => 'fas fa-tachometer-alt'
+            ],
+            'pos' => [
+                'name' => 'POS',
+                'url' => '/modules/pos/index.php',
+                'icon' => 'fas fa-cash-register'
+            ]
+        ]
     ],
     'ventas' => [
-        'name' => 'Ventas',
-        'url' => '/modules/ventas/index.php',
-        'icon' => 'fas fa-shopping-cart'
+        'name' => 'Ventas y Créditos',
+        'icon' => 'fas fa-shopping-cart',
+        'modules' => [
+            'ventas' => [
+                'name' => 'Ventas',
+                'url' => '/modules/ventas/index.php',
+                'icon' => 'fas fa-receipt'
+            ],
+            'cotizaciones' => [
+                'name' => 'Cotizaciones',
+                'url' => '/modules/cotizaciones/index.php',
+                'icon' => 'fas fa-file-invoice-dollar'
+            ],
+            'creditos' => [
+                'name' => 'Créditos',
+                'url' => '/modules/creditos/index.php',
+                'icon' => 'fas fa-credit-card'
+            ]
+        ]
+    ],
+    'finanzas' => [
+        'name' => 'Finanzas',
+        'icon' => 'fas fa-dollar-sign',
+        'modules' => [
+            'ingresos' => [
+                'name' => 'Ingresos',
+                'url' => '/modules/ingresos/index.php',
+                'icon' => 'fas fa-money-bill-wave'
+            ],
+            'egresos' => [
+                'name' => 'Egresos',
+                'url' => '/modules/egresos/index.php',
+                'icon' => 'fas fa-money-bill-wave-alt'
+            ],
+            'turnos' => [
+                'name' => 'Turnos',
+                'url' => '/modules/turnos/index.php',
+                'icon' => 'fas fa-clock'
+            ],
+            'nomina' => [
+                'name' => 'Nómina',
+                'url' => '/modules/nomina/index.php',
+                'icon' => 'fas fa-file-invoice'
+            ]
+        ]
     ],
     'inventario' => [
         'name' => 'Inventario',
-        'url' => '/modules/inventario/index.php',
-        'icon' => 'fas fa-boxes'
+        'icon' => 'fas fa-boxes',
+        'modules' => [
+            'inventario' => [
+                'name' => 'Productos',
+                'url' => '/modules/inventario/index.php',
+                'icon' => 'fas fa-box'
+            ],
+            'bodegas' => [
+                'name' => 'Bodegas',
+                'url' => '/modules/bodegas/index.php',
+                'icon' => 'fas fa-warehouse'
+            ],
+            'departamentos' => [
+                'name' => 'Departamentos',
+                'url' => '/modules/departamentos/index.php',
+                'icon' => 'fas fa-sitemap'
+            ],
+            'prestamos' => [
+                'name' => 'Préstamos',
+                'url' => '/modules/prestamos/index.php',
+                'icon' => 'fas fa-calculator'
+            ]
+        ]
     ],
-    'clientes' => [
-        'name' => 'Clientes',
-        'url' => '/modules/clientes/index.php',
-        'icon' => 'fas fa-users'
-    ],
-    'proveedores' => [
-        'name' => 'Proveedores',
-        'url' => '/modules/proveedores/index.php',
-        'icon' => 'fas fa-truck'
+    'contactos' => [
+        'name' => 'Contactos',
+        'icon' => 'fas fa-address-book',
+        'modules' => [
+            'clientes' => [
+                'name' => 'Clientes',
+                'url' => '/modules/clientes/index.php',
+                'icon' => 'fas fa-users'
+            ],
+            'proveedores' => [
+                'name' => 'Proveedores',
+                'url' => '/modules/proveedores/index.php',
+                'icon' => 'fas fa-truck'
+            ]
+        ]
     ],
     'reportes' => [
-        'name' => 'Reportes',
-        'url' => '/modules/reportes/index.php',
-        'icon' => 'fas fa-chart-bar'
+        'name' => 'Reportes y Análisis',
+        'icon' => 'fas fa-chart-line',
+        'modules' => [
+            'reportes' => [
+                'name' => 'Reportes',
+                'url' => '/modules/reportes/index.php',
+                'icon' => 'fas fa-chart-bar'
+            ]
+        ]
     ],
-    'config' => [
+    'configuracion' => [
         'name' => 'Configuración',
-        'url' => '/modules/config/index.php',
-        'icon' => 'fas fa-cog'
+        'icon' => 'fas fa-cog',
+        'modules' => [
+            'empresa' => [
+                'name' => 'Empresa',
+                'url' => '/modules/config/empresas/index.php',
+                'icon' => 'fas fa-building'
+            ],
+            'usuarios' => [
+                'name' => 'Usuarios',
+                'url' => '/modules/config/usuarios/index.php',
+                'icon' => 'fas fa-users-cog'
+            ],
+            'config' => [
+                'name' => 'Configuración',
+                'url' => '/modules/config/index.php',
+                'icon' => 'fas fa-sliders-h'
+            ]
+        ]
     ]
 ];
 
-// Mejorar la función isActive para ser más precisa
+// Función para verificar si un módulo está activo
 function isActive($itemUrl) {
     $currentUrl = $_SERVER['REQUEST_URI'];
     $itemPath = parse_url($itemUrl, PHP_URL_PATH);
     $currentPath = parse_url($currentUrl, PHP_URL_PATH);
-    return $itemPath === $currentPath;
+    return strpos($currentPath, $itemPath) === 0;
 }
 
 // Función para obtener el número de notificaciones por módulo
@@ -79,196 +165,94 @@ function getNotificationCount($module) {
 }
 ?>
 
-<aside class="min-h-screen w-72 bg-white border-r border-gray-200 flex flex-col fixed left-0 top-0 h-screen transition-all duration-300" id="sidebar">
+<aside class="min-h-screen w-72 bg-white border-r border-gray-200 flex flex-col fixed left-0 top-0 h-screen shadow-lg" id="sidebar">
     <!-- Contenedor principal con scroll -->
     <div class="flex-1 overflow-y-auto h-full pt-16">
         <!-- Perfil del usuario -->
-        <div class="px-6 py-4 border-b border-gray-100">
+        <div class="px-6 py-4 border-b border-gray-100 hover:bg-gray-50 transition-colors duration-200">
             <div class="flex items-center space-x-3">
                 <?php if (!empty($empresa_info['logo']) && file_exists($_SERVER['DOCUMENT_ROOT'] . '/' . $empresa_info['logo'])): ?>
-                    <div class="w-10 h-10 rounded-full bg-white border border-gray-200 flex items-center justify-center overflow-hidden">
+                    <div class="w-12 h-12 rounded-full bg-white border-2 border-indigo-100 flex items-center justify-center overflow-hidden shadow-sm">
                         <img src="/<?= htmlspecialchars($empresa_info['logo']) ?>" 
                              alt="Logo empresa" 
                              class="w-full h-full object-contain"
                              onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'%23CBD5E0\'%3E%3Cpath d=\'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z\'/%3E%3C/svg%3E';">
-                        </div>
+                    </div>
                 <?php else: ?>
-                    <div class="w-10 h-10 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 flex items-center justify-center text-white font-semibold text-lg shadow-lg">
+                    <div class="w-12 h-12 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-lg">
                         <?= strtoupper(substr($empresa_info['nombre_empresa'] ?? 'E', 0, 1)) ?>
                     </div>
                 <?php endif; ?>
                 
                 <div class="flex-1 min-w-0">
-                    <h2 class="text-sm font-medium text-gray-900 truncate">
+                    <h2 class="text-sm font-semibold text-gray-900 truncate">
                         <?= htmlspecialchars($empresa_info['user_name'] ?? $_SESSION['nombre'] ?? 'Usuario') ?>
                     </h2>
                     <p class="text-xs text-gray-500 truncate flex items-center">
-                        <span class="inline-block w-2 h-2 rounded-full bg-green-500 mr-1"></span>
+                        <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1"></span>
                         Disponible
                     </p>
                 </div>
             </div>
         </div>
 
-        <!-- Navegación principal con grupos -->
-        <nav class="px-4 py-4">
-            <!-- Grupo: Operaciones Principales -->
-            <div class="mb-6">
-                <h3 class="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                    Operaciones Principales
-                </h3>
-                <div class="space-y-1">
-                    <a href="/welcome.php" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 
-                              <?= isActive('/welcome.php') ? 'text-indigo-700 bg-indigo-50 hover:bg-indigo-100' : 'text-gray-700 hover:bg-gray-50' ?>">
-                        <i class="fas fa-tachometer-alt w-5 h-5 mr-3"></i>
-                        <span class="flex-1">Dashboard</span>
-                    </a>
-                    
-                    <a href="/modules/pos/index.php" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200
-                              <?= isActive('/modules/pos/index.php') ? 'text-indigo-700 bg-indigo-50 hover:bg-indigo-100' : 'text-gray-700 hover:bg-gray-50' ?>">
-                        <i class="fas fa-cash-register w-5 h-5 mr-3"></i>
-                        <span class="flex-1">POS</span>
-                    </a> 
-                </div>
-            </div>
+        <!-- Navegación principal con categorías -->
+        <nav class="px-3 py-4">
+            <?php foreach ($menu_categories as $cat_key => $category): ?>
+                <div class="mb-4 category-container">
+                    <!-- Encabezado de categoría -->
+                    <button class="w-full flex items-center justify-between px-4 py-2.5 text-sm font-semibold text-gray-600 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-all duration-200 category-header group">
+                        <div class="flex items-center">
+                            <i class="<?= $category['icon'] ?> w-5 h-5 mr-3 group-hover:scale-110 transition-transform duration-200"></i>
+                            <span><?= $category['name'] ?></span>
+                        </div>
+                        <i class="fas fa-chevron-down transform transition-transform duration-200"></i>
+                    </button>
 
-            <!-- Grupo: Finanzas -->
-            <div class="mb-6">
-                <h3 class="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                    Finanzas
-                </h3>
-                <div class="space-y-1">
-                    <a href="/modules/ingresos/index.php" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200
-                              <?= isActive('/modules/ingresos/index.php') ? 'text-green-700 bg-green-50 hover:bg-green-100' : 'text-gray-700 hover:bg-gray-50' ?>">
-                        <i class="fas fa-money-bill-wave w-5 h-5 mr-3"></i>
-                        <span class="flex-1">Ingresos</span>
-                    </a>
-                    
-                    <a href="/modules/egresos/index.php" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200
-                              <?= isActive('/modules/egresos/index.php') ? 'text-red-700 bg-red-50 hover:bg-red-100' : 'text-gray-700 hover:bg-gray-50' ?>">
-                        <i class="fas fa-money-bill-wave-alt w-5 h-5 mr-3"></i>
-                        <span class="flex-1">Egresos</span>
-                    </a>
-                    
-                    <a href="/modules/turnos/index.php" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200
-                              <?= isActive('/modules/turnos/index.php') ? 'text-blue-700 bg-blue-50 hover:bg-blue-100' : 'text-gray-700 hover:bg-gray-50' ?>">
-                        <i class="fas fa-clock w-5 h-5 mr-3"></i>
-                        <span class="flex-1">Turnos</span>
-                    </a>
+                    <!-- Módulos de la categoría -->
+                    <div class="space-y-1 mt-1 category-content">
+                        <?php foreach ($category['modules'] as $mod_key => $module): ?>
+                            <a href="<?= $module['url'] ?>" 
+                               class="flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ml-2
+                                      <?= isActive($module['url']) 
+                                          ? 'text-indigo-700 bg-indigo-50 border-l-4 border-indigo-600' 
+                                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' ?>">
+                                <i class="<?= $module['icon'] ?> w-5 h-5 mr-3 transition-transform duration-200 hover:scale-110"></i>
+                                <span class="flex-1"><?= $module['name'] ?></span>
+                                <?php if ($notificationCount = getNotificationCount($mod_key)): ?>
+                                    <span class="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-indigo-100 bg-indigo-600 rounded-full ml-2">
+                                        <?= $notificationCount ?>
+                                    </span>
+                                <?php endif; ?>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
                 </div>
-            </div>
-
-            <!-- Grupo: Gestión -->
-            <div class="mb-6">
-                <h3 class="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                    Gestión
-                </h3>
-                <div class="space-y-1">
-                    <?php foreach (['ventas', 'inventario', 'clientes', 'proveedores'] as $module): ?>
-                        <a href="/modules/<?= $module ?>/index.php" 
-                           class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200
-                                  <?= isActive("/modules/$module/index.php") ? 'text-indigo-700 bg-indigo-50 hover:bg-indigo-100' : 'text-gray-700 hover:bg-gray-50' ?>">
-                            <i class="<?= $menu_items[$module]['icon'] ?> w-5 h-5 mr-3"></i>
-                            <span class="flex-1"><?= $menu_items[$module]['name'] ?></span>
-                        </a>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-
-            <!-- Grupo: Análisis -->
-            <div class="mb-6">
-                <h3 class="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-                    Análisis
-                </h3>
-                <div class="space-y-1">
-                    <a href="/modules/reportes/index.php" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200">
-                        <i class="fas fa-chart-bar w-5 h-5 mr-3"></i>
-                        <span class="flex-1">Reportes</span>
-                    </a>
-                </div>
-            </div>
+            <?php endforeach; ?>
         </nav>
 
-        <!-- Enlaces rápidos y configuración -->
-        <div class="mt-auto px-4 py-4 border-t border-gray-200">
-            <div class="space-y-1">
-                <a href="/modules/config/index.php" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 transition-all duration-200">
-                    <i class="fas fa-cog w-5 h-5 mr-3"></i>
-                    <span>Configuración</span>
-                </a>
-                
-                <a href="/ayuda.php" class="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 transition-all duration-200">
-                    <i class="fas fa-question-circle w-5 h-5 mr-3"></i>
-                    <span>Centro de Ayuda</span>
-                </a>
-
-                <button id="toggleSidebar" class="w-full group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-50 transition-all duration-200">
-                    <i class="fas fa-chevron-left w-5 h-5 mr-3"></i>
-                    <span>Contraer menú</span>
-                </button>
-            </div>
+        <!-- Enlaces rápidos -->
+        <div class="mt-auto px-3 py-4 border-t border-gray-200">
+            <a href="/ayuda.php" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-all duration-200 group">
+                <i class="fas fa-question-circle w-5 h-5 mr-3 group-hover:scale-110 transition-transform duration-200"></i>
+                <span>Centro de Ayuda</span>
+            </a>
         </div>
     </div>
 </aside>
 
-<!-- Espaciador -->
-<div class="w-72 flex-shrink-0 transition-all duration-300" id="sidebar-spacer"></div>
+<!-- Espaciador fijo -->
+<div class="w-72 flex-shrink-0"></div>
 
 <!-- Overlay para móviles -->
 <div class="fixed inset-0 bg-gray-900 bg-opacity-50 z-40 lg:hidden hidden" id="sidebar-overlay"></div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const sidebar = document.getElementById('sidebar');
-    const sidebarSpacer = document.getElementById('sidebar-spacer');
-    const toggleBtn = document.getElementById('toggleSidebar');
-    let isCollapsed = false;
-
-    function toggleSidebar() {
-        isCollapsed = !isCollapsed;
-        
-        if (isCollapsed) {
-            sidebar.classList.remove('w-72');
-            sidebar.classList.add('w-20');
-            sidebarSpacer.classList.remove('w-72');
-            sidebarSpacer.classList.add('w-20');
-            
-            // Ocultar texto
-            document.querySelectorAll('#sidebar span:not(.icon), #sidebar h3').forEach(el => {
-                el.classList.add('hidden');
-            });
-            
-            toggleBtn.innerHTML = '<i class="fas fa-chevron-right w-5 h-5"></i>';
-        } else {
-            sidebar.classList.remove('w-20');
-            sidebar.classList.add('w-72');
-            sidebarSpacer.classList.remove('w-20');
-            sidebarSpacer.classList.add('w-72');
-            
-            // Mostrar texto
-            document.querySelectorAll('#sidebar span:not(.icon), #sidebar h3').forEach(el => {
-                el.classList.remove('hidden');
-            });
-            
-            toggleBtn.innerHTML = '<i class="fas fa-chevron-left w-5 h-5 mr-3"></i><span>Contraer menú</span>';
-        }
-
-        // Guardar estado en localStorage
-        localStorage.setItem('sidebarCollapsed', isCollapsed);
-    }
-
-    // Event listener para el botón de alternar
-    toggleBtn.addEventListener('click', toggleSidebar);
-
-    // Restaurar estado del sidebar
-    const savedState = localStorage.getItem('sidebarCollapsed');
-    if (savedState === 'true') {
-        toggleSidebar();
-    }
-});
-</script>
-
 <style>
+/* Estilos base del sidebar */
+#sidebar {
+    z-index: 50;
+}
+
 /* Estilos para la scrollbar */
 #sidebar .flex-1::-webkit-scrollbar {
     width: 4px;
@@ -280,32 +264,74 @@ document.addEventListener('DOMContentLoaded', function() {
 
 #sidebar .flex-1::-webkit-scrollbar-thumb {
     background-color: #e5e7eb;
-    border-radius: 2px;
+    border-radius: 4px;
 }
 
 #sidebar .flex-1:hover::-webkit-scrollbar-thumb {
     background-color: #d1d5db;
 }
 
-/* Asegurar que el contenido del sidebar sea scrolleable */
-#sidebar .flex-1 {
-    overflow-y: auto;
-    overflow-x: hidden;
-    scrollbar-width: thin;
-    scrollbar-color: #e5e7eb transparent;
+/* Animaciones para las categorías */
+.category-content {
+    transition: all 0.3s ease;
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
 }
 
-/* Ajustes para el modo contraído */
-#sidebar.w-20 .group span,
-#sidebar.w-20 h3 {
-    display: none;
+.category-content.show {
+    max-height: 500px;
+    opacity: 1;
 }
 
-#sidebar.w-20 .group {
-    justify-content: center;
-}
-
-#sidebar.w-20 .group i {
-    margin-right: 0;
+/* Animación para los íconos de las categorías */
+.category-header.active i.fa-chevron-down {
+    transform: rotate(-180deg);
 }
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Restaurar estado de las categorías
+    document.querySelectorAll('.category-header').forEach(header => {
+        const container = header.closest('.category-container');
+        const content = container.querySelector('.category-content');
+        const icon = header.querySelector('.fa-chevron-down');
+        
+        // Iniciar todas las categorías contraídas
+        content.style.display = 'none';
+        
+        // Verificar si la categoría contiene el módulo activo
+        const hasActiveModule = content.querySelector('a[class*="text-indigo-700"]');
+        if (hasActiveModule) {
+            content.style.display = 'block';
+            content.style.maxHeight = content.scrollHeight + 'px';
+            content.style.opacity = '1';
+            header.classList.add('active');
+            icon.classList.add('-rotate-180');
+        }
+        
+        header.addEventListener('click', () => {
+            const isHidden = content.style.display === 'none';
+            
+            if (isHidden) {
+                content.style.display = 'block';
+                setTimeout(() => {
+                    content.style.maxHeight = content.scrollHeight + 'px';
+                    content.style.opacity = '1';
+                    header.classList.add('active');
+                    icon.classList.add('-rotate-180');
+                }, 10);
+            } else {
+                content.style.opacity = '0';
+                content.style.maxHeight = '0';
+                header.classList.remove('active');
+                icon.classList.remove('-rotate-180');
+                setTimeout(() => {
+                    content.style.display = 'none';
+                }, 300);
+            }
+        });
+    });
+});
+</script>

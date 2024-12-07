@@ -607,7 +607,7 @@ if (isset($_SESSION['user_id'])) {
 
         <div class="hero-container">
             <h1 class="hero-title">Contabilidad inteligente</h1>
-            <p class="hero-subtitle">La forma más inteligente de gestionar tu contabilidad, facturación e inventario. Todo en un solo lugar. Ahora en su <b>versión 3.0.0Alpha</b> completamente gratuita.</p>
+            <p class="hero-subtitle">La forma más inteligente de gestionar tu contabilidad, facturación e inventario. Todo en un solo lugar. Ahora en su <b>versión v3.1.0Alpha</b> completamente gratuita.</p>
 
             <a href="modules/auth/register.php" class="btn btn-primary">
                 Comienza Gratis
@@ -653,7 +653,7 @@ if (isset($_SESSION['user_id'])) {
                 <div class="stat-icon">
                     <i class="fas fa-rocket"></i>
                 </div>
-                <h3>v3.0.0Alpha</h3>
+                <h3>v3.1.0Alpha</h3>
                 <p>Versión Estable</p>
                 <div class="stat-detail">Acceso anticipado a todas las funciones</div>
             </div>
@@ -748,7 +748,7 @@ if (isset($_SESSION['user_id'])) {
 
     <section id="pricing" class="pricing-section">
         <div class="section-container">
-            <h2 class="section-title">Versión 3.0.0Alpha - ¡Gratis!</h2>
+            <h2 class="section-title">Versión v3.1.0Alpha - ¡Gratis!</h2>
             <div class="pricing-grid">
                 <div class="pricing-card featured" style="transform: none; max-width: 600px; margin: 0 auto;">
                     <div class="popular-tag">Alpha</div>
@@ -764,7 +764,7 @@ if (isset($_SESSION['user_id'])) {
                         <li><i class="fas fa-check"></i> Actualizaciones gratuitas</li>
                     </ul>
                     <a href="modules/auth/register.php" class="btn btn-primary">Comenzar ahora</a>
-                    <p style="margin-top: 1rem; font-size: 0.875rem; color: #666;">* Los precios se anunciarán al finalizar el período beta</p>
+                    <p style="margin-top: 1rem; font-size: 0.875rem; color: #666;">* Los precios se anunciarán al finalizar el período Alpha</p>
                 </div>
             </div>
         </div>

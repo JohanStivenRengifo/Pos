@@ -473,40 +473,53 @@ echo "\n-->";
 $gastosPorCategoriaResult = getGastosPorCategoria($user_id);
 $comparativaMensualResult = getComparativaMensual($user_id);
 
-// Antes de las gráficas, agregar la función PHP para obtener datos de flujo de caja
+// Modificar la función getFlujoCajaMensual
 function getFlujoCajaMensual($user_id) {
     global $pdo;
     try {
         $query = "SELECT 
-                    DATE_FORMAT(fecha, '%Y-%m') as mes,
-                    SUM(CASE WHEN tipo = 'ingreso' THEN monto ELSE 0 END) as ingresos,
-                    SUM(CASE WHEN tipo = 'egreso' THEN monto ELSE 0 END) as egresos,
-                    SUM(CASE WHEN tipo = 'ingreso' THEN monto ELSE -monto END) as flujo_neto
-                  FROM (
-                    SELECT fecha, 'ingreso' as tipo, total as monto 
-                    FROM ventas 
-                    WHERE user_id = ?
-                    UNION ALL
-                    SELECT fecha, 'ingreso' as tipo, monto 
-                    FROM ingresos 
-                    WHERE user_id = ?
-                    UNION ALL
-                    SELECT fecha, 'egreso' as tipo, monto 
-                    FROM egresos 
-                    WHERE user_id = ?
-                  ) as movimientos
-                  GROUP BY DATE_FORMAT(fecha, '%Y-%m')
+                    DATE_FORMAT(t.fecha_apertura, '%Y-%m') as mes,
+                    SUM(t.monto_final - t.monto_inicial) as ingresos,
+                    SUM(CASE WHEN t.monto_final < t.monto_inicial THEN (t.monto_inicial - t.monto_final) ELSE 0 END) as egresos,
+                    SUM(t.monto_final - t.monto_inicial) as flujo_neto
+                  FROM turnos t
+                  WHERE t.user_id = ? 
+                  AND t.fecha_cierre IS NOT NULL
+                  AND t.fecha_apertura >= DATE_SUB(CURRENT_DATE(), INTERVAL 12 MONTH)
+                  GROUP BY DATE_FORMAT(t.fecha_apertura, '%Y-%m')
                   ORDER BY mes DESC
                   LIMIT 12";
         
         $stmt = $pdo->prepare($query);
-        $stmt->execute([$user_id, $user_id, $user_id]);
-        return ['status' => true, 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)];
+        $stmt->execute([$user_id]);
+        $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Log para debugging
+        error_log("Query Flujo de Caja: " . $query);
+        error_log("Resultados encontrados: " . count($result));
+        
+        // Si no hay resultados, crear datos de ejemplo para pruebas
+        if (empty($result)) {
+            $result = [];
+            for ($i = 11; $i >= 0; $i--) {
+                $date = date('Y-m', strtotime("-$i months"));
+                $result[] = [
+                    'mes' => $date,
+                    'ingresos' => 0,
+                    'egresos' => 0,
+                    'flujo_neto' => 0
+                ];
+            }
+        }
+
+        return ['status' => true, 'data' => $result];
     } catch (PDOException $e) {
+        error_log("Error en getFlujoCajaMensual: " . $e->getMessage());
         return ['status' => false, 'message' => 'Error al obtener flujo de caja: ' . $e->getMessage()];
     }
 }
 
+// Modificar la parte donde se obtienen los datos
 $flujoCajaResult = getFlujoCajaMensual($user_id);
 ?>
 
@@ -771,7 +784,36 @@ $flujoCajaResult = getFlujoCajaMensual($user_id);
 
     <!-- Scripts para las gráficas -->
     <script>
-    // Mantener la lógica de las gráficas existente, solo actualizar las opciones de estilo
+    // Configuración global de Chart.js para mejorar el aspecto
+    Chart.defaults.font.family = "'Inter', 'system-ui', '-apple-system', sans-serif";
+    Chart.defaults.color = '#4B5563';
+    Chart.defaults.scale.grid.color = '#E5E7EB';
+
+    // Paleta de colores personalizada
+    const colors = {
+        primary: {
+            base: 'rgb(79, 70, 229)',
+            light: 'rgba(79, 70, 229, 0.1)'
+        },
+        success: {
+            base: 'rgb(16, 185, 129)',
+            light: 'rgba(16, 185, 129, 0.1)'
+        },
+        warning: {
+            base: 'rgb(245, 158, 11)',
+            light: 'rgba(245, 158, 11, 0.1)'
+        },
+        danger: {
+            base: 'rgb(239, 68, 68)',
+            light: 'rgba(239, 68, 68, 0.1)'
+        },
+        info: {
+            base: 'rgb(59, 130, 246)',
+            light: 'rgba(59, 130, 246, 0.1)'
+        }
+    };
+
+    // Opciones globales para las gráficas
     const chartOptions = {
         responsive: true,
         maintainAspectRatio: false,
@@ -782,84 +824,165 @@ $flujoCajaResult = getFlujoCajaMensual($user_id);
                     usePointStyle: true,
                     padding: 20,
                     font: {
-                        size: 12
+                        size: 12,
+                        weight: '500'
                     }
                 }
             },
             tooltip: {
-                backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                padding: 12,
+                backgroundColor: 'rgba(17, 24, 39, 0.95)',
                 titleFont: {
-                    size: 14
+                    size: 13,
+                    weight: '600'
                 },
                 bodyFont: {
-                    size: 13
+                    size: 12
+                },
+                padding: 12,
+                cornerRadius: 8,
+                boxPadding: 6,
+                usePointStyle: true
+            }
+        },
+        interaction: {
+            intersect: false,
+            mode: 'index'
+        },
+        scales: {
+            x: {
+                grid: {
+                    display: false
+                },
+                ticks: {
+                    font: {
+                        size: 11
+                    }
+                }
+            },
+            y: {
+                grid: {
+                    borderDash: [4, 4]
+                },
+                ticks: {
+                    font: {
+                        size: 11
+                    }
                 }
             }
         }
     };
 
-    document.addEventListener('DOMContentLoaded', function() {
-        // Configuración de colores
-        const colors = {
-            green: 'rgb(76, 175, 80)',
-            blue: 'rgb(33, 150, 243)',
-            red: 'rgb(244, 67, 54)',
-            amber: 'rgb(255, 193, 7)',
-            purple: 'rgb(156, 39, 176)'
-        };
+    // Función para formatear números
+    const formatNumber = (number) => {
+        if (number >= 1000000) {
+            return (number / 1000000).toFixed(1) + 'M';
+        } else if (number >= 1000) {
+            return (number / 1000).toFixed(1) + 'K';
+        }
+        return number.toFixed(0);
+    };
 
+    // Función para formatear moneda
+    const formatCurrency = (amount) => {
+        return new Intl.NumberFormat('es-CO', {
+            style: 'currency',
+            currency: 'COP',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(amount);
+    };
+
+    document.addEventListener('DOMContentLoaded', function() {
         // Tendencias de Ventas
         const ctxTendencias = document.getElementById('tendenciasVentasChart');
-        new Chart(ctxTendencias, {
-            type: 'line',
-            data: {
-                labels: <?= json_encode(array_column($tendenciasVentasResult['data'], 'hora')) ?>,
-                datasets: [{
-                    label: 'Número de Ventas',
-                    data: <?= json_encode(array_column($tendenciasVentasResult['data'], 'total_ventas')) ?>,
-                    borderColor: colors.green,
-                    backgroundColor: 'rgba(76, 175, 80, 0.1)',
-                    fill: true
-                }, {
-                    label: 'Monto Total',
-                    data: <?= json_encode(array_column($tendenciasVentasResult['data'], 'monto_total')) ?>,
-                    borderColor: colors.blue,
-                    backgroundColor: 'rgba(33, 150, 243, 0.1)',
-                    fill: true,
-                    yAxisID: 'y1'
-                }]
-            },
-            options: {
-                ...chartOptions,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: 'Número de Ventas'
+        const tendenciasData = <?= json_encode($tendenciasVentasResult['data'] ?? []) ?>;
+        
+        if (ctxTendencias && tendenciasData && tendenciasData.length > 0) {
+            new Chart(ctxTendencias, {
+                type: 'line',
+                data: {
+                    labels: tendenciasData.map(item => item.hora),
+                    datasets: [{
+                        label: 'Ventas',
+                        data: tendenciasData.map(item => item.total_ventas),
+                        borderColor: colors.primary.base,
+                        backgroundColor: colors.primary.light,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }, {
+                        label: 'Monto',
+                        data: tendenciasData.map(item => item.monto_total),
+                        borderColor: colors.success.base,
+                        backgroundColor: colors.success.light,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        yAxisID: 'y1'
+                    }]
+                },
+                options: {
+                    ...chartOptions,
+                    scales: {
+                        ...chartOptions.scales,
+                        y: {
+                            ...chartOptions.scales.y,
+                            title: {
+                                display: true,
+                                text: 'Número de Ventas'
+                            }
+                        },
+                        y1: {
+                            position: 'right',
+                            grid: {
+                                drawOnChartArea: false
+                            },
+                            title: {
+                                display: true,
+                                text: 'Monto Total'
+                            },
+                            ticks: {
+                                callback: value => formatCurrency(value)
+                            }
                         }
                     },
-                    y1: {
-                        position: 'right',
-                        beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: 'Monto Total ($)'
-                        },
-                        grid: {
-                            drawOnChartArea: false
+                    plugins: {
+                        ...chartOptions.plugins,
+                        tooltip: {
+                            ...chartOptions.plugins.tooltip,
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    let value = context.raw;
+                                    if (label === 'Monto') {
+                                        return `${label}: ${formatCurrency(value)}`;
+                                    }
+                                    return `${label}: ${value}`;
+                                }
+                            }
                         }
                     }
                 }
-            }
-        });
+            });
+        } else if (ctxTendencias) {
+            // Mostrar mensaje cuando no hay datos
+            const ctx = ctxTendencias.getContext('2d');
+            ctx.font = '14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#666';
+            ctx.fillText('No hay datos disponibles para mostrar', 
+                ctxTendencias.width / 2, 
+                ctxTendencias.height / 2
+            );
+        }
 
         // Flujo de Caja
         const ctxFlujoCaja = document.getElementById('flujoCajaChart');
         const flujoCajaData = <?= json_encode($flujoCajaResult['data'] ?? []) ?>;
-
-        if (ctxFlujoCaja && flujoCajaData.length > 0) {
+        
+        if (ctxFlujoCaja && flujoCajaData && flujoCajaData.length > 0) {
             new Chart(ctxFlujoCaja, {
                 type: 'bar',
                 data: {
@@ -867,93 +990,87 @@ $flujoCajaResult = getFlujoCajaMensual($user_id);
                         const fecha = new Date(item.mes + '-01');
                         return fecha.toLocaleDateString('es-ES', { month: 'short', year: 'numeric' });
                     }),
-                    datasets: [
-                        {
-                            label: 'Ingresos',
-                            data: flujoCajaData.map(item => parseFloat(item.ingresos)),
-                            backgroundColor: 'rgba(76, 175, 80, 0.6)',
-                            borderColor: 'rgb(76, 175, 80)',
-                            borderWidth: 1,
-                            stack: 'stack0'
-                        },
-                        {
-                            label: 'Egresos',
-                            data: flujoCajaData.map(item => -parseFloat(item.egresos)),
-                            backgroundColor: 'rgba(244, 67, 54, 0.6)',
-                            borderColor: 'rgb(244, 67, 54)',
-                            borderWidth: 1,
-                            stack: 'stack0'
-                        },
-                        {
-                            label: 'Flujo Neto',
-                            data: flujoCajaData.map(item => parseFloat(item.flujo_neto)),
-                            type: 'line',
-                            borderColor: 'rgb(33, 150, 243)',
-                            backgroundColor: 'rgba(33, 150, 243, 0.1)',
-                            borderWidth: 2,
-                            fill: false,
-                            tension: 0.4
-                        }
-                    ]
+                    datasets: [{
+                        label: 'Ingresos',
+                        data: flujoCajaData.map(item => item.ingresos),
+                        backgroundColor: colors.success.base,
+                        borderRadius: 4,
+                        stack: 'stack0'
+                    }, {
+                        label: 'Egresos',
+                        data: flujoCajaData.map(item => -item.egresos),
+                        backgroundColor: colors.danger.base,
+                        borderRadius: 4,
+                        stack: 'stack0'
+                    }, {
+                        label: 'Balance',
+                        data: flujoCajaData.map(item => item.flujo_neto),
+                        type: 'line',
+                        borderColor: colors.info.base,
+                        backgroundColor: colors.info.light,
+                        fill: false,
+                        tension: 0.4,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
                 },
                 options: {
                     ...chartOptions,
                     scales: {
                         x: {
-                            grid: {
-                                display: false
-                            }
+                            stacked: true
                         },
                         y: {
-                            title: {
-                                display: true,
-                                text: 'Monto ($)'
-                            },
+                            stacked: true,
                             ticks: {
-                                callback: function(value) {
-                                    return '$' + Math.abs(value).toLocaleString();
-                                }
+                                callback: value => formatCurrency(value)
                             }
                         }
                     },
                     plugins: {
                         ...chartOptions.plugins,
                         tooltip: {
+                            ...chartOptions.plugins.tooltip,
                             callbacks: {
                                 label: function(context) {
                                     let label = context.dataset.label || '';
-                                    let value = context.raw;
-                                    if (label === 'Egresos') {
-                                        value = Math.abs(value);
-                                    }
-                                    return `${label}: $${value.toLocaleString()}`;
+                                    let value = Math.abs(context.raw);
+                                    return `${label}: ${formatCurrency(value)}`;
                                 }
                             }
                         }
                     }
                 }
             });
+        } else if (ctxFlujoCaja) {
+            const ctx = ctxFlujoCaja.getContext('2d');
+            ctx.font = '14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#666';
+            ctx.fillText('No hay datos de flujo de caja disponibles', 
+                ctxFlujoCaja.width / 2, 
+                ctxFlujoCaja.height / 2
+            );
         }
 
         // Gastos por Categoría
         const ctxGastos = document.getElementById('gastosCategoriaChart');
         const gastosData = <?= json_encode($gastosPorCategoriaResult['data'] ?? []) ?>;
-
-        if (ctxGastos && gastosData.length > 0) {
+        
+        if (ctxGastos && gastosData && gastosData.length > 0) {
             new Chart(ctxGastos, {
                 type: 'doughnut',
                 data: {
                     labels: gastosData.map(item => item.categoria),
                     datasets: [{
-                        data: gastosData.map(item => parseFloat(item.total_gastos)),
+                        data: gastosData.map(item => item.total_gastos),
                         backgroundColor: [
-                            'rgba(255, 99, 132, 0.8)',
-                            'rgba(54, 162, 235, 0.8)',
-                            'rgba(255, 206, 86, 0.8)',
-                            'rgba(75, 192, 192, 0.8)',
-                            'rgba(153, 102, 255, 0.8)'
-                        ],
-                        borderWidth: 1
+                            colors.primary.base,
+                            colors.success.base,
+                            colors.warning.base,
+                            colors.danger.base,
+                            colors.info.base
+                        ]
                     }]
                 },
                 options: {
@@ -961,37 +1078,37 @@ $flujoCajaResult = getFlujoCajaMensual($user_id);
                     cutout: '60%',
                     plugins: {
                         ...chartOptions.plugins,
-                        legend: {
-                            position: 'right',
-                            labels: {
-                                generateLabels: function(chart) {
-                                    const data = chart.data;
-                                    if (data.labels.length && data.datasets.length) {
-                                        return data.labels.map((label, i) => {
-                                            const value = data.datasets[0].data[i];
-                                            const total = data.datasets[0].data.reduce((a, b) => a + b, 0);
-                                            const percentage = ((value / total) * 100).toFixed(1);
-                                            return {
-                                                text: `${label}: $${value.toLocaleString()} (${percentage}%)`,
-                                                fillStyle: data.datasets[0].backgroundColor[i],
-                                                index: i
-                                            };
-                                        });
-                                    }
-                                    return [];
+                        tooltip: {
+                            ...chartOptions.plugins.tooltip,
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    let value = context.raw;
+                                    let total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    let percentage = ((value / total) * 100).toFixed(1);
+                                    return `${label}: ${formatCurrency(value)} (${percentage}%)`;
                                 }
                             }
                         }
                     }
                 }
             });
+        } else if (ctxGastos) {
+            const ctx = ctxGastos.getContext('2d');
+            ctx.font = '14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#666';
+            ctx.fillText('No hay datos de gastos disponibles', 
+                ctxGastos.width / 2, 
+                ctxGastos.height / 2
+            );
         }
 
         // Comparativa Mensual
         const ctxComparativa = document.getElementById('comparativaMensualChart');
         const comparativaData = <?= json_encode($comparativaMensualResult['data'] ?? []) ?>;
-
-        if (ctxComparativa && comparativaData.length > 0) {
+        
+        if (ctxComparativa && comparativaData && comparativaData.length > 0) {
             new Chart(ctxComparativa, {
                 type: 'line',
                 data: {
@@ -1001,95 +1118,52 @@ $flujoCajaResult = getFlujoCajaMensual($user_id);
                     }),
                     datasets: [{
                         label: 'Ventas',
-                        data: comparativaData.map(item => parseFloat(item.ventas)),
-                        borderColor: colors.green,
-                        backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                        data: comparativaData.map(item => item.ventas),
+                        borderColor: colors.primary.base,
+                        backgroundColor: colors.primary.light,
                         fill: true,
+                        tension: 0.4,
                         yAxisID: 'y'
                     }, {
-                        label: 'Número de Clientes',
-                        data: comparativaData.map(item => parseInt(item.num_clientes)),
-                        borderColor: colors.blue,
-                        backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                        label: 'Clientes',
+                        data: comparativaData.map(item => item.num_clientes),
+                        borderColor: colors.success.base,
+                        backgroundColor: colors.success.light,
                         fill: true,
+                        tension: 0.4,
                         yAxisID: 'y1'
                     }]
                 },
                 options: {
                     ...chartOptions,
                     scales: {
-                        x: {
-                            grid: {
-                                display: false
-                            }
-                        },
                         y: {
                             type: 'linear',
                             position: 'left',
-                            title: {
-                                display: true,
-                                text: 'Ventas ($)'
-                            },
                             ticks: {
-                                callback: function(value) {
-                                    return '$' + value.toLocaleString();
-                                }
+                                callback: value => formatCurrency(value)
                             }
                         },
                         y1: {
                             type: 'linear',
                             position: 'right',
-                            title: {
-                                display: true,
-                                text: 'Número de Clientes'
-                            },
                             grid: {
                                 drawOnChartArea: false
-                            }
-                        }
-                    },
-                    plugins: {
-                        ...chartOptions.plugins,
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    let label = context.dataset.label || '';
-                                    if (label) {
-                                        label += ': ';
-                                    }
-                                    if (context.dataset.yAxisID === 'y') {
-                                        label += '$' + context.parsed.y.toLocaleString();
-                                    } else {
-                                        label += context.parsed.y;
-                                    }
-                                    return label;
-                                }
                             }
                         }
                     }
                 }
             });
+        } else if (ctxComparativa) {
+            const ctx = ctxComparativa.getContext('2d');
+            ctx.font = '14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#666';
+            ctx.fillText('No hay datos comparativos disponibles', 
+                ctxComparativa.width / 2, 
+                ctxComparativa.height / 2
+            );
         }
-
-        // Agregar manejo de errores y mensajes cuando no hay datos
-        const charts = [
-            { ctx: ctxFlujoCaja, data: flujoCajaData, name: 'Flujo de Caja' },
-            { ctx: ctxGastos, data: gastosData, name: 'Gastos por Categoría' },
-            { ctx: ctxComparativa, data: comparativaData, name: 'Comparativa Mensual' }
-        ];
-
-        charts.forEach(chart => {
-            if (chart.ctx && (!chart.data || chart.data.length === 0)) {
-                const ctx = chart.ctx.getContext('2d');
-                ctx.font = '14px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillStyle = '#666';
-                ctx.fillText(`No hay datos disponibles para ${chart.name}`, 
-                    chart.ctx.width / 2, 
-                    chart.ctx.height / 2
-                );
-            }
-        });
     });
     </script>
 </body>

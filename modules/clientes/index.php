@@ -40,23 +40,68 @@ function addCliente($user_id, $data)
 {
     global $pdo;
     try {
-        $query = "INSERT INTO clientes (user_id, nombre, email, telefono, tipo_identificacion, identificacion, 
-                                      primer_nombre, segundo_nombre, apellidos, municipio_departamento, codigo_postal) 
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        // Preparar los datos según el tipo de persona
+        $nombre = null;
+        $primer_nombre = null;
+        $segundo_nombre = null;
+        $apellidos = null;
+
+        if ($data['tipo_persona'] === 'natural') {
+            $nombre = $data['primer_nombre'] . ' ' . $data['apellidos'];
+            $primer_nombre = $data['primer_nombre'];
+            $segundo_nombre = $data['segundo_nombre'];
+            $apellidos = $data['apellidos'];
+        } else {
+            $nombre = $data['nombre'];
+        }
+
+        $query = "INSERT INTO clientes (
+            user_id, nombre, email, telefono, tipo_identificacion, identificacion,
+            primer_nombre, segundo_nombre, apellidos, municipio_departamento, codigo_postal,
+            tipo_persona, responsabilidad_tributaria, direccion, email2, telefono2,
+            celular
+        ) VALUES (
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+        )";
+
         $stmt = $pdo->prepare($query);
         $result = $stmt->execute([
             $user_id,
-            $data['nombre'],
+            $nombre,
             $data['email'],
             $data['telefono'],
             $data['tipo_identificacion'],
             $data['identificacion'],
-            $data['primer_nombre'],
-            $data['segundo_nombre'],
-            $data['apellidos'],
+            $primer_nombre,
+            $segundo_nombre,
+            $apellidos,
             $data['municipio_departamento'],
-            $data['codigo_postal']
+            $data['codigo_postal'],
+            $data['tipo_persona'],
+            $data['responsabilidad_tributaria'],
+            $data['direccion'],
+            $data['email2'],
+            $data['telefono2'],
+            $data['celular']
         ]);
+
+        // Manejar la foto de perfil si se proporcionó
+        if ($result && isset($_FILES['foto_perfil']) && $_FILES['foto_perfil']['error'] === UPLOAD_ERR_OK) {
+            $cliente_id = $pdo->lastInsertId();
+            $foto = $_FILES['foto_perfil'];
+            $extension = pathinfo($foto['name'], PATHINFO_EXTENSION);
+            $nuevo_nombre = "cliente_{$cliente_id}.{$extension}";
+            $ruta_destino = "../../uploads/clientes/{$nuevo_nombre}";
+            
+            if (!is_dir("../../uploads/clientes")) {
+                mkdir("../../uploads/clientes", 0777, true);
+            }
+            
+            if (move_uploaded_file($foto['tmp_name'], $ruta_destino)) {
+                $stmt = $pdo->prepare("UPDATE clientes SET foto_perfil = ? WHERE id = ?");
+                $stmt->execute([$nuevo_nombre, $cliente_id]);
+            }
+        }
 
         if ($result) {
             return ['status' => true, 'message' => 'Cliente agregado exitosamente'];
@@ -71,26 +116,67 @@ function updateCliente($user_id, $cliente_id, $data)
 {
     global $pdo;
     try {
+        // Preparar los datos según el tipo de persona
+        $nombre = null;
+        $primer_nombre = null;
+        $segundo_nombre = null;
+        $apellidos = null;
+
+        if ($data['tipo_persona'] === 'natural') {
+            $nombre = $data['primer_nombre'] . ' ' . $data['apellidos'];
+            $primer_nombre = $data['primer_nombre'];
+            $segundo_nombre = $data['segundo_nombre'];
+            $apellidos = $data['apellidos'];
+        } else {
+            $nombre = $data['nombre'];
+        }
+
         $query = "UPDATE clientes SET 
                   nombre = ?, email = ?, telefono = ?, tipo_identificacion = ?,
                   identificacion = ?, primer_nombre = ?, segundo_nombre = ?,
-                  apellidos = ?, municipio_departamento = ?, codigo_postal = ?
+                  apellidos = ?, municipio_departamento = ?, codigo_postal = ?,
+                  tipo_persona = ?, responsabilidad_tributaria = ?, direccion = ?,
+                  email2 = ?, telefono2 = ?, celular = ?
                   WHERE id = ? AND user_id = ?";
+        
         $stmt = $pdo->prepare($query);
         $result = $stmt->execute([
-            $data['nombre'],
+            $nombre,
             $data['email'],
             $data['telefono'],
             $data['tipo_identificacion'],
             $data['identificacion'],
-            $data['primer_nombre'],
-            $data['segundo_nombre'],
-            $data['apellidos'],
+            $primer_nombre,
+            $segundo_nombre,
+            $apellidos,
             $data['municipio_departamento'],
             $data['codigo_postal'],
+            $data['tipo_persona'],
+            $data['responsabilidad_tributaria'],
+            $data['direccion'],
+            $data['email2'],
+            $data['telefono2'],
+            $data['celular'],
             $cliente_id,
             $user_id
         ]);
+
+        // Manejar la actualización de la foto de perfil
+        if ($result && isset($_FILES['foto_perfil']) && $_FILES['foto_perfil']['error'] === UPLOAD_ERR_OK) {
+            $foto = $_FILES['foto_perfil'];
+            $extension = pathinfo($foto['name'], PATHINFO_EXTENSION);
+            $nuevo_nombre = "cliente_{$cliente_id}.{$extension}";
+            $ruta_destino = "../../uploads/clientes/{$nuevo_nombre}";
+            
+            if (!is_dir("../../uploads/clientes")) {
+                mkdir("../../uploads/clientes", 0777, true);
+            }
+            
+            if (move_uploaded_file($foto['tmp_name'], $ruta_destino)) {
+                $stmt = $pdo->prepare("UPDATE clientes SET foto_perfil = ? WHERE id = ?");
+                $stmt->execute([$nuevo_nombre, $cliente_id]);
+            }
+        }
 
         if ($result) {
             return ['status' => true, 'message' => 'Cliente actualizado exitosamente'];
@@ -220,70 +306,119 @@ $clientes = getClientes($user_id);
                         <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                     </div>
 
-                    <div class="overflow-x-auto">
+                    <div class="overflow-x-auto bg-white rounded-lg shadow">
                         <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <thead>
+                                <tr class="bg-gray-50">
+                                    <th scope="col" class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Perfil
+                                    </th>
+                                    <th scope="col" class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Nombre Completo
                                     </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <th scope="col" class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Identificación
                                     </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <th scope="col" class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Contacto
                                     </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <th scope="col" class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Ubicación
                                     </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <th scope="col" class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Acciones
                                     </th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
                                 <?php foreach ($clientes as $cliente): ?>
-                                <tr class="hover:bg-gray-50">
+                                <tr class="hover:bg-gray-50 transition-colors duration-200">
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="flex-shrink-0 h-12 w-12 group">
+                                            <?php if ($cliente['foto_perfil']): ?>
+                                                <img class="h-12 w-12 rounded-full object-cover border-2 border-gray-200 group-hover:border-blue-500 transition-colors duration-200" 
+                                                     src="/uploads/clientes/<?= htmlspecialchars($cliente['foto_perfil']) ?>" 
+                                                     alt="Foto de perfil">
+                                            <?php else: ?>
+                                                <div class="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center group-hover:bg-gray-200 transition-colors duration-200">
+                                                    <i class="fas fa-user text-gray-400 text-xl"></i>
+                                                </div>
+                                            <?php endif; ?>
+                                        </div>
+                                    </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="flex flex-col">
-                                            <div class="text-sm font-medium text-gray-900">
+                                            <div class="text-sm font-semibold text-gray-900">
                                                 <?= htmlspecialchars($cliente['primer_nombre'] . ' ' . $cliente['apellidos']) ?>
                                             </div>
-                                            <?php if ($cliente['nombre']): ?>
-                                            <div class="text-sm text-gray-500">
+                                            <?php if ($cliente['nombre'] && $cliente['tipo_persona'] === 'juridica'): ?>
+                                            <div class="text-sm text-gray-500 mt-1">
+                                                <i class="fas fa-building text-gray-400 mr-1"></i>
                                                 <?= htmlspecialchars($cliente['nombre']) ?>
                                             </div>
                                             <?php endif; ?>
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                            <?= htmlspecialchars($cliente['tipo_identificacion']) ?>
-                                        </span>
-                                        <div class="text-sm text-gray-900 mt-1">
-                                            <?= htmlspecialchars($cliente['identificacion']) ?>
+                                        <div class="flex flex-col">
+                                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                                       <?php echo match($cliente['tipo_identificacion']) {
+                                                           'CC' => 'bg-blue-100 text-blue-800',
+                                                           'CE' => 'bg-purple-100 text-purple-800',
+                                                           'NIT' => 'bg-green-100 text-green-800',
+                                                           'PA' => 'bg-yellow-100 text-yellow-800',
+                                                           default => 'bg-gray-100 text-gray-800'
+                                                       } ?>">
+                                                <?= htmlspecialchars($cliente['tipo_identificacion']) ?>
+                                            </span>
+                                            <div class="text-sm text-gray-900 mt-1 font-medium">
+                                                <?= htmlspecialchars($cliente['identificacion']) ?>
+                                            </div>
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="text-sm text-gray-900">
-                                            <?= htmlspecialchars($cliente['email']) ?>
-                                        </div>
-                                        <div class="text-sm text-gray-500">
-                                            <?= htmlspecialchars($cliente['telefono']) ?>
+                                        <div class="flex flex-col space-y-1">
+                                            <div class="text-sm text-gray-900 flex items-center">
+                                                <i class="fas fa-envelope text-gray-400 mr-2 w-4"></i>
+                                                <?= htmlspecialchars($cliente['email']) ?>
+                                            </div>
+                                            <div class="text-sm text-gray-500 flex items-center">
+                                                <i class="fas fa-phone text-gray-400 mr-2 w-4"></i>
+                                                <?= htmlspecialchars($cliente['telefono']) ?>
+                                            </div>
+                                            <?php if ($cliente['celular']): ?>
+                                            <div class="text-sm text-gray-500 flex items-center">
+                                                <i class="fas fa-mobile-alt text-gray-400 mr-2 w-4"></i>
+                                                <?= htmlspecialchars($cliente['celular']) ?>
+                                            </div>
+                                            <?php endif; ?>
                                         </div>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        <?= htmlspecialchars($cliente['municipio_departamento']) ?>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="flex flex-col space-y-1">
+                                            <div class="text-sm text-gray-900 flex items-center">
+                                                <i class="fas fa-map text-gray-400 mr-2 w-4"></i>
+                                                <?= htmlspecialchars($cliente['municipio_departamento']) ?>
+                                            </div>
+                                            <?php if ($cliente['direccion']): ?>
+                                            <div class="text-sm text-gray-500 flex items-center">
+                                                <i class="fas fa-map-marker-alt text-gray-400 mr-2 w-4"></i>
+                                                <?= htmlspecialchars($cliente['direccion']) ?>
+                                            </div>
+                                            <?php endif; ?>
+                                        </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                        <div class="flex space-x-2">
+                                        <div class="flex items-center space-x-3">
                                             <button onclick="editCliente(<?= htmlspecialchars(json_encode($cliente)) ?>)"
-                                                    class="text-indigo-600 hover:text-indigo-900">
-                                                <i class="fas fa-edit"></i>
+                                                    class="text-indigo-600 hover:text-indigo-900 transition-colors duration-200 flex items-center">
+                                                <i class="fas fa-edit mr-1"></i>
+                                                <span class="text-xs">Editar</span>
                                             </button>
                                             <button onclick="deleteCliente(<?= $cliente['id'] ?>)"
-                                                    class="text-red-600 hover:text-red-900">
-                                                <i class="fas fa-trash-alt"></i>
+                                                    class="text-red-600 hover:text-red-900 transition-colors duration-200 flex items-center">
+                                                <i class="fas fa-trash-alt mr-1"></i>
+                                                <span class="text-xs">Eliminar</span>
                                             </button>
                                         </div>
                                     </td>
@@ -307,61 +442,51 @@ $clientes = getClientes($user_id);
                     </button>
                 </div>
 
-                <form id="clienteForm" class="space-y-6 py-4">
+                <form id="clienteForm" class="space-y-6 py-4" enctype="multipart/form-data">
                     <input type="hidden" name="action" value="add">
                     
-                    <!-- Información Personal -->
+                    <!-- Foto de Perfil -->
                     <div class="bg-gray-50 p-4 rounded-lg">
                         <h4 class="text-lg font-medium text-gray-700 mb-4">
-                            <i class="fas fa-user text-blue-500 mr-2"></i>
-                            Información Personal
+                            <i class="fas fa-camera text-blue-500 mr-2"></i>
+                            Foto de Perfil
                         </h4>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    Primer Nombre *
+                        <div class="flex items-center space-x-4">
+                            <div class="w-32 h-32 relative">
+                                <img id="preview-foto" src="/assets/img/default-avatar.png" 
+                                     class="w-full h-full object-cover rounded-full border-4 border-white shadow-lg">
+                                <label class="absolute bottom-0 right-0 bg-blue-500 text-white rounded-full p-2 cursor-pointer hover:bg-blue-600">
+                                    <i class="fas fa-upload"></i>
+                                    <input type="file" name="foto_perfil" class="hidden" accept="image/*" 
+                                           onchange="previewImage(this, 'preview-foto')">
                                 </label>
-                                <input type="text" name="primer_nombre" required
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    Segundo Nombre
-                                </label>
-                                <input type="text" name="segundo_nombre"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    Apellidos *
-                                </label>
-                                <input type="text" name="apellidos" required
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    Nombre Comercial
-                                </label>
-                                <input type="text" name="nombre"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
                             </div>
                         </div>
                     </div>
 
-                    <!-- Identificación -->
+                    <!-- Información de Identificación -->
                     <div class="bg-gray-50 p-4 rounded-lg">
                         <h4 class="text-lg font-medium text-gray-700 mb-4">
                             <i class="fas fa-id-card text-blue-500 mr-2"></i>
-                            Identificación
+                            Información de Identificación
                         </h4>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Tipo de Persona *
+                                </label>
+                                <select name="tipo_persona" required onchange="togglePersonaFields(this.value)"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="natural">Persona Natural</option>
+                                    <option value="juridica">Persona Jurídica</option>
+                                </select>
+                            </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
                                     Tipo de Identificación *
                                 </label>
                                 <select name="tipo_identificacion" required
                                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                                    <option value="">Seleccione...</option>
                                     <option value="CC">Cédula de Ciudadanía</option>
                                     <option value="CE">Cédula de Extranjería</option>
                                     <option value="NIT">NIT</option>
@@ -375,30 +500,62 @@ $clientes = getClientes($user_id);
                                 <input type="text" name="identificacion" required
                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
                             </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Responsabilidad Tributaria
+                                </label>
+                                <select name="responsabilidad_tributaria"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="">Seleccione...</option>
+                                    <option value="IVA">Responsable de IVA</option>
+                                    <option value="NO_IVA">No Responsable de IVA</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Contacto -->
-                    <div class="bg-gray-50 p-4 rounded-lg">
+                    <!-- Información Personal/Empresarial -->
+                    <div class="bg-gray-50 p-4 rounded-lg persona-natural">
                         <h4 class="text-lg font-medium text-gray-700 mb-4">
-                            <i class="fas fa-envelope text-blue-500 mr-2"></i>
-                            Información de Contacto
+                            <i class="fas fa-user text-blue-500 mr-2"></i>
+                            Información Personal
                         </h4>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    Email *
+                                    Primer Nombre *
                                 </label>
-                                <input type="email" name="email" required
+                                <input type="text" name="primer_nombre"
                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    Teléfono *
+                                    Segundo Nombre
                                 </label>
-                                <input type="tel" name="telefono" required
+                                <input type="text" name="segundo_nombre"
                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
                             </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Apellidos *
+                                </label>
+                                <input type="text" name="apellidos"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-50 p-4 rounded-lg persona-juridica hidden">
+                        <h4 class="text-lg font-medium text-gray-700 mb-4">
+                            <i class="fas fa-building text-blue-500 mr-2"></i>
+                            Información Empresarial
+                        </h4>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Nombre de la Empresa *
+                            </label>
+                            <input type="text" name="nombre"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
                         </div>
                     </div>
 
@@ -411,9 +568,9 @@ $clientes = getClientes($user_id);
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    Departamento *
+                                    Departamento/Municipio *
                                 </label>
-                                <select name="municipio_departamento" required id="departamento"
+                                <select name="municipio_departamento" required
                                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
                                     <option value="">Seleccione un departamento...</option>
                                     <option value="Amazonas">Amazonas</option>
@@ -453,10 +610,62 @@ $clientes = getClientes($user_id);
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Dirección *
+                                </label>
+                                <input type="text" name="direccion" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
                                     Código Postal
                                 </label>
-                                <input type="text" name="codigo_postal" id="codigo_postal" readonly
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100">
+                                <input type="text" name="codigo_postal"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Información de Contacto -->
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <h4 class="text-lg font-medium text-gray-700 mb-4">
+                            <i class="fas fa-address-book text-blue-500 mr-2"></i>
+                            Información de Contacto
+                        </h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Email Principal *
+                                </label>
+                                <input type="email" name="email" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Email Secundario
+                                </label>
+                                <input type="email" name="email2"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Teléfono Principal *
+                                </label>
+                                <input type="tel" name="telefono" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Teléfono Secundario
+                                </label>
+                                <input type="tel" name="telefono2"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Celular
+                                </label>
+                                <input type="tel" name="celular"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
                             </div>
                         </div>
                     </div>
@@ -639,17 +848,37 @@ $clientes = getClientes($user_id);
         clienteIdInput.value = cliente.id;
         form.appendChild(clienteIdInput);
         
+        // Actualizar la foto de perfil
+        const previewImg = document.getElementById('preview-foto');
+        if (cliente.foto_perfil) {
+            previewImg.src = `/uploads/clientes/${cliente.foto_perfil}`;
+        } else {
+            previewImg.src = '/assets/img/default-avatar.png';
+        }
+        
         // Rellenar los campos del formulario
-        form.primer_nombre.value = cliente.primer_nombre;
-        form.segundo_nombre.value = cliente.segundo_nombre;
-        form.apellidos.value = cliente.apellidos;
-        form.nombre.value = cliente.nombre;
+        form.tipo_persona.value = cliente.tipo_persona || 'natural';
         form.tipo_identificacion.value = cliente.tipo_identificacion;
         form.identificacion.value = cliente.identificacion;
+        form.responsabilidad_tributaria.value = cliente.responsabilidad_tributaria || '';
         form.email.value = cliente.email;
+        form.email2.value = cliente.email2 || '';
         form.telefono.value = cliente.telefono;
+        form.telefono2.value = cliente.telefono2 || '';
+        form.celular.value = cliente.celular || '';
         form.municipio_departamento.value = cliente.municipio_departamento;
-        form.codigo_postal.value = cliente.codigo_postal;
+        form.direccion.value = cliente.direccion || '';
+        form.codigo_postal.value = cliente.codigo_postal || '';
+
+        // Manejar campos según tipo de persona
+        togglePersonaFields(cliente.tipo_persona);
+        if (cliente.tipo_persona === 'natural') {
+            form.primer_nombre.value = cliente.primer_nombre;
+            form.segundo_nombre.value = cliente.segundo_nombre || '';
+            form.apellidos.value = cliente.apellidos;
+        } else {
+            form.nombre.value = cliente.nombre;
+        }
     }
 
     async function deleteCliente(clienteId) {
@@ -713,6 +942,35 @@ $clientes = getClientes($user_id);
             row.style.display = text.includes(searchTerm) ? '' : 'none';
         });
     });
+
+    function previewImage(input, previewId) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById(previewId).src = e.target.result;
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    function togglePersonaFields(tipo) {
+        const personaNatural = document.querySelector('.persona-natural');
+        const personaJuridica = document.querySelector('.persona-juridica');
+        
+        if (tipo === 'natural') {
+            personaNatural.classList.remove('hidden');
+            personaJuridica.classList.add('hidden');
+            document.querySelector('[name="primer_nombre"]').required = true;
+            document.querySelector('[name="apellidos"]').required = true;
+            document.querySelector('[name="nombre"]').required = false;
+        } else {
+            personaNatural.classList.add('hidden');
+            personaJuridica.classList.remove('hidden');
+            document.querySelector('[name="primer_nombre"]').required = false;
+            document.querySelector('[name="apellidos"]').required = false;
+            document.querySelector('[name="nombre"]').required = true;
+        }
+    }
     </script>
 
     <style>
