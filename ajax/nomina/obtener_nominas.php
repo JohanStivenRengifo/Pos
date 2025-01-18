@@ -3,14 +3,14 @@ session_start();
 require_once '../../config/db.php';
 
 // Verificar si el usuario está autenticado
-if (!isset($_SESSION['user_id']) || !isset($_SESSION['empresa_id'])) {
+if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_id'])) {
     header('Content-Type: application/json');
     echo json_encode(['error' => 'Usuario no autenticado']);
     exit;
 }
 
 try {
-    $empresa_id = $_SESSION['empresa_id'];
+    $empresa_id = $_SESSION['user_id'];
     
     // Obtener nóminas solo de empleados de la misma empresa
     $query = "SELECT 

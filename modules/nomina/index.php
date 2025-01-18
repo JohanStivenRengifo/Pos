@@ -1,10 +1,20 @@
 <?php
-// Verificar la sesión
+// Verificar la sesión o las cookies
 session_start();
-if (!isset($_SESSION['user_id'])) {
+if (!isset($_SESSION['user_id']) && !isset($_COOKIE['user_id'])) {
     header('Location: ../../login.php');
     exit();
 }
+
+// Si no está en la sesión, cargar desde las cookies
+if (isset($_COOKIE['user_id']) && !isset($_SESSION['user_id'])) {
+    $_SESSION['user_id'] = $_COOKIE['user_id'];
+    $_SESSION['empresa_id'] = $_COOKIE['empresa_id'];
+    $_SESSION['user_email'] = $_COOKIE['user_email'] ?? null;
+    $_SESSION['user_nombre'] = $_COOKIE['user_nombre'] ?? null;
+    error_log("Datos cargados desde cookies: user_id: {$_COOKIE['user_id']}, empresa_id: {$_COOKIE['empresa_id']}");
+}
+
 // Incluir la conexión
 require_once '../../config/db.php';
 // Incluir el header
@@ -104,21 +114,12 @@ require_once '../../includes/header.php';
 
         function cargarNominas() {
             fetch('../../ajax/nomina/obtener_nominas.php')
-                .then(response => {
-                    if (!response.ok) {
-                        return response.json().then(err => {
-                            throw new Error(err.error || 'Error en el servidor');
-                        });
-                    }
-                    return response.json();
-                })
+                .then(response => response.ok ? response.json() : Promise.reject('Error en el servidor'))
                 .then(data => {
-                    if (data.error) {
-                        throw new Error(data.error);
-                    }
+                    if (data.error) throw new Error(data.error);
                     const tabla = document.getElementById('tabla-nominas');
                     tabla.innerHTML = '';
-                    
+
                     if (data.length === 0) {
                         tabla.innerHTML = `
                             <tr class="border-b">
@@ -129,7 +130,7 @@ require_once '../../includes/header.php';
                         `;
                         return;
                     }
-                    
+
                     data.forEach(nomina => {
                         tabla.innerHTML += `
                             <tr class="border-b">
@@ -163,27 +164,20 @@ require_once '../../includes/header.php';
 
         function cargarEmpleados() {
             fetch('../../ajax/empleados/obtener_empleados.php')
+                .then(response => response.ok ? response.json() : Promise.reject('Error en la red'))
                 .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Error en la red');
-                    }
-                    return response.json();
-                })
-                .then(response => {
-                    if (response.error) {
-                        throw new Error(response.error);
-                    }
-                    
+                    if (response.error) throw new Error(response.error);
+
                     const empleados = response.data || [];
                     const select = document.getElementById('empleado_id');
                     select.innerHTML = '<option value="">Seleccione un empleado</option>';
-                    
+
                     if (empleados.length === 0) {
                         select.innerHTML += '<option value="" disabled>No hay empleados disponibles</option>';
                         console.log('No se encontraron empleados');
                         return;
                     }
-                    
+
                     empleados.forEach(empleado => {
                         select.innerHTML += `
                             <option value="${empleado.id}">
@@ -191,7 +185,7 @@ require_once '../../includes/header.php';
                             </option>
                         `;
                     });
-                    
+
                     console.log(`Se cargaron ${empleados.length} empleados`);
                 })
                 .catch(error => {
@@ -204,21 +198,14 @@ require_once '../../includes/header.php';
 
         document.getElementById('form-nomina').addEventListener('submit', function(e) {
             e.preventDefault();
-            
+
             const formData = new FormData(this);
-            
+
             fetch('../../ajax/nomina/guardar_nomina.php', {
                 method: 'POST',
                 body: formData
             })
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(err => {
-                        throw new Error(err.error || 'Error al guardar la nómina');
-                    });
-                }
-                return response.json();
-            })
+            .then(response => response.ok ? response.json() : Promise.reject('Error al guardar la nómina'))
             .then(data => {
                 if (data.success) {
                     alert('Nómina guardada correctamente');

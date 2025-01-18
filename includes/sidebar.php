@@ -78,11 +78,6 @@ $menu_categories = [
                 'url' => '/modules/inventario/index.php',
                 'icon' => 'fas fa-box'
             ],
-            'bodegas' => [
-                'name' => 'Bodegas',
-                'url' => '/modules/bodegas/index.php',
-                'icon' => 'fas fa-warehouse'
-            ],
             'departamentos' => [
                 'name' => 'Departamentos',
                 'url' => '/modules/departamentos/index.php',

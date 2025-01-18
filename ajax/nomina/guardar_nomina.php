@@ -4,14 +4,14 @@ require_once '../../config/db.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
-        if (!isset($_SESSION['user_id']) || !isset($_SESSION['empresa_id'])) {
+        if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_id'])) {
             throw new Exception('Usuario no autenticado');
         }
 
         error_log("Iniciando guardado de nómina");
         error_log("POST data: " . print_r($_POST, true));
 
-        $empresa_id = $_SESSION['empresa_id'];
+        $user_id = $_SESSION['user_id'];
         
         // Validar datos requeridos
         $required_fields = ['empleado_id', 'periodo', 'salario_base', 'deducciones'];
@@ -24,14 +24,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Verificar que el empleado pertenezca a la empresa
         $query = "SELECT id FROM users 
                  WHERE id = :empleado_id 
-                 AND empresa_id = :empresa_id 
+                 AND user_id = :user_id 
                  AND rol IN ('cajero', 'supervisor')
                  AND estado = 'activo'";
         
         $stmt = $pdo->prepare($query);
         $stmt->execute([
             ':empleado_id' => $_POST['empleado_id'],
-            ':empresa_id' => $empresa_id
+            ':user_id' => $user_id
         ]);
         
         if (!$stmt->fetch()) {

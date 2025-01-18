@@ -420,7 +420,7 @@ try {
                             class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all transform hover:scale-105 shadow-sm">
                             <i class="fas fa-boxes mr-2"></i> Surtir
                         </a>
-                        <a href="import/index.php"
+                        <a href="importar.php"
                             class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all transform hover:scale-105 shadow-sm">
                             <i class="fas fa-file-import mr-2"></i> Importar
                         </a>
@@ -433,10 +433,6 @@ try {
                         <a href="reporte_stock_bajo.php"
                             class="inline-flex items-center px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-all transform hover:scale-105 shadow-sm">
                             <i class="fas fa-file-pdf mr-2"></i> Reporte Stock Bajo
-                        </a>
-                        <a href="exportar_pdf.php"
-                            class="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all transform hover:scale-105 shadow-sm">
-                            <i class="fas fa-file-export mr-2"></i> Exportar
                         </a>
                         <button type="button"
                             onclick="confirmarVaciarInventario()"
