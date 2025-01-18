@@ -44,9 +44,9 @@ function getUserEgresos($user_id, $limit = 10, $offset = 0)
               ORDER BY e.fecha DESC 
               LIMIT :limit OFFSET :offset";
     $stmt = $pdo->prepare($query);
-    $stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
-    $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
-    $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+    $stmt->bindValue(':user_id', $user_id, PDO::PARAM_INT);
+    $stmt->bindValue(':limit', (int) $limit, PDO::PARAM_INT);
+    $stmt->bindValue(':offset', (int) $offset, PDO::PARAM_INT);
     $stmt->execute();
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
@@ -522,54 +522,6 @@ function getProximoVencimiento($user_id) {
     <link rel="stylesheet" href="../../css/modulos.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
-    <style type="text/tailwindcss">
-        @layer components {
-            .card-dashboard {
-                background-color: white;
-                border-radius: 0.75rem;
-                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-                padding: 1.5rem;
-                transition: all 0.3s;
-                &:hover {
-                    transform: translateY(-0.25rem);
-                    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.2);
-                }
-                border: 1px solid #e5e7eb;
-            }
-            
-            .form-input {
-                width: 100%;
-                border-radius: 0.5rem;
-                border: 1px solid #D1D5DB;
-                background-color: #F9FAFB;
-                padding: 0.625rem 1rem;
-                transition: all 0.2s;
-            }
-            .form-input:focus {
-                background-color: white;
-                border-color: #3B82F6;
-                box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-            }
-
-            .form-select {
-                width: 100%;
-                border-radius: 0.5rem;
-                border: 1px solid #D1D5DB;
-                background-color: #F9FAFB;
-                padding: 0.625rem 1rem;
-                transition: all 0.2s;
-            }
-
-            .form-label {
-                @apply block text-sm font-medium text-gray-700 mb-2;
-            }
-
-            .form-group {
-                @apply mb-4;
-            }
-        }
-    </style>
 </head>
 <body class="bg-gray-100">
     <?php include '../../includes/header.php'; ?>
@@ -1345,12 +1297,6 @@ function getProximoVencimiento($user_id) {
         });
     });
     </script>
-
-    <style>
-    .badge.active {
-        @apply ring-2 ring-offset-2;
-    }
-    </style>
 
     <!-- Agregar este script para manejar el envío del formulario -->
     <script>
