@@ -41,12 +41,19 @@ if (isset($_POST['action'])) {
                 }
 
                 // Obtener empresa_id del usuario actual
-                $stmt = $pdo->prepare("SELECT empresa_id FROM users WHERE id = ?");
+                $stmt = $pdo->prepare("
+                    SELECT u.empresa_id, e.id as empresa_id_from_empresas 
+                    FROM users u 
+                    LEFT JOIN empresas e ON e.usuario_id = u.id 
+                    WHERE u.id = ?
+                ");
                 $stmt->execute([$_SESSION['user_id']]);
-                $empresa_id = $stmt->fetchColumn();
+                $result = $stmt->fetch(PDO::FETCH_ASSOC);
+                
+                $empresa_id = $result['empresa_id'] ?? $result['empresa_id_from_empresas'];
 
                 if (!$empresa_id) {
-                    throw new Exception("No hay una empresa asociada al usuario administrador");
+                    throw new Exception("No se pudo determinar la empresa asociada al usuario. Por favor contacte al administrador.");
                 }
 
                 $result = crearUsuario([
@@ -539,21 +546,27 @@ function eliminarUsuario($user_id, $empresa_id) {
                 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
-                    <input type="text" id="nombre_usuario" name="nombre"
+                    <input type="text" 
+                           id="nombre_usuario" 
+                           name="nombre"
                            class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                            required>
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                    <input type="email" id="email_usuario" name="email"
+                    <input type="email" 
+                           id="email_usuario" 
+                           name="email"
                            class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                            required>
                 </div>
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
-                    <input type="password" id="password_usuario" name="password"
+                    <input type="password" 
+                           id="password_usuario" 
+                           name="password"
                            class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                            minlength="6">
                     <p class="text-sm text-gray-500 mt-1 password-hint" style="display: none;">
@@ -585,11 +598,12 @@ function eliminarUsuario($user_id, $empresa_id) {
                 </div>
 
                 <div class="flex justify-end space-x-3 mt-6">
-                    <button type="button" onclick="cerrarModal()"
+                    <button type="button" 
+                            onclick="cerrarModal()"
                             class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
                         Cancelar
                     </button>
-                    <button type="button" onclick="guardarUsuario()"
+                    <button type="submit" 
                             class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                         Guardar
                     </button>
@@ -709,39 +723,78 @@ function eliminarUsuario($user_id, $empresa_id) {
     }
 
     // Función para guardar usuario
-    async function guardarUsuario() {
+    function guardarUsuario() {
         const form = document.getElementById('formUsuario');
+        const formData = new FormData(form);
         
-        if (!form.checkValidity()) {
-            form.classList.add('was-validated');
-            return;
-        }
+        // Agregar la acción correspondiente
+        formData.append('action', usuarioActual ? 'actualizar_usuario' : 'crear_usuario');
 
-        try {
-            const formData = new FormData(form);
-            formData.append('action', usuarioActual ? 'actualizar_usuario' : 'crear_usuario');
-
-            const response = await fetch(window.location.href, {
-                method: 'POST',
-                body: formData
-            });
-
-            const data = await response.json();
-            
-            if (data.success) {
-                showNotification('¡Éxito!', data.message);
-                cerrarModal();
-                setTimeout(() => location.reload(), 1000);
-            } else {
-                throw new Error(data.message || 'Error al guardar usuario');
-            }
-        } catch (error) {
+        // Validaciones básicas
+        if (!formData.get('nombre').trim()) {
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
-                text: error.message
+                text: 'El nombre es requerido'
             });
+            return;
         }
+
+        if (!usuarioActual && !formData.get('email').trim()) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'El email es requerido'
+            });
+            return;
+        }
+
+        if (!usuarioActual && !formData.get('password').trim()) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'La contraseña es requerida para nuevos usuarios'
+            });
+            return;
+        }
+
+        // Mostrar indicador de carga
+        Swal.fire({
+            title: 'Guardando...',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        // Realizar la petición
+        fetch(window.location.href, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: '¡Éxito!',
+                    text: data.message,
+                    timer: 1500
+                }).then(() => {
+                    location.reload();
+                });
+            } else {
+                throw new Error(data.message || 'Error al guardar usuario');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: error.message || 'Error al procesar la solicitud'
+            });
+        });
     }
 
     // Reemplazar la función filtrarUsuarios actual por esta versión corregida
@@ -846,6 +899,12 @@ function eliminarUsuario($user_id, $empresa_id) {
         // Event listeners para los filtros
         document.getElementById('filterRol').addEventListener('change', filtrarUsuarios);
         document.getElementById('filterEstado').addEventListener('change', filtrarUsuarios);
+
+        // Agregar el event listener para el formulario
+        document.getElementById('formUsuario').addEventListener('submit', function(e) {
+            e.preventDefault();
+            guardarUsuario();
+        });
     });
     </script>
 </body>

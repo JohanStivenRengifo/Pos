@@ -176,7 +176,7 @@ $productos = getVentaProductos($venta_id);
 
     <script>
     function imprimirVenta(id) {
-        window.open(`../pos/imprimir_ticket.php?id=${id}`, '_blank');
+        window.open(`../pos/controllers/imprimir_ticket.php?id=${id}`, '_blank');
     }
     </script>
 </body>

@@ -432,9 +432,9 @@ $clientes = getClientes($user_id);
         </div>
     </div>
 
-    <div id="clienteModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full">
-        <div class="relative top-20 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white">
-            <div class="flex flex-col max-h-[80vh] overflow-y-auto">
+    <div id="clienteModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white my-10">
+            <div class="flex flex-col max-h-[calc(100vh-8rem)] overflow-y-auto">
                 <div class="flex justify-between items-center pb-3 border-b">
                     <h3 class="text-xl font-bold text-gray-900" id="modalTitle">Nuevo Cliente</h3>
                     <button onclick="closeModal()" class="text-gray-400 hover:text-gray-500">
@@ -983,13 +983,32 @@ $clientes = getClientes($user_id);
     }
 
     @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
+        from { opacity: 0; transform: translateY(-20px); }
+        to { opacity: 1; transform: translateY(0); }
     }
 
     @keyframes fadeOut {
-        from { opacity: 1; }
-        to { opacity: 0; }
+        from { opacity: 1; transform: translateY(0); }
+        to { opacity: 0; transform: translateY(-20px); }
+    }
+
+    /* Añadir estos estilos para mejorar el scroll */
+    #clienteModal::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    #clienteModal::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 4px;
+    }
+
+    #clienteModal::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 4px;
+    }
+
+    #clienteModal::-webkit-scrollbar-thumb:hover {
+        background: #666;
     }
     </style>
 </body>

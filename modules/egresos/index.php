@@ -11,9 +11,12 @@ if (!isset($_SESSION['user_id'])) {
 $user_id = $_SESSION['user_id'];
 $email = $_SESSION['email'];
 
-// Clase para manejar respuestas JSON
+// Modificar la clase ApiResponse para incluir manejo de errores
 class ApiResponse {
     public static function send($status, $message, $data = null) {
+        if (headers_sent()) {
+            return;
+        }
         header('Content-Type: application/json');
         echo json_encode([
             'status' => $status,
@@ -24,18 +27,50 @@ class ApiResponse {
     }
 }
 
+// Agregar manejo de errores global
+function handleError($errno, $errstr, $errfile, $errline) {
+    error_log("Error [$errno] $errstr - $errfile:$errline");
+    if (!(error_reporting() & $errno)) {
+        return false;
+    }
+    
+    // Solo enviar respuesta JSON si es una petición AJAX
+    if (isset($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+        ApiResponse::send(false, "Error del servidor: $errstr");
+    }
+    return true;
+}
+
+set_error_handler('handleError');
+
+// Verificar la conexión a la base de datos
+try {
+    if (!isset($pdo)) {
+        throw new Exception("Error de conexión a la base de datos");
+    }
+} catch (Exception $e) {
+    error_log("Error de base de datos: " . $e->getMessage());
+    die("Error de conexión. Por favor, contacte al administrador.");
+}
+
 function getUserProveedores($user_id)
 {
     global $pdo;
+    try {
     $query = "SELECT * FROM proveedores WHERE user_id = ?";
     $stmt = $pdo->prepare($query);
     $stmt->execute([$user_id]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Error en getUserProveedores: " . $e->getMessage());
+        return [];
+    }
 }
 
 function getUserEgresos($user_id, $limit = 10, $offset = 0)
 {
     global $pdo;
+    try {
     $query = "SELECT e.*, 
               FORMAT(e.monto, 2) as monto_formateado,
               DATE_FORMAT(e.fecha, '%d/%m/%Y') as fecha_formateada 
@@ -49,6 +84,10 @@ function getUserEgresos($user_id, $limit = 10, $offset = 0)
     $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
     $stmt->execute();
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Error en getUserEgresos: " . $e->getMessage());
+        return [];
+    }
 }
 
 // Actualizar la función addEgreso
@@ -57,7 +96,7 @@ function addEgreso($user_id, $data) {
     try {
         // Validar el estado
         if (!isset($data['estado']) || empty($data['estado'])) {
-            $data['estado'] = 'pendiente'; // Valor por defecto si no se especifica
+            $data['estado'] = 'pendiente';
         }
 
         // Manejar el archivo de comprobante si existe
@@ -76,9 +115,6 @@ function addEgreso($user_id, $data) {
                 $comprobante_path = 'uploads/comprobantes/' . $file_name;
             }
         }
-
-        // Debug para verificar los datos antes de la inserción
-        error_log("Datos a insertar: " . print_r($data, true));
 
         $query = "INSERT INTO egresos (
             user_id, 
@@ -118,15 +154,12 @@ function addEgreso($user_id, $data) {
             ':descripcion' => $data['descripcion'],
             ':monto' => $data['monto'],
             ':fecha' => $data['fecha'],
-            ':categoria' => $data['categoria'],
-            ':metodo_pago' => $data['metodo_pago'],
+            ':categoria' => $data['categoria'] ?? 'General',
+            ':metodo_pago' => $data['metodo_pago'] ?? 'Efectivo',
             ':estado' => $data['estado'],
             ':comprobante' => $comprobante_path,
-            ':notas' => $data['notas']
+            ':notas' => $data['notas'] ?? null
         ];
-
-        // Debug para verificar los parámetros
-        error_log("Parámetros de la consulta: " . print_r($params, true));
 
         $result = $stmt->execute($params);
         
@@ -228,19 +261,29 @@ function getMetodosPago() {
 
 function getConfig($user_id) {
     global $pdo;
+    try {
     $query = "SELECT valor FROM configuracion WHERE user_id = ? AND tipo = 'numero_factura'";
     $stmt = $pdo->prepare($query);
     $stmt->execute([$user_id]);
-    return $stmt->fetch(PDO::FETCH_ASSOC);
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: ['valor' => null];
+    } catch (PDOException $e) {
+        error_log("Error en getConfig: " . $e->getMessage());
+        return ['valor' => null];
+    }
 }
 
 function getTotalEgresos($user_id)
 {
     global $pdo;
+    try {
     $query = "SELECT COUNT(*) FROM egresos WHERE user_id = ?";
     $stmt = $pdo->prepare($query);
     $stmt->execute([$user_id]);
     return $stmt->fetchColumn();
+    } catch (PDOException $e) {
+        error_log("Error en getTotalEgresos: " . $e->getMessage());
+        return 0;
+    }
 }
 
 $configuracion = getConfig($user_id);
@@ -285,6 +328,7 @@ function getMetodoPagoIcon($metodo_pago) {
 
 // Procesar solicitudes AJAX
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+    try {
     $action = $_POST['action'] ?? '';
     
     switch ($action) {
@@ -349,17 +393,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
 
         default:
             ApiResponse::send(false, 'Acción no válida');
+        }
+    } catch (Exception $e) {
+        error_log("Error en procesamiento AJAX: " . $e->getMessage());
+        ApiResponse::send(false, 'Error del servidor: ' . $e->getMessage());
     }
 }
 
 // Obtener datos necesarios
 $proveedores = getUserProveedores($user_id);
-$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$page = max(1, isset($_GET['page']) ? (int)$_GET['page'] : 1);
 $limit = 10;
 $offset = ($page - 1) * $limit;
 $egresos = getUserEgresos($user_id, $limit, $offset);
 $total_egresos = getTotalEgresos($user_id);
-$total_pages = ceil($total_egresos / $limit);
+$total_pages = max(1, ceil($total_egresos / $limit));
 
 function getTotalEgresosMes($user_id) {
     global $pdo;
@@ -518,118 +566,188 @@ function getProximoVencimiento($user_id) {
     <link rel="icon" type="image/png" href="/favicon/favicon.ico"/>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
-    <link rel="stylesheet" href="../../css/welcome.css">
-    <link rel="stylesheet" href="../../css/modulos.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
 
+    <!-- Configuración de Tailwind -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                        },
+                    },
+                    animation: {
+                        'fade-in': 'fadeIn 0.3s ease-in-out',
+                        'slide-in': 'slideIn 0.3s ease-out',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        slideIn: {
+                            '0%': { transform: 'translateY(-10px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Estilos personalizados -->
     <style type="text/tailwindcss">
         @layer components {
-            .card-dashboard {
-                background-color: white;
-                border-radius: 0.75rem;
-                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-                padding: 1.5rem;
-                transition: all 0.3s;
-                &:hover {
-                    transform: translateY(-0.25rem);
-                    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.2);
-                }
-                border: 1px solid #e5e7eb;
+            .btn-primary {
+                @apply px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 
+                       transition-colors duration-200 flex items-center gap-2 font-medium;
             }
-            
+
+            .btn-secondary {
+                @apply px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 
+                       transition-colors duration-200 flex items-center gap-2 font-medium;
+            }
+
+            .btn-danger {
+                @apply px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 
+                       transition-colors duration-200 flex items-center gap-2 font-medium;
+            }
+
+            .card {
+                @apply bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden 
+                       transition-all duration-300 hover:shadow-md;
+            }
+
             .form-input {
-                width: 100%;
-                border-radius: 0.5rem;
-                border: 1px solid #D1D5DB;
-                background-color: #F9FAFB;
-                padding: 0.625rem 1rem;
-                transition: all 0.2s;
-            }
-            .form-input:focus {
-                background-color: white;
-                border-color: #3B82F6;
-                box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+                @apply w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 
+                       focus:ring-primary-500/20 focus:border-primary-500 transition-all duration-200;
             }
 
             .form-select {
-                width: 100%;
-                border-radius: 0.5rem;
-                border: 1px solid #D1D5DB;
-                background-color: #F9FAFB;
-                padding: 0.625rem 1rem;
-                transition: all 0.2s;
+                @apply w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 
+                       focus:ring-primary-500/20 focus:border-primary-500 transition-all duration-200;
             }
 
             .form-label {
-                @apply block text-sm font-medium text-gray-700 mb-2;
+                @apply block text-sm font-medium text-gray-700 mb-1;
             }
 
-            .form-group {
-                @apply mb-4;
+            .badge {
+                @apply px-2.5 py-1 rounded-full text-xs font-medium inline-flex items-center gap-1;
+            }
+
+            .badge-primary {
+                @apply bg-primary-100 text-primary-700;
+            }
+
+            .badge-success {
+                @apply bg-green-100 text-green-700;
+            }
+
+            .badge-warning {
+                @apply bg-yellow-100 text-yellow-700;
+            }
+
+            .badge-danger {
+                @apply bg-red-100 text-red-700;
             }
         }
     </style>
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-50">
     <?php include '../../includes/header.php'; ?>
     
     <div class="container mx-auto px-4 py-8">
+        <div class="flex flex-wrap -mx-4">
         <?php include '../../includes/sidebar.php'; ?>
 
-        <div class="main-body">
-            <div class="mb-8">
-                <h1 class="text-3xl font-bold text-gray-800">Gestión de Egresos</h1>
-                <p class="text-gray-600 mt-2">Administra y controla todos los gastos de tu negocio</p>
+            <div class="w-full lg:w-3/4 px-4">
+                <!-- Stats Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <!-- Total Egresos Card -->
+                    <div class="card p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-sm font-medium text-gray-500">Total Egresos (Mes)</h3>
+                            <span class="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                                <i class="fas fa-dollar-sign"></i>
+                            </span>
             </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div class="card-dashboard">
-                    <div class="card-icon bg-gradient-to-r from-blue-500 to-blue-600">
-                        <i class="fas fa-money-bill-wave text-xl"></i>
-                    </div>
-                    <h3 class="text-gray-600 text-sm">Total Egresos Mes</h3>
-                    <p class="text-2xl font-bold text-gray-800 mt-2">
+                        <p class="text-2xl font-bold text-gray-800">
                         $<?= number_format(getTotalEgresosMes($user_id), 2, ',', '.') ?>
                     </p>
-                    <div class="mt-2 text-sm">
                         <?php $porcentaje = calcularPorcentajeCambio($user_id); ?>
+                        <p class="mt-2 text-sm">
                         <span class="<?= $porcentaje >= 0 ? 'text-red-500' : 'text-green-500' ?>">
                             <i class="fas fa-<?= $porcentaje >= 0 ? 'arrow-up' : 'arrow-down' ?>"></i>
                             <?= abs($porcentaje) ?>%
                         </span>
                         <span class="text-gray-500">vs mes anterior</span>
-                    </div>
+                        </p>
                 </div>
 
-                <div class="card-dashboard">
-                    <div class="card-icon bg-gradient-to-r from-purple-500 to-purple-600">
-                        <i class="fas fa-chart-line text-xl"></i>
+                    <!-- Egresos Pendientes Card -->
+                    <div class="card p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-sm font-medium text-gray-500">Egresos Pendientes</h3>
+                            <span class="p-2 bg-yellow-50 text-yellow-600 rounded-lg">
+                                <i class="fas fa-clock"></i>
+                            </span>
                     </div>
-                    <h3 class="text-gray-600 text-sm">Promedio por Egreso</h3>
-                    <p class="text-2xl font-bold text-gray-800 mt-2">
-                        $<?= number_format(getPromedioEgresos($user_id), 2, ',', '.') ?>
+                        <p class="text-2xl font-bold text-gray-800">
+                            <?= getEgresosPendientes($user_id) ?>
                     </p>
                     <p class="mt-2 text-sm text-gray-500">
-                        Categoría más frecuente: <?= getCategoriaFrecuente($user_id) ?>
+                            Próximo vencimiento: <?= getProximoVencimiento($user_id) ?>
                     </p>
                 </div>
 
-                <div class="card-dashboard">
-                    <div class="card-icon bg-gradient-to-r from-yellow-500 to-yellow-600">
-                        <i class="fas fa-clock text-xl"></i>
+                    <!-- Promedio Egresos Card -->
+                    <div class="card p-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-sm font-medium text-gray-500">Promedio por Egreso</h3>
+                            <span class="p-2 bg-green-50 text-green-600 rounded-lg">
+                                <i class="fas fa-chart-line"></i>
+                            </span>
                     </div>
-                    <h3 class="text-gray-600 text-sm">Egresos Pendientes</h3>
-                    <p class="text-2xl font-bold text-gray-800 mt-2">
-                        <?= getEgresosPendientes($user_id) ?>
+                        <p class="text-2xl font-bold text-gray-800">
+                            $<?= number_format(getPromedioEgresos($user_id), 2, ',', '.') ?>
                     </p>
                     <p class="mt-2 text-sm text-gray-500">
-                        Próximo vencimiento: <?= getProximoVencimiento($user_id) ?>
+                            Categoría más frecuente: <?= getCategoriaFrecuente($user_id) ?>
                     </p>
                 </div>
             </div>
 
-            <div class="bg-white rounded-xl shadow-md overflow-hidden mb-8 border border-gray-100">
+                <!-- Main Content -->
+                <div class="space-y-6">
+                    <!-- Header Actions -->
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <h1 class="text-2xl font-bold text-gray-800">Gestión de Egresos</h1>
+                            <p class="text-gray-600">Administra y controla todos los gastos de tu negocio</p>
+                        </div>
+                        <div class="flex gap-3">
+                            <button class="btn-primary" onclick="toggleForm()">
+                                <i class="fas fa-plus"></i>
+                                Nuevo Egreso
+                            </button>
+                            <button class="btn-secondary" onclick="exportarExcel()">
+                                <i class="fas fa-file-excel"></i>
+                                Exportar
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Form Container -->
+                    <div id="formContainer" class="card hidden animate-slide-in">
                 <div class="p-6 border-b border-gray-100">
                     <div class="flex justify-between items-center">
                         <h2 class="text-xl font-semibold text-gray-800 flex items-center gap-2">
@@ -644,8 +762,9 @@ function getProximoVencimiento($user_id) {
                 </div>
 
                 <div class="p-6" id="formContainer">
-                    <form id="egresoForm" class="grid grid-cols-1 md:grid-cols-2 gap-6" onsubmit="guardarEgreso(event)">
-                        <input type="hidden" name="id" id="egreso_id" value="">
+                    <form id="egresoForm" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <input type="hidden" name="action" value="add_egreso">
+                        <input type="hidden" name="id" id="egreso_id">
                         <!-- Primera columna -->
                         <div class="space-y-5">
                             <!-- Número de Factura -->
@@ -662,7 +781,7 @@ function getProximoVencimiento($user_id) {
                                             onclick="generarNumeroFactura()"
                                             class="px-4 bg-gray-100 border border-l-0 border-gray-300 rounded-r-lg hover:bg-gray-200 transition-colors"
                                             title="Generar número automáticamente">
-                                        <i class="fas fa-random"></i>
+                                        <i class="fas fa-dice"></i>
                                     </button>
                                 </div>
                             </div>
@@ -670,14 +789,16 @@ function getProximoVencimiento($user_id) {
                             <!-- Proveedor -->
                             <div class="form-group">
                                 <label class="form-label">Proveedor</label>
-                                <select name="proveedor" class="form-select" required>
-                                    <option value="">Seleccionar proveedor...</option>
+                                <input type="text" 
+                                       name="proveedor" 
+                                       class="form-input" 
+                                       placeholder="Nombre del proveedor o servicio"
+                                       list="proveedoresList">
+                                <datalist id="proveedoresList">
                                     <?php foreach ($proveedores as $prov): ?>
                                         <option value="<?= htmlspecialchars($prov['nombre']) ?>">
-                                            <?= htmlspecialchars($prov['nombre']) ?>
-                                        </option>
                                     <?php endforeach; ?>
-                                </select>
+                                </datalist>
                             </div>
 
                             <!-- Monto -->
@@ -796,412 +917,248 @@ function getProximoVencimiento($user_id) {
                 </div>
             </div>
 
-            <div class="bg-white rounded-xl shadow-md overflow-hidden border border-gray-100">
+                    <!-- Table Container -->
+                    <div class="card">
                 <div class="p-6 border-b border-gray-100">
-                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                        <h2 class="text-xl font-semibold text-gray-800 flex items-center gap-2">
-                            <i class="fas fa-list text-blue-500"></i>
-                            <span>Listado de Egresos</span>
-                            <span class="text-sm font-normal text-gray-500">(<?= $total_egresos ?> registros)</span>
+                            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                                <h2 class="text-lg font-semibold text-gray-800">
+                                    Listado de Egresos
+                                    <span class="text-sm font-normal text-gray-500">
+                                        (<?= $total_egresos ?> registros)
+                                    </span>
                         </h2>
-                        <div class="flex flex-col md:flex-row gap-4 w-full md:w-auto">
-                            <!-- Búsqueda -->
-                            <div class="relative flex-grow md:flex-grow-0">
-                                <input type="text" 
-                                       id="searchInput" 
-                                       placeholder="Buscar egreso..."
-                                       class="form-input pl-10">
-                                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                <div class="flex gap-4">
+                                    <div class="relative">
+                                        <input type="text" 
+                                               id="searchInput" 
+                                               class="form-input pl-10" 
+                                               placeholder="Buscar egreso...">
+                                        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                    </div>
+                                    <button onclick="exportarExcel()" class="btn-secondary">
+                                        <i class="fas fa-file-excel"></i>
+                                        Exportar Excel
+                                    </button>
+                                </div>
                             </div>
-                            
-                            <!-- Botón Exportar Excel -->
-                            <button onclick="exportarExcel()" 
-                                    class="flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-                                <i class="fas fa-file-excel"></i>
-                                <span>Exportar Excel</span>
-                            </button>
                         </div>
                     </div>
-                </div>
 
-                <!-- Filtros simplificados -->
-                <div class="p-4 bg-gray-50 border-b border-gray-200">
-                    <div class="flex flex-wrap items-center gap-3">
-                        <span class="text-sm font-medium text-gray-600">Filtrar por:</span>
-                        <button class="badge bg-blue-100 text-blue-800 hover:bg-blue-200 active" 
-                                onclick="filtrarEgresos('todos')"
-                                id="filtroTodos">
-                            <i class="fas fa-list-ul mr-1"></i>Todos
-                        </button>
-                        <button class="badge bg-gray-100 text-gray-800 hover:bg-gray-200" 
-                                onclick="filtrarEgresos('mes')"
-                                id="filtroMes">
-                            <i class="fas fa-calendar-alt mr-1"></i>Este Mes
-                        </button>
-                        <button class="badge bg-yellow-100 text-yellow-800 hover:bg-yellow-200" 
-                                onclick="filtrarEgresos('pendientes')"
-                                id="filtroPendientes">
-                            <i class="fas fa-clock mr-1"></i>Pendientes
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Tabla mejorada -->
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead>
-                            <tr class="bg-gray-50">
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">
-                                    <div class="flex items-center gap-2">
-                                        <i class="fas fa-receipt text-blue-500"></i>
-                                        N° Factura
-                                    </div>
-                                </th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">
-                                    <div class="flex items-center gap-2">
-                                        <i class="fas fa-building text-blue-500"></i>
-                                        Proveedor
-                                    </div>
-                                </th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                                    <div class="flex items-center gap-2">
-                                        <i class="fas fa-align-left text-blue-500"></i>
-                                        Descripción
-                                    </div>
-                                </th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">
-                                    <div class="flex items-center gap-2">
-                                        <i class="fas fa-dollar-sign text-blue-500"></i>
-                                        Monto
-                                    </div>
-                                </th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">
-                                    <div class="flex items-center gap-2">
-                                        <i class="fas fa-calendar text-blue-500"></i>
-                                        Fecha
-                                    </div>
-                                </th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">
-                                    <div class="flex items-center gap-2">
-                                        <i class="fas fa-tag text-blue-500"></i>
-                                        Categoría
-                                    </div>
-                                </th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">
-                                    <div class="flex items-center gap-2">
-                                        <i class="fas fa-check-circle text-blue-500"></i>
-                                        Estado
-                                    </div>
-                                </th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">
-                                    <div class="flex items-center gap-2">
-                                        <i class="fas fa-cog text-blue-500"></i>
-                                        Acciones
-                                    </div>
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            <?php if (empty($egresos)): ?>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
                                 <tr>
-                                    <td colspan="8" class="px-6 py-12">
-                                        <div class="flex flex-col items-center justify-center text-gray-500">
-                                            <i class="fas fa-inbox text-5xl mb-4 text-gray-300"></i>
-                                            <p class="text-lg font-medium mb-1">No hay egresos registrados</p>
-                                            <p class="text-sm text-gray-400">Los egresos que registres aparecerán aquí</p>
-                                        </div>
-                                    </td>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Nº Factura
+                                    </th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Proveedor
+                                    </th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Descripción
+                                    </th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Monto
+                                    </th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Fecha
+                                    </th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Estado
+                                    </th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Acciones
+                                    </th>
                                 </tr>
-                            <?php else: ?>
-                                <?php foreach ($egresos as $egreso): ?>
-                                    <tr class="hover:bg-gray-50 transition-colors duration-150">
-                                        <td class="px-6 py-4">
-                                            <div class="flex items-center gap-2">
-                                                <span class="text-sm font-medium text-gray-900">
-                                                    <?= htmlspecialchars($egreso['numero_factura']) ?>
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td class="px-6 py-4">
-                                            <div class="flex items-center gap-2">
-                                                <i class="fas fa-building text-gray-400"></i>
-                                                <span class="text-sm text-gray-900">
-                                                    <?= htmlspecialchars($egreso['proveedor']) ?>
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td class="px-6 py-4">
-                                            <div class="flex items-center gap-2 max-w-md">
-                                                <p class="text-sm text-gray-900 truncate">
-                                                    <?= htmlspecialchars($egreso['descripcion']) ?>
-                                                </p>
-                                                <?php if (!empty($egreso['notas'])): ?>
-                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
-                                                        <i class="fas fa-sticky-note mr-1"></i>
-                                                        Nota
-                                                    </span>
-                                                <?php endif; ?>
-                                            </div>
-                                        </td>
-                                        <td class="px-6 py-4">
-                                            <div class="flex items-center gap-2">
-                                                <span class="inline-flex items-center px-2.5 py-1.5 rounded-full text-sm font-medium bg-red-100 text-red-800">
-                                                    -$<?= number_format($egreso['monto'], 2, ',', '.') ?>
-                                                </span>
-                                                <span class="text-gray-400" title="<?= htmlspecialchars($egreso['metodo_pago']) ?>">
-                                                    <i class="fas fa-<?= getMetodoPagoIcon($egreso['metodo_pago']) ?>"></i>
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td class="px-6 py-4">
-                                            <div class="flex items-center gap-2">
-                                                <i class="fas fa-calendar text-gray-400"></i>
-                                                <span class="text-sm text-gray-900">
-                                                    <?= $egreso['fecha_formateada'] ?>
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td class="px-6 py-4">
-                                            <span class="inline-flex items-center px-2.5 py-1.5 rounded-full text-xs font-medium
-                                                <?php
-                                                switch(strtolower($egreso['categoria'])) {
-                                                    case 'compras':
-                                                        echo 'bg-blue-100 text-blue-800';
-                                                        break;
-                                                    case 'servicios':
-                                                        echo 'bg-green-100 text-green-800';
-                                                        break;
-                                                    case 'nómina':
-                                                        echo 'bg-purple-100 text-purple-800';
-                                                        break;
-                                                    case 'impuestos':
-                                                        echo 'bg-yellow-100 text-yellow-800';
-                                                        break;
-                                                    case 'mantenimiento':
-                                                        echo 'bg-orange-100 text-orange-800';
-                                                        break;
-                                                    default:
-                                                        echo 'bg-gray-100 text-gray-800';
-                                                }
-                                                ?>">
-                                                <?= htmlspecialchars($egreso['categoria']) ?>
-                                            </span>
-                                        </td>
-                                        <td class="px-6 py-4">
-                                            <span class="inline-flex items-center px-2.5 py-1.5 rounded-full text-xs font-medium
-                                                <?php
-                                                switch($egreso['estado']) {
-                                                    case 'pendiente':
-                                                        echo 'bg-yellow-100 text-yellow-800';
-                                                        break;
-                                                    case 'pagado':
-                                                        echo 'bg-green-100 text-green-800';
-                                                        break;
-                                                    case 'anulado':
-                                                        echo 'bg-red-100 text-red-800';
-                                                        break;
-                                                    default:
-                                                        echo 'bg-gray-100 text-gray-800';
-                                                }
-                                                ?>">
-                                                <i class="fas fa-circle text-xs mr-1"></i>
-                                                <?= ucfirst($egreso['estado']) ?>
-                                            </span>
-                                        </td>
-                                        <td class="px-6 py-4">
-                                            <div class="flex items-center gap-2">
-                                                <?php if (!empty($egreso['comprobante'])): ?>
-                                                    <button onclick="verComprobante('<?= htmlspecialchars($egreso['comprobante']) ?>')"
-                                                            class="p-1.5 hover:bg-blue-50 rounded-lg text-blue-600 transition-colors"
-                                                            title="Ver comprobante">
-                                                        <i class="fas fa-file-alt"></i>
-                                                    </button>
-                                                <?php endif; ?>
-                                                
-                                                <button onclick="editarEgreso(<?= $egreso['id'] ?>)"
-                                                        class="p-1.5 hover:bg-yellow-50 rounded-lg text-yellow-600 transition-colors"
-                                                        title="Editar egreso">
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
-                                                
-                                                <button onclick="confirmarEliminacion(<?= $egreso['id'] ?>)"
-                                                        class="p-1.5 hover:bg-red-50 rounded-lg text-red-600 transition-colors"
-                                                        title="Eliminar egreso">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            </div>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <?php if (empty($egresos)): ?>
+                                    <tr>
+                                        <td colspan="7" class="px-6 py-4 text-center text-gray-500">
+                                            No hay egresos registrados
                                         </td>
                                     </tr>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- Paginación mejorada -->
-                <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
-                    <div class="flex justify-between items-center">
-                        <p class="text-sm text-gray-700">
-                            Mostrando <span class="font-medium"><?= ($offset + 1) ?></span> a 
-                            <span class="font-medium"><?= min($offset + $limit, $total_egresos) ?></span> de 
-                            <span class="font-medium"><?= $total_egresos ?></span> registros
-                        </p>
-                        <div class="flex gap-2">
-                            <?php if ($page > 1): ?>
-                                <a href="?page=1" class="btn-secondary py-1 px-2">
-                                    <i class="fas fa-angle-double-left"></i>
-                                </a>
-                                <a href="?page=<?= $page-1 ?>" class="btn-secondary py-1 px-2">
-                                    <i class="fas fa-angle-left"></i>
-                                </a>
-                            <?php endif; ?>
-
-                            <?php for ($i = max(1, $page - 2); $i <= min($total_pages, $page + 2); $i++): ?>
-                                <a href="?page=<?= $i ?>" 
-                                   class="px-3 py-1 rounded-lg <?= ($page === $i) 
-                                       ? 'bg-blue-600 text-white' 
-                                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200' ?>">
-                                    <?= $i ?>
-                                </a>
-                            <?php endfor; ?>
-
-                            <?php if ($page < $total_pages): ?>
-                                <a href="?page=<?= $page+1 ?>" class="btn-secondary py-1 px-2">
-                                    <i class="fas fa-angle-right"></i>
-                                </a>
-                                <a href="?page=<?= $total_pages ?>" class="btn-secondary py-1 px-2">
-                                    <i class="fas fa-angle-double-right"></i>
-                                </a>
-                            <?php endif; ?>
-                        </div>
+                                <?php else: ?>
+                                    <?php foreach ($egresos as $egreso): ?>
+                                        <tr class="hover:bg-gray-50">
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                <?= htmlspecialchars($egreso['numero_factura']) ?>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                <?= htmlspecialchars($egreso['proveedor']) ?>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm text-gray-900">
+                                                <?= htmlspecialchars($egreso['descripcion']) ?>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                $<?= $egreso['monto_formateado'] ?>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                <?= $egreso['fecha_formateada'] ?>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                                    <?php
+                                                    switch($egreso['estado']) {
+                                                        case 'pagado':
+                                                            echo 'bg-green-100 text-green-800';
+                                                            break;
+                                                        case 'pendiente':
+                                                            echo 'bg-yellow-100 text-yellow-800';
+                                                            break;
+                                                        case 'anulado':
+                                                            echo 'bg-red-100 text-red-800';
+                                                            break;
+                                                    }
+                                                    ?>">
+                                                    <?= ucfirst($egreso['estado']) ?>
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <div class="flex gap-2">
+                                                    <button onclick="editarEgreso(<?= $egreso['id'] ?>)" 
+                                                            class="text-blue-600 hover:text-blue-900">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    <button onclick="confirmarEliminacion(<?= $egreso['id'] ?>)" 
+                                                            class="text-red-600 hover:text-red-900">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
                     </div>
+
+                    <!-- Paginación -->
+                    <?php if ($total_pages > 1): ?>
+                        <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
+                            <div class="flex items-center justify-between">
+                                <div class="flex-1 flex justify-between sm:hidden">
+                                    <?php if ($page > 1): ?>
+                                        <a href="?page=<?= $page-1 ?>" class="btn-secondary">Anterior</a>
+                                    <?php endif; ?>
+                                    <?php if ($page < $total_pages): ?>
+                                        <a href="?page=<?= $page+1 ?>" class="btn-secondary">Siguiente</a>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                                    <div>
+                                        <p class="text-sm text-gray-700">
+                                            Mostrando 
+                                            <span class="font-medium"><?= ($offset + 1) ?></span>
+                                            a 
+                                            <span class="font-medium"><?= min($offset + $limit, $total_egresos) ?></span>
+                                            de 
+                                            <span class="font-medium"><?= $total_egresos ?></span>
+                                            resultados
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                                            <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                                                <a href="?page=<?= $i ?>" 
+                                                   class="<?= $i === $page ? 'bg-blue-50 border-blue-500 text-blue-600' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50' ?> relative inline-flex items-center px-4 py-2 border text-sm font-medium">
+                                                    <?= $i ?>
+                                                </a>
+                                            <?php endfor; ?>
+                                        </nav>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
     </div>
 
-    <script>
-        // Mantener los scripts existentes pero mejorar las notificaciones y animaciones
-    </script>
-
-    <!-- Agregar este script para manejar el archivo seleccionado -->
-    <script>
-    document.querySelector('.border-dashed').addEventListener('click', function() {
-        document.getElementById('comprobante').click();
-    });
-
-    document.getElementById('comprobante').addEventListener('change', function(e) {
-        const fileInfo = document.getElementById('file-info');
-        if (this.files.length > 0) {
-            const file = this.files[0];
-            fileInfo.innerHTML = `
-                <div class="flex flex-col items-center">
-                    <i class="fas fa-file-alt text-blue-500 text-xl mb-2"></i>
-                    <p class="text-sm text-gray-700 font-medium">${file.name}</p>
-                    <p class="text-xs text-gray-500">${(file.size / 1024).toFixed(2)} KB</p>
-                    <button type="button" onclick="clearFile(event)" 
-                            class="mt-2 text-red-500 hover:text-red-700 text-sm">
-                        <i class="fas fa-times mr-1"></i>Eliminar
-                    </button>
-                </div>
-            `;
-        } else {
-            fileInfo.innerHTML = `
-                <i class="fas fa-cloud-upload-alt text-gray-400 text-2xl mb-2"></i>
-                <p class="text-sm text-gray-500">Arrastra un archivo o haz clic para seleccionar</p>
-            `;
-        }
-    });
-
-    function clearFile(event) {
-        event.stopPropagation();
-        const input = document.getElementById('comprobante');
-        input.value = '';
-        const fileInfo = document.getElementById('file-info');
-        fileInfo.innerHTML = `
-            <i class="fas fa-cloud-upload-alt text-gray-400 text-2xl mb-2"></i>
-            <p class="text-sm text-gray-500">Arrastra un archivo o haz clic para seleccionar</p>
-        `;
-    }
-
-    function generarNumeroFactura() {
-        const prefijo = 'FE';
-        const numeros = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
-        const año = new Date().getFullYear().toString().slice(-2);
-        const numeroFactura = `${prefijo}${numeros}-${año}`;
-        document.getElementById('numero_factura').value = numeroFactura;
-    }
-
-    function setToday() {
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = String(today.getMonth() + 1).padStart(2, '0');
-        const day = String(today.getDate()).padStart(2, '0');
-        document.getElementById('fecha').value = `${year}-${month}-${day}`;
-    }
-
-    // Establecer fecha actual al cargar el formulario si no hay fecha seleccionada
-    document.addEventListener('DOMContentLoaded', function() {
-        const fechaInput = document.getElementById('fecha');
-        if (!fechaInput.value) {
-            setToday();
-        }
-    });
-    </script>
-
     <!-- Scripts mejorados -->
     <script>
-    // Mejorar las notificaciones
-    const Toast = Swal.mixin({
+        // Configuración de notificaciones
+    var Toast = Swal.mixin({
         toast: true,
         position: 'top-end',
         showConfirmButton: false,
         timer: 3000,
         timerProgressBar: true,
-        background: '#fff',
-        showClass: {
-            popup: 'animate__animated animate__fadeInRight'
-        },
-        hideClass: {
-            popup: 'animate__animated animate__fadeOutRight'
+        didOpen: function(toast) {
+            toast.addEventListener('mouseenter', Swal.stopTimer);
+            toast.addEventListener('mouseleave', Swal.resumeTimer);
         }
     });
 
-    // Función para alternar el formulario con animación
+    // Toggle del formulario con animación
     function toggleForm() {
-        const formContainer = document.getElementById('formContainer');
-        const btn = document.querySelector('.fa-chevron-down');
-        
-        if (formContainer.style.maxHeight) {
-            formContainer.style.maxHeight = null;
-            btn.style.transform = 'rotate(0deg)';
-        } else {
-            formContainer.style.maxHeight = formContainer.scrollHeight + "px";
-            btn.style.transform = 'rotate(180deg)';
+        var form = document.getElementById('formContainer');
+        if (form) {
+            form.classList.toggle('hidden');
         }
     }
-    </script>
 
-    <script>
-    // Funciones de filtrado y búsqueda
+    // Búsqueda en tiempo real mejorada
+    var searchInput = document.getElementById('searchInput');
+    var searchTimeout;
+
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                var searchTerm = searchInput.value.toLowerCase();
+                var rows = document.querySelectorAll('tbody tr');
+                
+                rows.forEach(function(row) {
+                    var text = row.textContent.toLowerCase();
+                    var shouldShow = text.includes(searchTerm);
+                    row.classList.toggle('hidden', !shouldShow);
+                });
+            }, 300);
+        });
+    }
+
+    // Función para generar número de factura
+    function generarNumeroFactura() {
+        var prefijo = 'FE';
+        var numeros = String(Math.floor(Math.random() * 1000000)).padStart(6, '0');
+        var año = new Date().getFullYear().toString().slice(-2);
+        var numeroFactura = prefijo + numeros + '-' + año;
+        document.getElementById('numero_factura').value = numeroFactura;
+    }
+
+    // Función para establecer la fecha actual
+    function setToday() {
+        var today = new Date();
+        var year = today.getFullYear();
+        var month = String(today.getMonth() + 1).padStart(2, '0');
+        var day = String(today.getDate()).padStart(2, '0');
+        document.getElementById('fecha').value = year + '-' + month + '-' + day;
+    }
+
+    // Establecer fecha actual al cargar el formulario
+    document.addEventListener('DOMContentLoaded', function() {
+        var fechaInput = document.getElementById('fecha');
+        if (fechaInput && !fechaInput.value) {
+            setToday();
+        }
+    });
+
+    // Función para filtrar egresos
     function filtrarEgresos(tipo) {
-        const buttons = document.querySelectorAll('.badge');
-        buttons.forEach(btn => btn.classList.remove('active'));
+        var rows = document.querySelectorAll('tbody tr');
+        var searchTerm = document.getElementById('searchInput').value.toLowerCase();
         
-        document.getElementById(`filtro${tipo.charAt(0).toUpperCase() + tipo.slice(1)}`).classList.add('active');
-        
-        const rows = document.querySelectorAll('tbody tr');
-        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-        
-        rows.forEach(row => {
-            let mostrar = true;
-            const fecha = row.querySelector('td:nth-child(5)').textContent.trim();
-            const estado = row.querySelector('td:nth-child(7)').textContent.trim().toLowerCase();
+        rows.forEach(function(row) {
+            var mostrar = true;
+            var fecha = row.querySelector('td:nth-child(5)').textContent.trim();
+            var estado = row.querySelector('td:nth-child(7)').textContent.trim().toLowerCase();
             
             switch(tipo) {
                 case 'mes':
-                    const hoy = new Date();
-                    const fechaEgreso = parseFecha(fecha);
+                    var hoy = new Date();
+                    var fechaEgreso = parseFecha(fecha);
                     mostrar = fechaEgreso.getMonth() === hoy.getMonth() && 
                              fechaEgreso.getFullYear() === hoy.getFullYear();
                     break;
@@ -1213,30 +1170,173 @@ function getProximoVencimiento($user_id) {
                     break;
             }
             
-            // Aplicar búsqueda si existe
             if (searchTerm) {
-                const contenido = row.textContent.toLowerCase();
-                mostrar = mostrar && contenido.includes(searchTerm);
+                mostrar = mostrar && row.textContent.toLowerCase().includes(searchTerm);
             }
             
             row.style.display = mostrar ? '' : 'none';
         });
     }
 
-    // Función para parsear fecha en formato dd/mm/yyyy
+    // Función auxiliar para parsear fechas
     function parseFecha(fechaStr) {
-        const partes = fechaStr.split('/');
+        var partes = fechaStr.split('/');
         return new Date(partes[2], partes[1] - 1, partes[0]);
     }
 
-    // Búsqueda en tiempo real
-    document.getElementById('searchInput').addEventListener('input', function() {
-        filtrarEgresos(document.querySelector('.badge.active').textContent.toLowerCase().includes('todos') ? 'todos' : 
-                       document.querySelector('.badge.active').textContent.toLowerCase().includes('mes') ? 'mes' : 'pendientes');
-    });
+    // Función para guardar egreso
+    function guardarEgreso(event) {
+        event.preventDefault();
+        
+        // Crear FormData del formulario
+        var formData = new FormData(document.getElementById('egresoForm'));
+        
+        // Mostrar indicador de carga
+        Swal.fire({
+            title: 'Guardando...',
+            text: 'Por favor espere',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
 
-    // Funciones para los botones de acción
+        // Enviar petición AJAX
+        $.ajax({
+            url: window.location.href,
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            success: function(response) {
+                if (response.status) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Éxito!',
+                        text: response.message,
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(() => {
+                        // Limpiar formulario y recargar página
+                        document.getElementById('egresoForm').reset();
+                        window.location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: response.message
+                    });
+                }
+            },
+            error: function(xhr, status, error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Hubo un problema al procesar la solicitud'
+                });
+                console.error(error);
+            }
+        });
+    }
+
+    // Agregar el event listener al formulario
+    document.getElementById('egresoForm').addEventListener('submit', guardarEgreso);
+
+    // Agregar la función de exportar Excel
+    function exportarExcel() {
+        try {
+            // Mostrar indicador de carga
+            Swal.fire({
+                title: 'Generando Excel...',
+                text: 'Por favor espere',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            // Obtener los datos de la tabla
+            var data = [];
+            
+            // Encabezados personalizados
+            var headers = [
+                'Número Factura',
+                'Proveedor',
+                'Descripción',
+                'Monto',
+                'Fecha',
+                'Estado'
+            ];
+            data.push(headers);
+            
+            // Obtener datos de las filas visibles
+            document.querySelectorAll('tbody tr:not(.hidden)').forEach(function(tr) {
+                if (!tr.querySelector('td[colspan]')) { // Excluir filas de "no hay datos"
+                    var row = [];
+                    // Solo obtener las columnas que queremos exportar (excluyendo acciones)
+                    for (var i = 0; i < 6; i++) {
+                        var td = tr.children[i];
+                        row.push(td.textContent.trim());
+                    }
+                    data.push(row);
+                }
+            });
+
+            // Crear y configurar la hoja de cálculo
+            var wb = XLSX.utils.book_new();
+            var ws = XLSX.utils.aoa_to_sheet(data);
+            
+            // Configurar anchos de columna
+            ws['!cols'] = [
+                {wch: 15}, // Número Factura
+                {wch: 20}, // Proveedor
+                {wch: 30}, // Descripción
+                {wch: 12}, // Monto
+                {wch: 12}, // Fecha
+                {wch: 12}  // Estado
+            ];
+
+            // Agregar la hoja al libro
+            XLSX.utils.book_append_sheet(wb, ws, "Egresos");
+            
+            // Generar el archivo
+            var fecha = new Date().toLocaleDateString().replace(/\//g, '-');
+            XLSX.writeFile(wb, `Egresos_${fecha}.xlsx`);
+
+            // Cerrar el indicador de carga y mostrar éxito
+            Swal.fire({
+                icon: 'success',
+                title: '¡Excel generado!',
+                text: 'El archivo se ha descargado correctamente',
+                timer: 2000,
+                showConfirmButton: false
+            });
+        } catch (error) {
+            console.error('Error al exportar:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'No se pudo generar el archivo Excel'
+            });
+        }
+    }
+
+    // Agregar estas funciones en la sección de scripts
     function editarEgreso(id) {
+        // Mostrar indicador de carga
+        Swal.fire({
+            title: 'Cargando...',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        // Hacer petición AJAX para obtener los datos del egreso
         $.ajax({
             url: window.location.href,
             type: 'POST',
@@ -1244,35 +1344,46 @@ function getProximoVencimiento($user_id) {
                 action: 'get_egreso',
                 id: id
             },
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
             success: function(response) {
+                Swal.close();
                 if (response.status) {
-                    const egreso = response.data;
-                    // Rellenar el formulario con los datos
-                    document.getElementById('egreso_id').value = egreso.id;
-                    document.getElementById('numero_factura').value = egreso.numero_factura;
-                    document.querySelector('select[name="proveedor"]').value = egreso.proveedor;
-                    document.querySelector('textarea[name="descripcion"]').value = egreso.descripcion;
-                    document.querySelector('input[name="monto"]').value = egreso.monto;
-                    document.querySelector('input[name="fecha"]').value = egreso.fecha_formateada;
-                    document.querySelector('select[name="categoria"]').value = egreso.categoria;
-                    document.querySelector('select[name="metodo_pago"]').value = egreso.metodo_pago;
-                    document.querySelector('select[name="estado"]').value = egreso.estado;
-                    document.querySelector('textarea[name="notas"]').value = egreso.notas || '';
-                    
                     // Mostrar el formulario si está oculto
-                    const formContainer = document.getElementById('formContainer');
-                    if (!formContainer.style.maxHeight) {
+                    var form = document.getElementById('formContainer');
+                    if (form.classList.contains('hidden')) {
                         toggleForm();
                     }
-                    
-                    // Scroll hacia el formulario
-                    formContainer.scrollIntoView({ behavior: 'smooth' });
+
+                    // Rellenar el formulario con los datos
+                    document.getElementById('egreso_id').value = response.data.id;
+                    document.getElementById('numero_factura').value = response.data.numero_factura;
+                    document.querySelector('input[name="proveedor"]').value = response.data.proveedor;
+                    document.querySelector('input[name="monto"]').value = response.data.monto;
+                    document.querySelector('input[name="fecha"]').value = response.data.fecha_formateada;
+                    document.querySelector('select[name="categoria"]').value = response.data.categoria;
+                    document.querySelector('select[name="metodo_pago"]').value = response.data.metodo_pago;
+                    document.querySelector('select[name="estado"]').value = response.data.estado;
+                    document.querySelector('textarea[name="descripcion"]').value = response.data.descripcion;
+                    document.querySelector('textarea[name="notas"]').value = response.data.notas || '';
+
+                    // Hacer scroll al formulario
+                    form.scrollIntoView({ behavior: 'smooth' });
                 } else {
-                    mostrarError('Error al cargar el egreso');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: response.message
+                    });
                 }
             },
             error: function() {
-                mostrarError('Error de conexión');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Error al cargar los datos del egreso'
+                });
             }
         });
     }
@@ -1283,8 +1394,8 @@ function getProximoVencimiento($user_id) {
             text: "Esta acción no se puede deshacer",
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonColor: '#EF4444',
-            cancelButtonColor: '#6B7280',
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
             confirmButtonText: 'Sí, eliminar',
             cancelButtonText: 'Cancelar'
         }).then((result) => {
@@ -1302,95 +1413,18 @@ function getProximoVencimiento($user_id) {
                 action: 'delete_egreso',
                 id: id
             },
-            success: function(response) {
-                if (response.status) {
-                    Swal.fire({
-                        title: '¡Eliminado!',
-                        text: response.message,
-                        icon: 'success'
-                    }).then(() => {
-                        window.location.reload();
-                    });
-                } else {
-                    mostrarError(response.message);
-                }
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
             },
-            error: function() {
-                mostrarError('Error de conexión');
-            }
-        });
-    }
-
-    function verComprobante(url) {
-        window.open('../../' + url, '_blank');
-    }
-
-    function mostrarError(mensaje) {
-        Swal.fire({
-            title: 'Error',
-            text: mensaje,
-            icon: 'error',
-            confirmButtonColor: '#3B82F6'
-        });
-    }
-
-    // Estilo para el botón activo
-    document.addEventListener('DOMContentLoaded', function() {
-        const badges = document.querySelectorAll('.badge');
-        badges.forEach(badge => {
-            badge.addEventListener('click', function() {
-                badges.forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
-            });
-        });
-    });
-    </script>
-
-    <style>
-    .badge.active {
-        @apply ring-2 ring-offset-2;
-    }
-    </style>
-
-    <!-- Agregar este script para manejar el envío del formulario -->
-    <script>
-    function guardarEgreso(event) {
-        event.preventDefault();
-        
-        const formData = new FormData(document.getElementById('egresoForm'));
-        const egresoId = document.getElementById('egreso_id').value;
-        
-        // Determinar si es una actualización o un nuevo registro
-        formData.append('action', egresoId ? 'update_egreso' : 'add_egreso');
-        
-        // Mostrar indicador de carga
-        Swal.fire({
-            title: egresoId ? 'Actualizando...' : 'Guardando...',
-            text: 'Por favor espere',
-            allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
-        });
-
-        $.ajax({
-            url: window.location.href,
-            type: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
             success: function(response) {
                 if (response.status) {
                     Swal.fire({
                         icon: 'success',
-                        title: '¡Éxito!',
+                        title: '¡Eliminado!',
                         text: response.message,
-                        showConfirmButton: false,
-                        timer: 1500
+                        timer: 1500,
+                        showConfirmButton: false
                     }).then(() => {
-                        // Limpiar formulario y recargar página
-                        document.getElementById('egresoForm').reset();
-                        document.getElementById('egreso_id').value = '';
                         window.location.reload();
                     });
                 } else {
@@ -1405,92 +1439,9 @@ function getProximoVencimiento($user_id) {
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
-                    text: 'Hubo un problema al procesar la solicitud'
+                    text: 'Error al eliminar el egreso'
                 });
             }
-        });
-    }
-    </script>
-
-    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
-    <script>
-    function exportarExcel() {
-        // Mostrar indicador de carga
-        Swal.fire({
-            title: 'Generando Excel',
-            text: 'Por favor espere...',
-            allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
-        });
-
-        // Crear array para los datos
-        const datos = [];
-        
-        // Agregar encabezados
-        datos.push([
-            'Número Factura',
-            'Proveedor',
-            'Descripción',
-            'Monto',
-            'Fecha',
-            'Categoría',
-            'Estado',
-            'Método de Pago',
-            'Notas'
-        ]);
-
-        // Obtener todas las filas visibles
-        const filas = document.querySelectorAll('tbody tr:not([style*="display: none"])');
-        
-        filas.forEach(fila => {
-            const row = [
-                fila.cells[0].textContent.trim(),
-                fila.cells[1].textContent.trim(),
-                fila.cells[2].querySelector('p').textContent.trim(),
-                fila.cells[3].textContent.trim().replace('$', '').replace(',', ''),
-                fila.cells[4].textContent.trim(),
-                fila.cells[5].textContent.trim(),
-                fila.cells[6].textContent.trim(),
-                fila.cells[3].querySelector('.text-gray-400').getAttribute('title'),
-                '' // Notas (vacío por defecto)
-            ];
-            datos.push(row);
-        });
-
-        // Crear libro de trabajo
-        const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.aoa_to_sheet(datos);
-
-        // Ajustar anchos de columna
-        const wscols = [
-            {wch: 15}, // Número Factura
-            {wch: 20}, // Proveedor
-            {wch: 30}, // Descripción
-            {wch: 12}, // Monto
-            {wch: 12}, // Fecha
-            {wch: 15}, // Categoría
-            {wch: 12}, // Estado
-            {wch: 15}, // Método de Pago
-            {wch: 30}  // Notas
-        ];
-        ws['!cols'] = wscols;
-
-        // Agregar la hoja al libro
-        XLSX.utils.book_append_sheet(wb, ws, "Egresos");
-
-        // Generar el archivo
-        const fechaActual = new Date().toLocaleDateString().replace(/\//g, '-');
-        XLSX.writeFile(wb, `Egresos_${fechaActual}.xlsx`);
-
-        // Cerrar el indicador de carga
-        Swal.close();
-
-        // Mostrar mensaje de éxito
-        Toast.fire({
-            icon: 'success',
-            title: 'Excel generado correctamente'
         });
     }
     </script>

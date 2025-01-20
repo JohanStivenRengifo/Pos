@@ -152,9 +152,9 @@ function isActive($itemUrl) {
 function getNotificationCount($module) {
     // Aquí puedes implementar la lógica para obtener notificaciones reales
     $counts = [
-        'ventas' => 3,
-        'inventario' => 5,
-        'clientes' => 2
+        'ventas' => 0,
+        'inventario' => 0,
+        'clientes' => 0
     ];
     return $counts[$module] ?? 0;
 }

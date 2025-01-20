@@ -117,6 +117,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $empresa_id = $pdo->lastInsertId();
 
+            // NUEVO: Actualizar el empresa_id en la tabla users
+            $stmt = $pdo->prepare("UPDATE users SET empresa_id = ? WHERE id = ?");
+            if (!$stmt->execute([$empresa_id, $_SESSION['user_id']])) {
+                throw new Exception("Error al actualizar la información del usuario");
+            }
+
             // Registrar evento
             $event_data = json_encode([
                 'action' => 'empresa_created',
