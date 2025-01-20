@@ -79,9 +79,9 @@ function getUserEgresos($user_id, $limit = 10, $offset = 0)
               ORDER BY e.fecha DESC 
               LIMIT :limit OFFSET :offset";
     $stmt = $pdo->prepare($query);
-    $stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
-    $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
-    $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+    $stmt->bindValue(':user_id', $user_id, PDO::PARAM_INT);
+    $stmt->bindValue(':limit', (int) $limit, PDO::PARAM_INT);
+    $stmt->bindValue(':offset', (int) $offset, PDO::PARAM_INT);
     $stmt->execute();
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {
@@ -568,6 +568,7 @@ function getProximoVencimiento($user_id) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<<<<<<< HEAD
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
 
     <!-- Configuración de Tailwind -->
@@ -661,6 +662,8 @@ function getProximoVencimiento($user_id) {
             }
         }
     </style>
+=======
+>>>>>>> c66b0f4a05796dc3868e285708ba55ed7dad5e6f
 </head>
 <body class="bg-gray-50">
     <?php include '../../includes/header.php'; ?>
@@ -1416,6 +1419,67 @@ function getProximoVencimiento($user_id) {
             headers: {
                 'X-Requested-With': 'XMLHttpRequest'
             },
+<<<<<<< HEAD
+=======
+            error: function() {
+                mostrarError('Error de conexión');
+            }
+        });
+    }
+
+    function verComprobante(url) {
+        window.open('../../' + url, '_blank');
+    }
+
+    function mostrarError(mensaje) {
+        Swal.fire({
+            title: 'Error',
+            text: mensaje,
+            icon: 'error',
+            confirmButtonColor: '#3B82F6'
+        });
+    }
+
+    // Estilo para el botón activo
+    document.addEventListener('DOMContentLoaded', function() {
+        const badges = document.querySelectorAll('.badge');
+        badges.forEach(badge => {
+            badge.addEventListener('click', function() {
+                badges.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+    });
+    </script>
+
+    <!-- Agregar este script para manejar el envío del formulario -->
+    <script>
+    function guardarEgreso(event) {
+        event.preventDefault();
+        
+        const formData = new FormData(document.getElementById('egresoForm'));
+        const egresoId = document.getElementById('egreso_id').value;
+        
+        // Determinar si es una actualización o un nuevo registro
+        formData.append('action', egresoId ? 'update_egreso' : 'add_egreso');
+        
+        // Mostrar indicador de carga
+        Swal.fire({
+            title: egresoId ? 'Actualizando...' : 'Guardando...',
+            text: 'Por favor espere',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        $.ajax({
+            url: window.location.href,
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+>>>>>>> c66b0f4a05796dc3868e285708ba55ed7dad5e6f
             success: function(response) {
                 if (response.status) {
                     Swal.fire({
