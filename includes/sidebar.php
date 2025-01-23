@@ -163,34 +163,6 @@ function getNotificationCount($module) {
 <aside class="min-h-screen w-72 bg-white border-r border-gray-200 flex flex-col fixed left-0 top-0 h-screen shadow-lg" id="sidebar">
     <!-- Contenedor principal con scroll -->
     <div class="flex-1 overflow-y-auto h-full pt-16">
-        <!-- Perfil del usuario -->
-        <div class="px-6 py-4 border-b border-gray-100 hover:bg-gray-50 transition-colors duration-200">
-            <div class="flex items-center space-x-3">
-                <?php if (!empty($empresa_info['logo']) && file_exists($_SERVER['DOCUMENT_ROOT'] . '/' . $empresa_info['logo'])): ?>
-                    <div class="w-12 h-12 rounded-full bg-white border-2 border-indigo-100 flex items-center justify-center overflow-hidden shadow-sm">
-                        <img src="/<?= htmlspecialchars($empresa_info['logo']) ?>" 
-                             alt="Logo empresa" 
-                             class="w-full h-full object-contain"
-                             onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'%23CBD5E0\'%3E%3Cpath d=\'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z\'/%3E%3C/svg%3E';">
-                    </div>
-                <?php else: ?>
-                    <div class="w-12 h-12 rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-lg">
-                        <?= strtoupper(substr($empresa_info['nombre_empresa'] ?? 'E', 0, 1)) ?>
-                    </div>
-                <?php endif; ?>
-                
-                <div class="flex-1 min-w-0">
-                    <h2 class="text-sm font-semibold text-gray-900 truncate">
-                        <?= htmlspecialchars($empresa_info['user_name'] ?? $_SESSION['nombre'] ?? 'Usuario') ?>
-                    </h2>
-                    <p class="text-xs text-gray-500 truncate flex items-center">
-                        <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1"></span>
-                        Disponible
-                    </p>
-                </div>
-            </div>
-        </div>
-
         <!-- Navegación principal con categorías -->
         <nav class="px-3 py-4">
             <?php foreach ($menu_categories as $cat_key => $category): ?>
