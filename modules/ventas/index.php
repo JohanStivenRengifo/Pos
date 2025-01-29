@@ -409,7 +409,7 @@ $total_anuladas = getTotalAnuladas($user_id);
 
     // Función para imprimir venta
     function imprimirVenta(id) {
-        window.open(`../pos/imprimir_ticket.php?id=${id}`, '_blank');
+        window.open(`../pos/controllers/imprimir_factura.php?id=${id}`, '_blank');
     }
 
     // Función para editar venta

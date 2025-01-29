@@ -80,17 +80,58 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             throw new Exception("Su cuenta está temporalmente bloqueada por múltiples intentos fallidos. Por favor, intente más tarde.");
         }
 
-        logLoginAttempt($pdo, $user['id'], true, 'Login exitoso');
-
+        // Iniciar sesión con datos completos
         session_regenerate_id(true);
         $_SESSION['user_id'] = $user['id'];
-        $_SESSION['empresa_id'] = $user['empresa_id'] ?? null; 
+        $_SESSION['user_name'] = $user['nombre'];
+        $_SESSION['user_role'] = $user['rol'];
         $_SESSION['user_email'] = $user['email'];
-        $_SESSION['user_nombre'] = $user['nombre'] ?? '';
+        $_SESSION['empresa_id'] = $user['empresa_id'];
+        $_SESSION['last_activity'] = time();
+        $_SESSION['created_at'] = time();
 
+        // Implementación mejorada de "Recordarme"
         if (isset($_POST['remember_me']) && $_POST['remember_me'] === 'on') {
-            setRememberMeCookie($pdo, $user);
+            $token = bin2hex(random_bytes(32));
+            $selector = bin2hex(random_bytes(16));
+            $expires = date('Y-m-d H:i:s', strtotime('+30 days'));
+            
+            // Almacenar hash del token en la base de datos
+            $hashedToken = password_hash($token, PASSWORD_DEFAULT);
+            
+            try {
+                $stmt = $pdo->prepare("
+                    INSERT INTO user_tokens (user_id, selector, token, expires) 
+                    VALUES (?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE 
+                    selector = VALUES(selector),
+                    token = VALUES(token),
+                    expires = VALUES(expires)
+                ");
+                $stmt->execute([$user['id'], $selector, $hashedToken, $expires]);
+                
+                // Establecer cookies seguras
+                $cookieValue = $selector . ':' . $token;
+                setcookie(
+                    'remember_token',
+                    $cookieValue,
+                    [
+                        'expires' => strtotime('+30 days'),
+                        'path' => '/',
+                        'domain' => '',
+                        'secure' => true,
+                        'httponly' => true,
+                        'samesite' => 'Strict'
+                    ]
+                );
+            } catch (PDOException $e) {
+                error_log("Error al guardar el token: " . $e->getMessage());
+                // Continuar sin el remember me si falla
+            }
         }
+
+        // Registrar el inicio de sesión exitoso
+        logLoginAttempt($pdo, $user['id'], true, 'Login exitoso');
 
         if (isAjaxRequest()) {
             ApiResponse::send(true, '¡Bienvenido ' . ($user['nombre'] ?? '') . '!', [
@@ -126,6 +167,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 }
 
 $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+
+// Agregar esta función al inicio del archivo o en functions.php
+function cleanExpiredTokens($pdo) {
+    try {
+        $stmt = $pdo->prepare("DELETE FROM user_tokens WHERE expires < NOW()");
+        $stmt->execute();
+    } catch (PDOException $e) {
+        error_log("Error limpiando tokens expirados: " . $e->getMessage());
+    }
+}
+
+// Limpiar tokens expirados periódicamente (por ejemplo, 5% de las veces)
+if (rand(1, 100) <= 5) {
+    cleanExpiredTokens($pdo);
+}
 ?>
 
 <!DOCTYPE html>

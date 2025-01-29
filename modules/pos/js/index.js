@@ -99,8 +99,16 @@ function limpiarEstilosError() {
 window.abrirModalCliente = abrirModalCliente;
 window.cerrarModalCliente = cerrarModalCliente;
 window.guardarCliente = guardarCliente;
+
+let buscarProductoInput; // Declarar una sola vez
+
 // El resto del código dentro del DOMContentLoaded
 document.addEventListener('DOMContentLoaded', function() {
+    // Si ya existe la variable, no la declares de nuevo
+    if (!buscarProductoInput) {
+        buscarProductoInput = document.getElementById('buscar-producto');
+    }
+
     // Variables globales
     let carrito = [];
     const ventaLista = document.getElementById('venta-lista');
@@ -111,7 +119,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const totalElement = document.getElementById('venta-total');
     const cantidadItemsElement = document.getElementById('cantidad-items');
     const procesarVentaBtn = document.getElementById('procesar-venta');
-    const buscarProductoInput = document.getElementById('buscar-producto');
 
     // Función para formatear moneda
     function formatearMoneda(valor) {
@@ -554,7 +561,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Función para imprimir ticket
     function imprimirTicket(ventaId) {
         localStorage.setItem('ultima_venta_id', ventaId);
-        window.open(`./controllers/imprimir_ticket.php?venta_id=${ventaId}`, '_blank');
+        window.open(`./controllers/imprimir_factura.php?venta_id=${ventaId}`, '_blank');
     }
 
     // Botón imprimir ticket
@@ -740,8 +747,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Event listener para el input de búsqueda con debounce
-    const buscarProductoInput = document.getElementById('buscar-producto');
-    let timeoutId;
+    const timeoutId;
 
     buscarProductoInput.addEventListener('input', function(e) {
         const currentTime = new Date().getTime();

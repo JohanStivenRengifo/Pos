@@ -14,7 +14,7 @@ $email = $_SESSION['email'];
 // Configuración de paginación y filtros
 class PaginationConfig
 {
-    public $items_per_page = 10;
+    public $items_per_page;
     public $current_page;
     public $offset;
     public $search_term;
@@ -26,6 +26,7 @@ class PaginationConfig
 
     public function __construct()
     {
+        $this->items_per_page = isset($_GET['items_per_page']) ? $this->validateItemsPerPage($_GET['items_per_page']) : 10;
         $this->current_page = isset($_GET['pagina']) ? max(1, (int)$_GET['pagina']) : 1;
         $this->offset = ($this->current_page - 1) * $this->items_per_page;
         $this->search_term = isset($_GET['busqueda']) ? trim($_GET['busqueda']) : '';
@@ -34,6 +35,13 @@ class PaginationConfig
         $this->filter_category = isset($_GET['categoria']) ? (int)$_GET['categoria'] : 0;
         $this->filter_department = isset($_GET['departamento']) ? (int)$_GET['departamento'] : 0;
         $this->filter_stock_status = isset($_GET['stock_status']) ? $_GET['stock_status'] : '';
+    }
+
+    private function validateItemsPerPage($items)
+    {
+        $allowed_items = [10, 20, 30, 80, 100];
+        $items = (int)$items;
+        return in_array($items, $allowed_items) ? $items : 10;
     }
 
     private function validateSortColumn($column)
@@ -263,7 +271,54 @@ class InventoryManager
                 }
             }
 
-            // Eliminar todos los productos del usuario
+            // Obtener IDs de productos del usuario
+            $stmt = $this->pdo->prepare("SELECT id FROM inventario WHERE user_id = ?");
+            $stmt->execute([$this->user_id]);
+            $producto_ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+            if (!empty($producto_ids)) {
+                // Convertir array de IDs a string para usar en IN clause
+                $ids_string = implode(',', $producto_ids);
+
+                // Verificar qué tablas existen antes de intentar eliminar
+                $tablas_relacionadas = [];
+                $posibles_tablas = [
+                    'cotizacion_detalles',
+                    'venta_detalles',
+                    'inventario_bodegas',
+                    'imagenes_producto',
+                    'producto_proveedores',
+                    'producto_categorias',
+                    'ajuste_inventario_detalles'
+                ];
+
+                foreach ($posibles_tablas as $tabla) {
+                    $stmt = $this->pdo->prepare("
+                        SELECT COUNT(*) 
+                        FROM information_schema.TABLES 
+                        WHERE TABLE_SCHEMA = DATABASE() 
+                        AND TABLE_NAME = ?
+                    ");
+                    $stmt->execute([$tabla]);
+                    if ($stmt->fetchColumn() > 0) {
+                        $tablas_relacionadas[] = $tabla;
+                    }
+                }
+
+                // Eliminar registros solo de las tablas que existen
+                foreach ($tablas_relacionadas as $tabla) {
+                    try {
+                        $stmt = $this->pdo->prepare("DELETE FROM {$tabla} WHERE producto_id IN ({$ids_string})");
+                        $stmt->execute();
+                    } catch (Exception $e) {
+                        error_log("Error al eliminar registros de la tabla {$tabla}: " . $e->getMessage());
+                        // Continuar con la siguiente tabla si hay error
+                        continue;
+                    }
+                }
+            }
+
+            // Finalmente eliminar los productos
             $stmt = $this->pdo->prepare("DELETE FROM inventario WHERE user_id = ?");
             $stmt->execute([$this->user_id]);
 
@@ -271,6 +326,7 @@ class InventoryManager
             return true;
         } catch (Exception $e) {
             $this->pdo->rollBack();
+            error_log("Error al vaciar inventario: " . $e->getMessage());
             throw new Exception('Error al vaciar el inventario: ' . $e->getMessage());
         }
     }
@@ -750,40 +806,89 @@ try {
                 </div>
 
                 <!-- Paginación mejorada -->
-                <div class="mt-6">
-                    <nav class="flex justify-center" aria-label="Pagination">
-                        <ul class="flex items-center space-x-2">
-                            <?php if ($config->current_page > 1): ?>
-                                <li>
-                                    <a href="?pagina=<?= $config->current_page - 1 ?>"
-                                        class="px-3 py-2 rounded-md bg-white border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                                        <i class="fas fa-chevron-left"></i>
-                                    </a>
-                                </li>
-                            <?php endif; ?>
+                <div class="mt-6 flex items-center justify-between">
+                    <!-- Selector de items por página -->
+                    <div class="flex items-center space-x-2">
+                        <label for="items_per_page" class="text-sm text-gray-600">Mostrar:</label>
+                        <select id="items_per_page" 
+                                class="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                                onchange="cambiarItemsPorPagina(this.value)">
+                            <?php
+                            $opciones = [10, 20, 30, 80, 100];
+                            foreach ($opciones as $opcion) {
+                                $selected = $config->items_per_page == $opcion ? 'selected' : '';
+                                echo "<option value=\"{$opcion}\" {$selected}>{$opcion}</option>";
+                            }
+                            ?>
+                        </select>
+                        <span class="text-sm text-gray-600">items</span>
+                    </div>
 
-                            <?php for ($i = 1; $i <= $total_paginas; $i++): ?>
-                                <li>
-                                    <a href="?pagina=<?= $i ?>"
-                                        class="<?= $config->current_page === $i
-                                                    ? 'bg-blue-600 text-white'
-                                                    : 'bg-white text-gray-700 hover:bg-gray-50' ?> 
-                                              px-3 py-2 rounded-md border border-gray-300 text-sm font-medium">
-                                        <?= $i ?>
-                                    </a>
-                                </li>
-                            <?php endfor; ?>
+                    <!-- Paginación mejorada -->
+                    <nav class="flex items-center justify-center space-x-1" aria-label="Pagination">
+                        <?php
+                        $rango = 2; // Número de páginas a mostrar antes y después de la página actual
+                        $inicio_rango = max(1, $config->current_page - $rango);
+                        $fin_rango = min($total_paginas, $config->current_page + $rango);
 
-                            <?php if ($config->current_page < $total_paginas): ?>
-                                <li>
-                                    <a href="?pagina=<?= $config->current_page + 1 ?>"
-                                        class="px-3 py-2 rounded-md bg-white border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                                        <i class="fas fa-chevron-right"></i>
-                                    </a>
-                                </li>
-                            <?php endif; ?>
-                        </ul>
+                        // Botón Primera página
+                        if ($config->current_page > 1):
+                        ?>
+                            <a href="?pagina=1<?= isset($_GET['items_per_page']) ? '&items_per_page=' . $_GET['items_per_page'] : '' ?>" 
+                               class="px-3 py-2 rounded-md bg-white border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                <i class="fas fa-angle-double-left"></i>
+                            </a>
+                            <a href="?pagina=<?= $config->current_page - 1 ?><?= isset($_GET['items_per_page']) ? '&items_per_page=' . $_GET['items_per_page'] : '' ?>" 
+                               class="px-3 py-2 rounded-md bg-white border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                <i class="fas fa-angle-left"></i>
+                            </a>
+                        <?php endif; ?>
+
+                        <?php
+                        // Mostrar puntos suspensivos al inicio si es necesario
+                        if ($inicio_rango > 1) {
+                            echo '<span class="px-3 py-2 text-gray-500">...</span>';
+                        }
+
+                        // Mostrar páginas
+                        for ($i = $inicio_rango; $i <= $fin_rango; $i++):
+                            $is_current = $config->current_page === $i;
+                        ?>
+                            <a href="?pagina=<?= $i ?><?= isset($_GET['items_per_page']) ? '&items_per_page=' . $_GET['items_per_page'] : '' ?>"
+                               class="<?= $is_current 
+                                         ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                                         : 'bg-white text-gray-700 hover:bg-gray-50' ?> 
+                                      px-3 py-2 rounded-md border border-gray-300 text-sm font-medium">
+                                <?= $i ?>
+                            </a>
+                        <?php endfor; ?>
+
+                        <?php
+                        // Mostrar puntos suspensivos al final si es necesario
+                        if ($fin_rango < $total_paginas) {
+                            echo '<span class="px-3 py-2 text-gray-500">...</span>';
+                        }
+
+                        // Botón Última página
+                        if ($config->current_page < $total_paginas):
+                        ?>
+                            <a href="?pagina=<?= $config->current_page + 1 ?><?= isset($_GET['items_per_page']) ? '&items_per_page=' . $_GET['items_per_page'] : '' ?>" 
+                               class="px-3 py-2 rounded-md bg-white border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                <i class="fas fa-angle-right"></i>
+                            </a>
+                            <a href="?pagina=<?= $total_paginas ?><?= isset($_GET['items_per_page']) ? '&items_per_page=' . $_GET['items_per_page'] : '' ?>" 
+                               class="px-3 py-2 rounded-md bg-white border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                                <i class="fas fa-angle-double-right"></i>
+                            </a>
+                        <?php endif; ?>
                     </nav>
+
+                    <!-- Información de paginación -->
+                    <div class="text-sm text-gray-600">
+                        Mostrando <?= ($config->current_page - 1) * $config->items_per_page + 1 ?> 
+                        a <?= min($config->current_page * $config->items_per_page, $total_productos) ?> 
+                        de <?= $total_productos ?> resultados
+                    </div>
                 </div>
             </div>
         </main>
@@ -863,26 +968,31 @@ try {
         // Función mejorada para aplicar filtros
         function aplicarFiltros() {
             const params = new URLSearchParams(window.location.search);
-
+            
+            // Mantener items_per_page si existe
+            const itemsPerPage = params.get('items_per_page');
+            
             // Obtener valores de los filtros
             const busqueda = document.getElementById('busqueda').value;
             const categoria = document.getElementById('categoria').value;
             const departamento = document.getElementById('departamento').value;
             const stockStatus = document.getElementById('stock_status').value;
 
-            // Actualizar o eliminar parámetros según corresponda
-            if (busqueda) params.set('busqueda', busqueda);
-            else params.delete('busqueda');
-            if (categoria) params.set('categoria', categoria);
-            else params.delete('categoria');
-            if (departamento) params.set('departamento', departamento);
-            else params.delete('departamento');
-            if (stockStatus) params.set('stock_status', stockStatus);
-            else params.delete('stock_status');
+            // Limpiar parámetros existentes
+            params.forEach((value, key) => {
+                if (key !== 'items_per_page') {
+                    params.delete(key);
+                }
+            });
 
-            // Mantener la página actual si existe
-            const paginaActual = params.get('pagina');
-            if (paginaActual) params.set('pagina', '1');
+            // Agregar nuevos parámetros
+            if (busqueda) params.set('busqueda', busqueda);
+            if (categoria) params.set('categoria', categoria);
+            if (departamento) params.set('departamento', departamento);
+            if (stockStatus) params.set('stock_status', stockStatus);
+            
+            // Establecer la página en 1
+            params.set('pagina', '1');
 
             // Redirigir con los nuevos parámetros
             window.location.search = params.toString();
@@ -986,6 +1096,13 @@ try {
                     });
                 }
             });
+        }
+
+        function cambiarItemsPorPagina(items) {
+            const params = new URLSearchParams(window.location.search);
+            params.set('items_per_page', items);
+            params.set('pagina', '1'); // Volver a la primera página al cambiar los items por página
+            window.location.search = params.toString();
         }
     </script>
 

@@ -490,6 +490,33 @@ if (isset($_POST['logout'])) {
                 </div>
             </div>
 
+            <!-- Nueva Alerta Portal de Clientes -->
+            <div class="mb-8 p-4 bg-blue-50 border border-blue-200 rounded-xl shadow-sm" data-aos="fade-up" data-aos-delay="200">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-bullhorn text-2xl text-blue-600"></i>
+                    </div>
+                    <div class="ml-4 flex-1">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="text-lg font-semibold text-blue-900">
+                                    ¡Nuevo Portal de Clientes Disponible!
+                                </h3>
+                                <p class="mt-1 text-sm text-blue-700">
+                                    Ahora tus clientes pueden acceder a sus facturas, historial de compras y estado de cuenta en línea.
+                                </p>
+                            </div>
+                            <a href="https://portal.johanrengifo.cloud" 
+                               target="_blank"
+                               class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors">
+                                Visitar Portal
+                                <i class="fas fa-external-link-alt ml-2"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Tarjetas de Resumen Mejoradas -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 <!-- Ventas del Día -->

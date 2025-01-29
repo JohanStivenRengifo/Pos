@@ -94,8 +94,8 @@ function getUserEgresos($user_id, $limit = 10, $offset = 0)
 function addEgreso($user_id, $data) {
     global $pdo;
     try {
-        // Validar el estado
-        if (!isset($data['estado']) || empty($data['estado'])) {
+        // Validar el estado - solo establecer pendiente si no se proporciona un estado
+        if (empty($data['estado'])) {
             $data['estado'] = 'pendiente';
         }
 
@@ -341,6 +341,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
                 'fecha' => $_POST['fecha'],
                 'categoria' => trim($_POST['categoria']),
                 'metodo_pago' => trim($_POST['metodo_pago']),
+                'estado' => trim($_POST['estado']),
                 'notas' => trim($_POST['notas'])
             ];
 
@@ -568,7 +569,6 @@ function getProximoVencimiento($user_id) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<<<<<<< HEAD
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
 
     <!-- Configuración de Tailwind -->
@@ -662,8 +662,6 @@ function getProximoVencimiento($user_id) {
             }
         }
     </style>
-=======
->>>>>>> c66b0f4a05796dc3868e285708ba55ed7dad5e6f
 </head>
 <body class="bg-gray-50">
     <?php include '../../includes/header.php'; ?>
@@ -738,13 +736,9 @@ function getProximoVencimiento($user_id) {
                             <p class="text-gray-600">Administra y controla todos los gastos de tu negocio</p>
                         </div>
                         <div class="flex gap-3">
-                            <button class="btn-primary" onclick="toggleForm()">
+                            <button class="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors duration-200 gap-2 font-medium" onclick="toggleForm()">
                                 <i class="fas fa-plus"></i>
                                 Nuevo Egreso
-                            </button>
-                            <button class="btn-secondary" onclick="exportarExcel()">
-                                <i class="fas fa-file-excel"></i>
-                                Exportar
                             </button>
                         </div>
                     </div>
@@ -869,13 +863,13 @@ function getProximoVencimiento($user_id) {
                             <!-- Comprobante -->
                             <div class="form-group">
                                 <label class="form-label">Comprobante</label>
-                                <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:bg-gray-50 transition-colors">
+                                <div class="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:bg-gray-50 transition-colors duration-200">
                                     <input type="file" 
                                            name="comprobante" 
                                            id="comprobante"
                                            accept="image/*,.pdf"
                                            class="hidden">
-                                    <div id="file-info" class="py-2">
+                                    <div class="py-2">
                                         <i class="fas fa-cloud-upload-alt text-gray-400 text-2xl mb-2"></i>
                                         <p class="text-sm text-gray-500">Arrastra un archivo o haz clic para seleccionar</p>
                                     </div>
@@ -907,11 +901,11 @@ function getProximoVencimiento($user_id) {
                             <!-- Botones -->
                             <div class="flex justify-end gap-4 pt-4">
                                 <button type="reset" 
-                                        class="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                                        class="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200">
                                     Limpiar
                                 </button>
                                 <button type="submit" 
-                                        class="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                                        class="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200">
                                     Guardar Egreso
                                 </button>
                             </div>
@@ -1094,11 +1088,17 @@ function getProximoVencimiento($user_id) {
         }
     });
 
-    // Toggle del formulario con animación
+    // Función para alternar la visibilidad del formulario
     function toggleForm() {
-        var form = document.getElementById('formContainer');
-        if (form) {
-            form.classList.toggle('hidden');
+        const formContainer = document.getElementById('formContainer');
+        if (formContainer) {
+            if (formContainer.classList.contains('hidden')) {
+                formContainer.classList.remove('hidden');
+                formContainer.classList.add('animate-slide-in');
+            } else {
+                formContainer.classList.add('hidden');
+                formContainer.classList.remove('animate-slide-in');
+            }
         }
     }
 
@@ -1191,12 +1191,11 @@ function getProximoVencimiento($user_id) {
     function guardarEgreso(event) {
         event.preventDefault();
         
-        // Crear FormData del formulario
         var formData = new FormData(document.getElementById('egresoForm'));
+        var isUpdate = formData.get('action') === 'update_egreso';
         
-        // Mostrar indicador de carga
         Swal.fire({
-            title: 'Guardando...',
+            title: isUpdate ? 'Actualizando...' : 'Guardando...',
             text: 'Por favor espere',
             allowOutsideClick: false,
             didOpen: () => {
@@ -1204,7 +1203,6 @@ function getProximoVencimiento($user_id) {
             }
         });
 
-        // Enviar petición AJAX
         $.ajax({
             url: window.location.href,
             type: 'POST',
@@ -1223,8 +1221,6 @@ function getProximoVencimiento($user_id) {
                         timer: 1500,
                         showConfirmButton: false
                     }).then(() => {
-                        // Limpiar formulario y recargar página
-                        document.getElementById('egresoForm').reset();
                         window.location.reload();
                     });
                 } else {
@@ -1235,13 +1231,8 @@ function getProximoVencimiento($user_id) {
                     });
                 }
             },
-            error: function(xhr, status, error) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'Hubo un problema al procesar la solicitud'
-                });
-                console.error(error);
+            error: function() {
+                mostrarError('Error de conexión');
             }
         });
     }
@@ -1330,7 +1321,6 @@ function getProximoVencimiento($user_id) {
 
     // Agregar estas funciones en la sección de scripts
     function editarEgreso(id) {
-        // Mostrar indicador de carga
         Swal.fire({
             title: 'Cargando...',
             allowOutsideClick: false,
@@ -1339,7 +1329,6 @@ function getProximoVencimiento($user_id) {
             }
         });
 
-        // Hacer petición AJAX para obtener los datos del egreso
         $.ajax({
             url: window.location.href,
             type: 'POST',
@@ -1353,12 +1342,14 @@ function getProximoVencimiento($user_id) {
             success: function(response) {
                 Swal.close();
                 if (response.status) {
-                    // Mostrar el formulario si está oculto
                     var form = document.getElementById('formContainer');
                     if (form.classList.contains('hidden')) {
                         toggleForm();
                     }
 
+                    // Cambiar la acción del formulario a 'update_egreso'
+                    document.querySelector('input[name="action"]').value = 'update_egreso';
+                    
                     // Rellenar el formulario con los datos
                     document.getElementById('egreso_id').value = response.data.id;
                     document.getElementById('numero_factura').value = response.data.numero_factura;
@@ -1371,7 +1362,6 @@ function getProximoVencimiento($user_id) {
                     document.querySelector('textarea[name="descripcion"]').value = response.data.descripcion;
                     document.querySelector('textarea[name="notas"]').value = response.data.notas || '';
 
-                    // Hacer scroll al formulario
                     form.scrollIntoView({ behavior: 'smooth' });
                 } else {
                     Swal.fire({
@@ -1419,8 +1409,25 @@ function getProximoVencimiento($user_id) {
             headers: {
                 'X-Requested-With': 'XMLHttpRequest'
             },
-<<<<<<< HEAD
-=======
+            success: function(response) {
+                if (response.status) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Eliminado!',
+                        text: response.message,
+                        timer: 1500,
+                        showConfirmButton: false
+                    }).then(() => {
+                        window.location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: response.message
+                    });
+                }
+            },
             error: function() {
                 mostrarError('Error de conexión');
             }
@@ -1450,64 +1457,19 @@ function getProximoVencimiento($user_id) {
             });
         });
     });
-    </script>
 
-    <!-- Agregar este script para manejar el envío del formulario -->
-    <script>
-    function guardarEgreso(event) {
-        event.preventDefault();
-        
-        const formData = new FormData(document.getElementById('egresoForm'));
-        const egresoId = document.getElementById('egreso_id').value;
-        
-        // Determinar si es una actualización o un nuevo registro
-        formData.append('action', egresoId ? 'update_egreso' : 'add_egreso');
-        
-        // Mostrar indicador de carga
-        Swal.fire({
-            title: egresoId ? 'Actualizando...' : 'Guardando...',
-            text: 'Por favor espere',
-            allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
-            }
-        });
-
-        $.ajax({
-            url: window.location.href,
-            type: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
->>>>>>> c66b0f4a05796dc3868e285708ba55ed7dad5e6f
-            success: function(response) {
-                if (response.status) {
-                    Swal.fire({
-                        icon: 'success',
-                        title: '¡Eliminado!',
-                        text: response.message,
-                        timer: 1500,
-                        showConfirmButton: false
-                    }).then(() => {
-                        window.location.reload();
-                    });
-                } else {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Error',
-                        text: response.message
-                    });
-                }
-            },
-            error: function() {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'Error al eliminar el egreso'
-                });
-            }
-        });
+    // Agregar función para resetear el formulario cuando se agrega un nuevo egreso
+    function resetearFormulario() {
+        document.getElementById('egresoForm').reset();
+        document.querySelector('input[name="action"]').value = 'add_egreso';
+        document.getElementById('egreso_id').value = '';
     }
+
+    // Modificar el evento click del botón "Nuevo Egreso"
+    document.querySelector('.btn-primary').addEventListener('click', function() {
+        resetearFormulario();
+        toggleForm();
+    });
     </script>
 </body>
 </html>

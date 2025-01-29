@@ -22,6 +22,16 @@ $mensaje = '';
 define('MAX_PRODUCTOS_POR_CARGA', 5000);
 define('MAX_TAMANO_ARCHIVO', 25 * 1024 * 1024); // 25MB
 
+// Primero, necesitamos modificar la tabla inventario para aumentar el tamaño del campo codigo_barras
+$sqlAlterTable = "ALTER TABLE inventario MODIFY COLUMN codigo_barras VARCHAR(20) NOT NULL";
+
+// Agregar esta línea justo después de la conexión a la base de datos, antes de procesar cualquier archivo
+try {
+    $pdo->exec($sqlAlterTable);
+} catch (PDOException $e) {
+    // Si hay un error, continuamos ya que la columna podría ya tener el tamaño correcto
+}
+
 // Función para crear y descargar la plantilla
 function descargarPlantilla() {
     $spreadsheet = new Spreadsheet();
@@ -166,13 +176,38 @@ function obtenerOCrearCategoria($pdo, $nombre, $user_id, &$cache = []) {
     return $id;
 }
 
-// Función para validar datos
+// Función para limpiar y convertir valores monetarios
+function limpiarValorMonetario($valor) {
+    // Si es numérico, retornarlo directamente
+    if (is_numeric($valor)) {
+        return floatval($valor);
+    }
+    
+    // Eliminar el símbolo de moneda y espacios
+    $valor = trim(str_replace(['$', ' '], '', $valor));
+    
+    // Reemplazar la coma decimal por un marcador temporal
+    $valor = str_replace(',', '#', $valor);
+    
+    // Eliminar todos los puntos (separadores de miles)
+    $valor = str_replace('.', '', $valor);
+    
+    // Restaurar el punto decimal
+    $valor = str_replace('#', '.', $valor);
+    
+    // Convertir a float
+    return floatval($valor);
+}
+
+// Modificar la función validarDatosProducto
 function validarDatosProducto($datos) {
     $errores = [];
     
-    // Validar código de barras
-    if (empty($datos[0]) || !preg_match('/^\d{8,13}$/', $datos[0])) {
-        $errores[] = "Código de barras inválido: debe tener entre 8 y 13 d��gitos";
+    // Validar código de barras - modificado para ser más flexible
+    if (empty($datos[0])) {
+        $errores[] = "Código de barras inválido: no debe estar vacío";
+    } else if (strlen($datos[0]) > 20) { // Cambiamos a 20 caracteres para dar más margen
+        $errores[] = "Código de barras inválido: no debe exceder 20 caracteres";
     }
     
     // Validar nombre
@@ -195,18 +230,15 @@ function validarDatosProducto($datos) {
     }
     
     // Validar precio de costo
-    if (!is_numeric($datos[6]) || $datos[6] < 0) {
-        $errores[] = "Precio de costo inválido: debe ser un número positivo";
+    $precio_costo = limpiarValorMonetario($datos[6]);
+    if (!is_numeric($precio_costo) || $precio_costo <= 0) {
+        $errores[] = "Precio de costo inválido: debe ser mayor que cero";
     }
     
     // Validar precio de venta
-    if (!is_numeric($datos[7]) || $datos[7] < 0) {
-        $errores[] = "Precio de venta inválido: debe ser un número positivo";
-    }
-    
-    // Validar que el precio de venta sea mayor al precio de costo
-    if (floatval($datos[7]) <= floatval($datos[6])) {
-        $errores[] = "El precio de venta debe ser mayor al precio de costo";
+    $precio_venta = limpiarValorMonetario($datos[7]);
+    if (!is_numeric($precio_venta) || $precio_venta < 0) {
+        $errores[] = "Precio de venta inválido: debe ser un número positivo o cero";
     }
     
     // Validar impuesto
@@ -217,23 +249,65 @@ function validarDatosProducto($datos) {
     return $errores;
 }
 
-// Agregar función para calcular el margen de ganancia
+// Modificar la función calcularMargenGanancia para manejar correctamente los valores
 function calcularMargenGanancia($precio_costo, $precio_venta, $impuesto) {
+    if ($precio_costo <= 0) {
+        return 0.01;
+    }
+    
     // Precio venta sin IVA = Precio venta / (1 + impuesto/100)
     $precio_venta_sin_iva = $precio_venta / (1 + ($impuesto/100));
     
-    // Margen = ((Precio venta sin IVA / Precio costo) - 1) * 100
-    $margen = (($precio_venta_sin_iva / $precio_costo) - 1) * 100;
+    // Margen = ((Precio venta sin IVA - Precio costo) / Precio costo) * 100
+    $margen = (($precio_venta_sin_iva - $precio_costo) / $precio_costo) * 100;
     
-    return round($margen, 2); // Redondear a 2 decimales
+    return max(0.01, round($margen, 2));
 }
 
-// Modificar la parte de procesamiento del archivo
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['archivo_excel'])) {
+// Agregar esta nueva función para obtener la previsualización
+function obtenerPreview($archivo) {
+    $spreadsheet = IOFactory::load($archivo);
+    $worksheet = $spreadsheet->getActiveSheet();
+    $highestRow = min($worksheet->getHighestRow(), 10); // Limitamos a 10 filas para la preview
+    
+    $productos = [];
+    for ($row = 3; $row <= $highestRow; $row++) {
+        $datos = [];
+        for ($col = 'A'; $col <= 'K'; $col++) {
+            $datos[] = trim($worksheet->getCell($col . $row)->getValue());
+        }
+        
+        // Saltar filas vacías
+        if (empty($datos[0])) continue;
+        
+        $productos[] = [
+            'codigo_barras' => $datos[0],
+            'nombre' => $datos[1],
+            'descripcion' => $datos[2],
+            'stock' => $datos[3],
+            'stock_minimo' => $datos[4],
+            'unidad_medida' => $datos[5],
+            'precio_costo' => $datos[6],
+            'precio_venta' => $datos[7],
+            'impuesto' => $datos[8],
+            'departamento' => $datos[9],
+            'categoria' => $datos[10]
+        ];
+    }
+    
+    return $productos;
+}
+
+// Modificar la parte de procesamiento del archivo para incluir modo preview
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     header('Content-Type: application/json');
-    $response = ['success' => false, 'message' => '', 'errors' => [], 'debug' => []];
+    $response = ['success' => false, 'message' => '', 'errors' => [], 'debug' => [], 'preview' => null];
     
     try {
+        if (!isset($_FILES['archivo_excel'])) {
+            throw new Exception("No se ha enviado ningún archivo");
+        }
+
         // Validaciones iniciales del archivo
         if ($_FILES['archivo_excel']['size'] > MAX_TAMANO_ARCHIVO) {
             throw new Exception("El archivo excede el tamaño máximo permitido de " . (MAX_TAMANO_ARCHIVO / 1024 / 1024) . "MB");
@@ -243,7 +317,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['archivo_excel'])) {
         if (!in_array($extension, ['xlsx', 'xls'])) {
             throw new Exception("Formato de archivo no válido. Use .xlsx o .xls");
         }
-        
+
+        // Si es modo preview, devolver la previsualización
+        if (isset($_POST['preview']) && $_POST['preview'] === 'true') {
+            $response['preview'] = obtenerPreview($_FILES['archivo_excel']['tmp_name']);
+            $response['success'] = true;
+            $response['message'] = "Vista previa generada correctamente";
+            echo json_encode($response);
+            exit;
+        }
+
+        // Si no es preview, continuar con la importación normal
         // Cargar el archivo
         $spreadsheet = IOFactory::load($_FILES['archivo_excel']['tmp_name']);
         $worksheet = $spreadsheet->getActiveSheet();
@@ -305,25 +389,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['archivo_excel'])) {
                 $departamento_id = obtenerOCrearDepartamento($pdo, $datos[9], $user_id, $cacheDepartamentos);
                 $categoria_id = obtenerOCrearCategoria($pdo, $datos[10], $user_id, $cacheCategorias);
                 
-                // Calcular precio de venta
-                $precio_costo = floatval($datos[6]);
-                $margen = floatval($datos[7]);
+                // Obtener los precios limpios
+                $precio_costo = limpiarValorMonetario($datos[6]);
+                $precio_venta = limpiarValorMonetario($datos[7]);
                 $impuesto = floatval($datos[8]);
-                $precio_sin_iva = $precio_costo * (1 + ($margen / 100));
-                $precio_venta = $precio_sin_iva * (1 + ($impuesto / 100));
+                
+                // Calcular el margen de ganancia con los valores limpios
+                $margen_ganancia = calcularMargenGanancia(
+                    $precio_costo,
+                    $precio_venta,
+                    $impuesto
+                );
                 
                 // Verificar si el producto existe
                 $stmtCheck->execute([$datos[0], $user_id]);
                 $existe = $stmtCheck->fetch();
                 
                 if ($existe) {
-                    // Calcular el margen de ganancia
-                    $margen_ganancia = calcularMargenGanancia(
-                        floatval($datos[6]),  // precio_costo
-                        floatval($datos[7]),  // precio_venta
-                        floatval($datos[8])   // impuesto
-                    );
-
                     // Actualizar producto existente
                     $stmtUpdate->execute([
                         $datos[1],            // nombre
@@ -331,10 +413,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['archivo_excel'])) {
                         floatval($datos[3]),  // stock
                         floatval($datos[4]),  // stock_minimo
                         strtoupper($datos[5]),// unidad_medida
-                        $precio_costo,        // precio_costo
+                        $precio_costo,        // precio_costo limpio
                         $margen_ganancia,     // margen_ganancia calculado
                         $impuesto,            // impuesto
-                        floatval($datos[7]),  // precio_venta
+                        $precio_venta,        // precio_venta limpio
                         $departamento_id,
                         $categoria_id,
                         $datos[0],            // codigo_barras
@@ -342,13 +424,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['archivo_excel'])) {
                     ]);
                     $productosActualizados++;
                 } else {
-                    // Calcular el margen de ganancia
-                    $margen_ganancia = calcularMargenGanancia(
-                        floatval($datos[6]),  // precio_costo
-                        floatval($datos[7]),  // precio_venta
-                        floatval($datos[8])   // impuesto
-                    );
-
                     // Insertar nuevo producto
                     $stmtInsert->execute([
                         $user_id,
@@ -358,10 +433,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['archivo_excel'])) {
                         floatval($datos[3]),  // stock
                         floatval($datos[4]),  // stock_minimo
                         strtoupper($datos[5]),// unidad_medida
-                        $precio_costo,        // precio_costo
+                        $precio_costo,        // precio_costo limpio
                         $margen_ganancia,     // margen_ganancia calculado
                         $impuesto,            // impuesto
-                        floatval($datos[7]),  // precio_venta
+                        $precio_venta,        // precio_venta limpio
                         $departamento_id,
                         $categoria_id
                     ]);
@@ -570,6 +645,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['archivo_excel'])) {
                         </div>
                     </div>
                 </form>
+
+                <!-- Agregar esto justo después del formulario de importación -->
+                <div id="previewContainer" class="hidden mt-8">
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h3 class="text-xl font-semibold mb-4">Vista Previa de Productos</h3>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio Costo</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio Venta</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Departamento</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200" id="previewTableBody">
+                                    <!-- Los datos se insertarán aquí dinámicamente -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="mt-4 flex justify-end space-x-4">
+                            <button type="button" 
+                                    onclick="cancelarImportacion()"
+                                    class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                                Cancelar
+                            </button>
+                            <button type="button" 
+                                    onclick="confirmarImportacion()"
+                                    class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                                Confirmar Importación
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </main>
     </div>
@@ -643,26 +754,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['archivo_excel'])) {
                     return;
                 }
 
-                // Mostrar confirmación
-                Swal.fire({
-                    title: '¿Importar archivo?',
-                    html: `
-                        <div class="text-left">
-                            <p class="mb-2">Archivo: <strong>${file.name}</strong></p>
-                            <p>Tamaño: <strong>${(file.size / 1024 / 1024).toFixed(2)} MB</strong></p>
-                        </div>
-                    `,
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonText: 'Sí, importar',
-                    cancelButtonText: 'Cancelar',
-                    confirmButtonColor: '#3085d6',
-                    cancelButtonColor: '#d33'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        importarArchivo(file);
+                // Mostrar previsualización
+                mostrarPreview(file);
+            }
+        }
+
+        // Función para mostrar la previsualización
+        function mostrarPreview(file) {
+            const formData = new FormData();
+            formData.append('archivo_excel', file);
+            formData.append('preview', 'true');
+            
+            $.ajax({
+                url: window.location.href,
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    if (response.success && response.preview) {
+                        const tableBody = document.getElementById('previewTableBody');
+                        tableBody.innerHTML = '';
+                        
+                        response.preview.forEach(producto => {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${producto.codigo_barras}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${producto.nombre}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${producto.stock}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${producto.precio_costo}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${producto.precio_venta}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${producto.departamento}</td>
+                            `;
+                            tableBody.appendChild(row);
+                        });
+                        
+                        document.getElementById('previewContainer').classList.remove('hidden');
+                        document.getElementById('importForm').classList.add('hidden');
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: response.message || 'Error al generar la vista previa'
+                        });
                     }
-                });
+                },
+                error: function(xhr, status, error) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Error al procesar el archivo: ' + error
+                    });
+                }
+            });
+        }
+
+        // Función para cancelar la importación
+        function cancelarImportacion() {
+            document.getElementById('previewContainer').classList.add('hidden');
+            document.getElementById('importForm').classList.remove('hidden');
+            document.getElementById('archivo_excel').value = '';
+        }
+
+        // Función para confirmar la importación
+        function confirmarImportacion() {
+            const file = document.getElementById('archivo_excel').files[0];
+            if (file) {
+                importarArchivo(file);
             }
         }
 
