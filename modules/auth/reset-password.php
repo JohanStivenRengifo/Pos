@@ -106,93 +106,218 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Restablece tu contraseña de VendEasy">
-    <title>Restablecer Contraseña | VendEasy</title>
+    <meta name="description" content="Sistema de gestión empresarial VendEasy - Restablecimiento de contraseña">
+    <title>VendEasy | Restablecer Contraseña</title>
     <link rel="icon" type="image/png" href="../../favicon/favicon.ico"/>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link rel="stylesheet" href="../../css/auth.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 3px solid #fff;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .password-requirements li {
+            transition: all 0.3s ease;
+        }
+        .password-requirements li.met {
+            color: #059669;
+        }
+        .password-requirements li.met i {
+            color: #059669;
+        }
+        .strength-progress {
+            transition: all 0.3s ease;
+            height: 4px;
+            width: 0;
+            background-color: #ef4444;
+        }
+        .strength-progress.weak { background-color: #ef4444; }
+        .strength-progress.fair { background-color: #f59e0b; }
+        .strength-progress.good { background-color: #10b981; }
+        .strength-progress.strong { background-color: #059669; }
+    </style>
 </head>
-<body>
-    <div class="auth-container">
-        <div class="auth-header">
-            <i class="fas fa-lock-open auth-icon"></i>
-            <h2>Crear nueva contraseña</h2>
-            <p>Tu contraseña debe ser diferente a las anteriores</p>
-        </div>
 
-        <?php if (isset($error)): ?>
-            <div class="alert alert-error">
-                <i class="fas fa-exclamation-circle"></i>
+<body class="min-h-screen flex flex-col md:flex-row bg-gray-50">
+    <!-- Sección lateral con imagen y mensaje de bienvenida -->
+    <div class="hidden lg:flex lg:w-1/2 bg-primary-600 text-white p-12 flex-col justify-between">
+        <div>
+            <h1 class="text-4xl font-bold mb-4">VendEasy</h1>
+            <p class="text-primary-100">Sistema integral de gestión empresarial</p>
+        </div>
+        <div class="space-y-6">
+            <h2 class="text-3xl font-bold">Restablece tu contraseña</h2>
+            <p class="text-xl text-primary-100">Crea una nueva contraseña segura para tu cuenta</p>
+            <div class="space-y-4">
+                <div class="flex items-center space-x-3">
+                    <div class="flex-shrink-0 w-10 h-10 bg-primary-500 rounded-full flex items-center justify-center">
+                        <i class="fas fa-shield-alt text-white"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="font-medium">Contraseña segura</h3>
+                        <p class="text-sm text-primary-100">Usa una combinación de letras, números y símbolos</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <div class="flex-shrink-0 w-10 h-10 bg-primary-500 rounded-full flex items-center justify-center">
+                        <i class="fas fa-fingerprint text-white"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="font-medium">Única</h3>
+                        <p class="text-sm text-primary-100">No reutilices contraseñas de otras cuentas</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <div class="flex-shrink-0 w-10 h-10 bg-primary-500 rounded-full flex items-center justify-center">
+                        <i class="fas fa-brain text-white"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="font-medium">Memorable</h3>
+                        <p class="text-sm text-primary-100">Fácil de recordar pero difícil de adivinar</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="text-sm text-primary-100">
+            © <?= date('Y') ?> VendEasy. Todos los derechos reservados.
+        </div>
+    </div>
+
+    <!-- Formulario de restablecimiento -->
+    <div class="flex-1 flex items-center justify-center p-6 sm:p-12">
+        <div class="w-full max-w-md space-y-8">
+            <div class="text-center">
+                <div class="mx-auto w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mb-4">
+                    <i class="fas fa-lock-open text-3xl text-primary-600"></i>
+                </div>
+                <h2 class="mt-2 text-3xl font-bold text-gray-900">Crear nueva contraseña</h2>
+                <p class="mt-2 text-sm text-gray-600">Tu contraseña debe ser diferente a las anteriores</p>
+            </div>
+
+            <?php if (isset($error)): ?>
+            <div class="p-4 bg-red-100 border border-red-200 text-red-700 rounded-lg flex items-center">
+                <i class="fas fa-exclamation-circle mr-2"></i>
                 <?= htmlspecialchars($error) ?>
             </div>
-        <?php endif; ?>
+            <?php endif; ?>
 
-        <form id="resetForm" method="POST" action="">
-            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
-            
-            <div class="form-group">
-                <label for="password">Nueva Contraseña</label>
-                <div class="password-container">
-                    <i class="fas fa-lock input-icon"></i>
-                    <input type="password" id="password" name="password" required 
-                           minlength="8"
-                           placeholder="Mínimo 8 caracteres">
-                    <button type="button" class="toggle-password" aria-label="Toggle password visibility">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                </div>
-                <div class="password-strength">
-                    <div class="strength-bar">
-                        <div class="strength-progress"></div>
+            <form id="resetForm" method="POST" action="" class="mt-8 space-y-6">
+                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                
+                <div class="space-y-4">
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-700">Nueva Contraseña</label>
+                        <div class="mt-1 relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-lock text-gray-400"></i>
+                            </div>
+                            <input type="password" id="password" name="password" required 
+                                   minlength="8"
+                                   class="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                   placeholder="Mínimo 8 caracteres">
+                            <button type="button" class="toggle-password absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                        <div class="mt-2 space-y-2">
+                            <div class="bg-gray-200 rounded-full h-1">
+                                <div class="strength-progress rounded-full"></div>
+                            </div>
+                            <p class="text-xs text-gray-600">Fortaleza de la contraseña: <span class="strength-text font-medium">débil</span></p>
+                            <ul class="password-requirements grid grid-cols-2 gap-2 text-xs text-gray-500">
+                                <li data-requirement="length" class="flex items-center space-x-1">
+                                    <i class="fas fa-circle text-xs"></i>
+                                    <span>Mínimo 8 caracteres</span>
+                                </li>
+                                <li data-requirement="uppercase" class="flex items-center space-x-1">
+                                    <i class="fas fa-circle text-xs"></i>
+                                    <span>Una mayúscula</span>
+                                </li>
+                                <li data-requirement="lowercase" class="flex items-center space-x-1">
+                                    <i class="fas fa-circle text-xs"></i>
+                                    <span>Una minúscula</span>
+                                </li>
+                                <li data-requirement="number" class="flex items-center space-x-1">
+                                    <i class="fas fa-circle text-xs"></i>
+                                    <span>Un número</span>
+                                </li>
+                            </ul>
+                        </div>
                     </div>
-                    <small class="strength-text">Fortaleza de la contraseña: <span>débil</span></small>
-                    <ul class="password-requirements">
-                        <li data-requirement="length">
-                            <i class="fas fa-circle"></i> 
-                            <span>Mínimo 8 caracteres</span>
-                        </li>
-                        <li data-requirement="uppercase">
-                            <i class="fas fa-circle"></i> 
-                            <span>Una letra mayúscula</span>
-                        </li>
-                        <li data-requirement="lowercase">
-                            <i class="fas fa-circle"></i> 
-                            <span>Una letra minúscula</span>
-                        </li>
-                        <li data-requirement="number">
-                            <i class="fas fa-circle"></i> 
-                            <span>Un número</span>
-                        </li>
-                    </ul>
+
+                    <div>
+                        <label for="confirm_password" class="block text-sm font-medium text-gray-700">Confirmar Nueva Contraseña</label>
+                        <div class="mt-1 relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-lock text-gray-400"></i>
+                            </div>
+                            <input type="password" id="confirm_password" name="confirm_password" 
+                                   required minlength="8"
+                                   class="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                   placeholder="Repite tu contraseña">
+                            <button type="button" class="toggle-password absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                        <p class="password-match-text mt-1 text-sm hidden"></p>
+                    </div>
                 </div>
-            </div>
 
-            <div class="form-group">
-                <label for="confirm_password">Confirmar Nueva Contraseña</label>
-                <div class="password-container">
-                    <i class="fas fa-lock input-icon"></i>
-                    <input type="password" id="confirm_password" name="confirm_password" 
-                           required minlength="8"
-                           placeholder="Repite tu contraseña">
-                    <button type="button" class="toggle-password" aria-label="Toggle password visibility">
-                        <i class="fas fa-eye"></i>
-                    </button>
+                <div class="bg-primary-50 p-4 rounded-lg border border-primary-100">
+                    <div class="flex items-start space-x-3">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-lightbulb text-primary-600"></i>
+                        </div>
+                        <div class="text-sm text-primary-700">
+                            <strong>Consejo:</strong> Una buena contraseña debe ser única y fácil de recordar para ti, 
+                            pero difícil de adivinar para otros.
+                        </div>
+                    </div>
                 </div>
-                <small class="password-match-text">Las contraseñas coinciden</small>
-            </div>
 
-            <button type="submit" class="btn-auth">
-                <span>Cambiar Contraseña</span>
-                <div class="spinner"></div>
-            </button>
-
-            <div class="form-info">
-                <i class="fas fa-shield-alt"></i>
-                <p>Tu contraseña debe ser segura y fácil de recordar</p>
-            </div>
-        </form>
+                <button type="submit" 
+                    class="group relative w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition duration-150 ease-in-out">
+                    <span class="absolute left-0 inset-y-0 flex items-center pl-3">
+                        <i class="fas fa-check"></i>
+                    </span>
+                    <span class="mx-auto">Cambiar Contraseña</span>
+                    <div class="spinner hidden absolute right-4 top-1/2 transform -translate-y-1/2"></div>
+                </button>
+            </form>
+        </div>
     </div>
 
     <script>
@@ -202,7 +327,7 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
         const passwordInput = document.getElementById('password');
         const confirmPasswordInput = document.getElementById('confirm_password');
         const strengthBar = document.querySelector('.strength-progress');
-        const strengthText = document.querySelector('.strength-text span');
+        const strengthText = document.querySelector('.strength-text');
         const requirementItems = document.querySelectorAll('.password-requirements li');
         const passwordMatchText = document.querySelector('.password-match-text');
 
@@ -232,7 +357,7 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
             const percentage = (strength / 4) * 100;
             
             strengthBar.style.width = `${percentage}%`;
-            strengthBar.className = 'strength-progress ' + 
+            strengthBar.className = 'strength-progress rounded-full ' + 
                 (percentage <= 25 ? 'weak' : 
                  percentage <= 50 ? 'fair' : 
                  percentage <= 75 ? 'good' : 'strong');
@@ -242,10 +367,15 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 percentage <= 50 ? 'regular' : 
                 percentage <= 75 ? 'buena' : 'fuerte';
 
+            strengthText.className = 'strength-text font-medium ' +
+                (percentage <= 25 ? 'text-red-600' : 
+                 percentage <= 50 ? 'text-yellow-600' : 
+                 percentage <= 75 ? 'text-green-600' : 'text-emerald-600');
+
             return requirements;
         }
 
-        // Validación en tiempo real
+        // Validación en tiempo real de la contraseña
         passwordInput.addEventListener('input', function() {
             const requirements = updatePasswordStrength(this.value);
             const isValid = Object.values(requirements).every(Boolean);
@@ -259,9 +389,9 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
         function validatePasswordMatch() {
             const isMatch = confirmPasswordInput.value === passwordInput.value;
             confirmPasswordInput.setCustomValidity(isMatch ? '' : 'Las contraseñas no coinciden');
-            passwordMatchText.style.display = confirmPasswordInput.value ? 'block' : 'none';
+            passwordMatchText.classList.remove('hidden');
             passwordMatchText.textContent = isMatch ? '✓ Las contraseñas coinciden' : '✗ Las contraseñas no coinciden';
-            passwordMatchText.className = 'password-match-text ' + (isMatch ? 'match' : 'no-match');
+            passwordMatchText.className = 'mt-1 text-sm ' + (isMatch ? 'text-green-600' : 'text-red-600');
         }
 
         confirmPasswordInput.addEventListener('input', validatePasswordMatch);
@@ -282,12 +412,11 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
             e.preventDefault();
             
             if (!form.checkValidity()) {
-                form.classList.add('was-validated');
                 return;
             }
 
-            submitButton.classList.add('loading');
             submitButton.disabled = true;
+            submitButton.querySelector('.spinner').classList.remove('hidden');
 
             try {
                 const formData = new FormData(this);
@@ -299,16 +428,7 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                     }
                 });
 
-                if (!response.ok) {
-                    throw new Error(`Error HTTP: ${response.status}`);
-                }
-
-                let data;
-                try {
-                    data = await response.json();
-                } catch (e) {
-                    throw new Error('Error al procesar la respuesta del servidor');
-                }
+                const data = await response.json();
                 
                 if (data.status) {
                     Swal.fire({
@@ -321,7 +441,7 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                         window.location.href = data.data.redirect;
                     });
                 } else {
-                    throw new Error(data.message || 'Error desconocido');
+                    throw new Error(data.message);
                 }
             } catch (error) {
                 Swal.fire({
@@ -330,8 +450,8 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                     text: error.message || 'Ocurrió un error al procesar la solicitud'
                 });
             } finally {
-                submitButton.classList.remove('loading');
                 submitButton.disabled = false;
+                submitButton.querySelector('.spinner').classList.add('hidden');
             }
         });
     });

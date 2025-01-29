@@ -8,897 +8,402 @@ if (isset($_SESSION['user_id'])) {
 ?>
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VendEasy - Sistema Contable Inteligente</title>
-    <meta name="description" content="Sistema contable inteligente para pequeñas y medianas empresas. Gestiona tus finanzas de manera fácil y eficiente.">
+    <title>VendEasy - Sistema Contable Profesional</title>
+    <meta name="description" content="Sistema contable profesional para empresas. Gestiona tus finanzas de manera eficiente con la plataforma líder en el mercado.">
     <link rel="icon" type="image/png" href="/favicon/favicon.ico" />
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        :root {
-            --primary-color: #2563eb;
-            --secondary-color: #1e40af;
-            --accent-color: #3b82f6;
-            --text-color: #1f2937;
-            --light-bg: #f3f4f6;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Poppins', sans-serif;
-            line-height: 1.6;
-            color: var(--text-color);
-            overflow-x: hidden;
-        }
-
-        .header {
-            background-color: white;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            padding: 1rem 2rem;
-            position: fixed;
-            width: 100%;
-            z-index: 100;
-        }
-
-        .nav {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logo {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--primary-color);
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 2rem;
-            align-items: center;
-        }
-
-        .nav-link {
-            text-decoration: none;
-            color: var(--text-color);
-            font-weight: 500;
-            transition: color 0.3s ease;
-        }
-
-        .nav-link:hover {
-            color: var(--primary-color);
-        }
-
-        .nav-buttons {
-            display: flex;
-            gap: 1rem;
-        }
-
-        .btn {
-            padding: 0.75rem 1.5rem;
-            border-radius: 0.5rem;
-            text-decoration: none;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .btn-primary {
-            background-color: var(--primary-color);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background-color: var(--secondary-color);
-            transform: translateY(-2px);
-        }
-
-        .btn-outline {
-            border: 2px solid var(--primary-color);
-            color: var(--primary-color);
-        }
-
-        .btn-outline:hover {
-            background-color: var(--primary-color);
-            color: white;
-        }
-
-        .hero {
-            padding: 8rem 2rem 4rem;
-            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-            min-height: 100vh;
-        }
-
-        .hero-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            text-align: center;
-            padding: 2rem 0;
-        }
-
-        .hero-title {
-            font-size: 3.5rem;
-            line-height: 1.2;
-            margin-bottom: 1.5rem;
-            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            max-width: 800px;
-            margin: 0 auto 2rem;
-        }
-
-        .hero-subtitle {
-            font-size: 1.25rem;
-            color: #4b5563;
-            max-width: 600px;
-            margin: 0 auto 3rem;
-        }
-
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-            margin-top: 4rem;
-        }
-
-        .feature-card {
-            background: white;
-            padding: 2rem;
-            border-radius: 1rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-            transition: transform 0.3s ease;
-            text-align: left;
-        }
-
-        .feature-card:hover {
-            transform: translateY(-5px);
-        }
-
-        .feature-icon {
-            font-size: 2.5rem;
-            color: var(--primary-color);
-            margin-bottom: 1.5rem;
-        }
-
-        .stats-section {
-            background: white;
-            padding: 4rem 2rem;
-        }
-
-        .stats-grid {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 2rem;
-            text-align: center;
-        }
-
-        .stat-item h3 {
-            font-size: 2.5rem;
-            color: var(--primary-color);
-            margin-bottom: 0.5rem;
-        }
-
-        .floating-elements {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            top: 0;
-            left: 0;
-            pointer-events: none;
-            overflow: hidden;
-        }
-
-        .floating-element {
-            position: absolute;
-            background: rgba(59, 130, 246, 0.1);
-            border-radius: 50%;
-        }
-
-        @media (max-width: 768px) {
-            .hero-title {
-                font-size: 2.5rem;
-            }
-
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .nav-links {
-                display: none;
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#2563eb',
+                        secondary: '#1e40af',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
             }
         }
-
-        .section-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 4rem 2rem;
-        }
-
-        .section-title {
-            text-align: center;
-            font-size: 2.5rem;
-            margin-bottom: 3rem;
-            color: var(--text-color);
-        }
-
-        .features-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-        }
-
-        .feature-block {
-            background: white;
-            padding: 2rem;
-            border-radius: 1rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-        }
-
-        .feature-block-icon {
-            font-size: 2.5rem;
-            color: var(--primary-color);
-            margin-bottom: 1rem;
-        }
-
-        .feature-block ul {
-            list-style: none;
-            margin-top: 1rem;
-        }
-
-        .feature-block li {
-            margin: 0.5rem 0;
-            padding-left: 1.5rem;
-            position: relative;
-        }
-
-        .feature-block li:before {
-            content: "•";
-            color: var(--primary-color);
-            position: absolute;
-            left: 0;
-        }
-
-        .pricing-section {
-            background: var(--light-bg);
-        }
-
-        .pricing-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-        }
-
-        .pricing-card {
-            background: white;
-            padding: 2rem;
-            border-radius: 1rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-            position: relative;
-            text-align: center;
-        }
-
-        .pricing-card.featured {
-            transform: scale(1.05);
-            border: 2px solid var(--primary-color);
-        }
-
-        .popular-tag {
-            position: absolute;
-            top: -12px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--primary-color);
-            color: white;
-            padding: 0.25rem 1rem;
-            border-radius: 1rem;
-            font-size: 0.875rem;
-        }
-
-        .price {
-            font-size: 2.5rem;
-            font-weight: 700;
-            color: var(--primary-color);
-            margin: 1.5rem 0;
-        }
-
-        .price span {
-            font-size: 1rem;
-            color: #666;
-        }
-
-        .about-section {
-            background: white;
-        }
-
-        .about-content {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 2rem;
-        }
-
-        .about-features {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 2rem;
-            margin-top: 2rem;
-        }
-
-        .about-feature {
-            text-align: center;
-        }
-
-        .about-feature i {
-            font-size: 2rem;
-            color: var(--primary-color);
-            margin-bottom: 1rem;
-        }
-
-        @media (max-width: 768px) {
-            .pricing-card.featured {
-                transform: none;
-            }
-        }
-
-        .stat-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 2rem;
-            background: white;
-            border-radius: 1rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-            transition: transform 0.3s ease;
-        }
-
-        .stat-item:hover {
-            transform: translateY(-5px);
-        }
-
-        .stat-icon {
-            font-size: 2.5rem;
-            color: var(--primary-color);
-            margin-bottom: 1rem;
-        }
-
-        .stat-detail {
-            font-size: 0.875rem;
-            color: #666;
-            margin-top: 0.5rem;
-            text-align: center;
-        }
-
-        .demo-section {
-            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-            padding: 4rem 0;
-        }
-
-        .demo-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 3rem;
-            align-items: center;
-        }
-
-        .demo-card {
-            background: white;
-            padding: 2rem;
-            border-radius: 1rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-        }
-
-        .demo-img {
-            width: 100%;
-            height: auto;
-            border-radius: 0.5rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .chart-container {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 1rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-            margin-bottom: 1.5rem;
-        }
-
-        .demo-metrics {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-        }
-
-        .metric {
-            background: white;
-            padding: 1rem;
-            border-radius: 0.5rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-        }
-
-        .metric i {
-            color: var(--primary-color);
-        }
-
-        @media (max-width: 768px) {
-            .demo-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .demo-metrics {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        /* Actualizar estilos del header y nav para móviles */
-        @media (max-width: 768px) {
-            .nav {
-                padding: 0.5rem;
-            }
-            
-            .nav-links {
-                display: none;
-                position: fixed;
-                top: 70px;
-                left: 0;
-                right: 0;
-                background: white;
-                padding: 1rem;
-                flex-direction: column;
-                text-align: center;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            }
-
-            .nav-links.active {
-                display: flex;
-            }
-
-            .nav-buttons {
-                display: none;
-                position: fixed;
-                bottom: 0;
-                left: 0;
-                right: 0;
-                background: white;
-                padding: 1rem;
-                justify-content: center;
-                box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
-            }
-
-            .nav-buttons.active {
-                display: flex;
-            }
-
-            .menu-toggle {
-                display: block;
-                font-size: 1.5rem;
-                color: var(--primary-color);
-                cursor: pointer;
-            }
-
-            /* Ajustes para el hero en móviles */
-            .hero {
-                padding: 6rem 1rem 2rem;
-            }
-
-            .hero-title {
-                font-size: 2rem;
-                padding: 0 1rem;
-            }
-
-            .hero-subtitle {
-                font-size: 1rem;
-                padding: 0 1rem;
-            }
-
-            /* Ajustes para las features cards */
-            .features-grid {
-                grid-template-columns: 1fr;
-                gap: 1rem;
-                padding: 0 1rem;
-            }
-
-            /* Ajustes para stats section */
-            .stats-grid {
-                grid-template-columns: 1fr;
-                padding: 0 1rem;
-            }
-
-            .stat-item {
-                margin-bottom: 1rem;
-            }
-        }
-
-        /* Ajustes para tablets */
-        @media (min-width: 769px) and (max-width: 1024px) {
-            .hero-title {
-                font-size: 3rem;
-            }
-
-            .features-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-
-        /* Ajustes para pantallas más grandes */
-        @media (min-width: 1025px) {
-            .section-container {
-                padding: 6rem 2rem;
-            }
-
-            .features-grid {
-                grid-template-columns: repeat(3, 1fr);
-            }
-        }
-
-        /* Mejoras generales de accesibilidad */
-        .btn:focus,
-        .nav-link:focus {
-            outline: 2px solid var(--primary-color);
-            outline-offset: 2px;
-        }
-
-        /* Mejoras de rendimiento */
-        @media (prefers-reduced-motion: reduce) {
-            * {
-                animation-duration: 0.01ms !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: 0.01ms !important;
-                scroll-behavior: auto !important;
-            }
-        }
-    </style>
+    </script>
 </head>
 
-<body>
-    <header class="header">
-        <nav class="nav">
-            <a href="/" class="logo">
-                <i class="fas fa-calculator"></i> VendEasy
-            </a>
-            <button class="menu-toggle" aria-label="Menú principal">
-                <i class="fas fa-bars"></i>
-            </button>
-            <div class="nav-links">
-                <a href="#features" class="nav-link">Características</a>
-                <a href="#pricing" class="nav-link">Precios</a>
-                <a href="#about" class="nav-link">Nosotros</a>
-            </div>
-            <div class="nav-buttons">
-                <a href="modules/auth/login.php" class="btn btn-outline">
-                    <i class="fas fa-sign-in-alt"></i> Ingresar
-                </a>
-                <a href="modules/auth/register.php" class="btn btn-primary">
-                    <i class="fas fa-user-plus"></i> Prueba Gratis
-                </a>
-            </div>
-        </nav>
-    </header>
-
-    <main class="hero">
-        <div class="floating-elements">
-            <div class="floating-element" style="width: 300px; height: 300px; top: 10%; left: -150px;"></div>
-            <div class="floating-element" style="width: 200px; height: 200px; top: 60%; right: -100px;"></div>
-        </div>
-
-        <div class="hero-container">
-            <h1 class="hero-title">Contabilidad inteligente</h1>
-            <p class="hero-subtitle">La forma más inteligente de gestionar tu contabilidad, facturación e inventario. Todo en un solo lugar. Ahora en su <b>versión v3.1.0Alpha</b> completamente gratuita.</p>
-
-            <a href="modules/auth/register.php" class="btn btn-primary">
-                Comienza Gratis
-                <i class="fas fa-arrow-right"></i>
-            </a>
-            <p style="margin-top: 1rem; font-size: 0.875rem; color: #4b5563;">
-                Al registrarte aceptas nuestros <a href="terminos-y-condiciones.php" style="color: var(--primary-color); text-decoration: underline;">Términos y Condiciones</a>
-            </p>
-
-            <p style="margin-top: 0.5rem; font-size: 0.875rem; color: #4b5563;">
-                Desarrollado con <i class="fas fa-heart" style="color: #e11d48;"></i> por
-                <a href="https://github.com/JR-Solutions-Col"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style="color: var(--primary-color); text-decoration: none; font-weight: 500;">
-                    JR-Solutions
-                </a>
-            </p>
-
-            <div class="features-grid">
-                <div class="feature-card">
-                    <i class="fas fa-cloud feature-icon"></i>
-                    <h3>100% en la Nube</h3>
-                    <p>Accede desde cualquier dispositivo, sin necesidad de instalaciones</p>
+<body class="font-sans antialiased text-gray-800 bg-white">
+    <!-- Navbar -->
+    <nav class="fixed w-full bg-white shadow-sm z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/" class="flex items-center space-x-2">
+                        <i class="fas fa-calculator text-primary text-2xl"></i>
+                        <span class="text-xl font-bold text-gray-900">VendEasy</span>
+                    </a>
                 </div>
-                <div class="feature-card">
-                    <i class="fas fa-receipt feature-icon"></i>
-                    <h3>Facturación Simple</h3>
-                    <p>Genera facturas profesionales de manera rápida y sencilla</p>
+                
+                <div class="hidden md:flex md:items-center md:space-x-6">
+                    <a href="#caracteristicas" class="text-gray-600 hover:text-gray-900">Características</a>
+                    <a href="#precios" class="text-gray-600 hover:text-gray-900">Precios</a>
+                    <a href="#nosotros" class="text-gray-600 hover:text-gray-900">Nosotros</a>
+                    <a href="modules/auth/login.php" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-primary hover:text-primary-dark">
+                        Ingresar
+                    </a>
+                    <a href="modules/auth/register.php" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-secondary transition-colors duration-200">
+                        Comenzar Ahora
+                    </a>
                 </div>
-                <div class="feature-card">
-                    <i class="fas fa-chart-bar feature-icon"></i>
-                    <h3>Reportes en Tiempo Real</h3>
-                    <p>Toma decisiones informadas con datos actualizados al instante</p>
+
+                <div class="flex items-center md:hidden">
+                    <button type="button" class="mobile-menu-button inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
                 </div>
             </div>
         </div>
-    </main>
 
-    <section class="stats-section">
-        <div class="stats-grid">
-            <div class="stat-item">
-                <div class="stat-icon">
-                    <i class="fas fa-rocket"></i>
-                </div>
-                <h3>v3.1.0Alpha</h3>
-                <p>Versión Estable</p>
-                <div class="stat-detail">Acceso anticipado a todas las funciones</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-icon">
-                    <i class="fas fa-server"></i>
-                </div>
-                <h3>99.9%</h3>
-                <p>Tiempo de actividad</p>
-                <div class="stat-detail">Servidores redundantes de alta disponibilidad</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-icon">
-                    <i class="fas fa-headset"></i>
-                </div>
-                <h3>24/7</h3>
-                <p>Soporte técnico</p>
-                <div class="stat-detail">Asistencia personalizada vía chat y email</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-icon">
-                    <i class="fas fa-infinity"></i>
-                </div>
-                <h3>Ilimitado</h3>
-                <p>Sin restricciones</p>
-                <div class="stat-detail">Usuarios, productos y transacciones sin límite</div>
+        <!-- Mobile menu -->
+        <div class="hidden mobile-menu md:hidden">
+            <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+                <a href="#caracteristicas" class="block px-3 py-2 text-base font-medium text-gray-600 hover:text-gray-900">Características</a>
+                <a href="#precios" class="block px-3 py-2 text-base font-medium text-gray-600 hover:text-gray-900">Precios</a>
+                <a href="#nosotros" class="block px-3 py-2 text-base font-medium text-gray-600 hover:text-gray-900">Nosotros</a>
+                <a href="modules/auth/login.php" class="block px-3 py-2 text-base font-medium text-primary hover:text-primary-dark">Ingresar</a>
+                <a href="modules/auth/register.php" class="block px-3 py-2 text-base font-medium text-white bg-primary hover:bg-secondary rounded-md">Comenzar Ahora</a>
             </div>
         </div>
-    </section>
+    </nav>
 
-    <section class="demo-section">
-        <div class="section-container">
-            <h2 class="section-title">Conoce la plataforma en acción</h2>
-            <div class="demo-grid">
-                <div class="demo-card">
-                    <img src="assets/img/dashboard-preview.png" alt="Dashboard" class="demo-img">
-                    <h3>Dashboard Intuitivo</h3>
-                    <p>Visualiza tus métricas clave en tiempo real</p>
-                </div>
-                <div class="demo-stats">
-                    <div class="chart-container">
-                        <canvas id="ventasChart"></canvas>
-                    </div>
-                    <div class="demo-metrics">
-                        <div class="metric">
-                            <i class="fas fa-chart-line"></i>
-                            <span>Análisis de ventas</span>
-                        </div>
-                        <div class="metric">
-                            <i class="fas fa-database"></i>
-                            <span>Backup automático diario</span>
-                        </div>
+    <!-- Hero Section -->
+    <section class="pt-20 pb-32 bg-gradient-to-b from-blue-50 to-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20">
+            <div class="text-center">
+                <h1 class="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
+                    <span class="block">Sistema Contable</span>
+                    <span class="block text-primary">Profesional y Confiable</span>
+                </h1>
+                <p class="mt-3 max-w-md mx-auto text-base text-gray-500 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
+                    La solución completa para la gestión financiera de tu empresa. Miles de negocios confían en nosotros para su contabilidad diaria.
+                </p>
+                <div class="mt-5 max-w-md mx-auto sm:flex sm:justify-center md:mt-8">
+                    <div class="rounded-md shadow">
+                        <a href="modules/auth/register.php" class="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-primary hover:bg-secondary md:py-4 md:text-lg md:px-10 transition-colors duration-200">
+                            Comenzar Ahora
+                        </a>
                     </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <section id="features" class="features-section">
-        <div class="section-container">
-            <h2 class="section-title">Características que impulsan tu negocio</h2>
-            <div class="features-container">
-                <div class="feature-block">
-                    <i class="fas fa-file-invoice feature-block-icon"></i>
-                    <h3>Sistema de Facturación</h3>
-                    <ul>
-                        <li>Facturación sencilla</li>
-                        <li>Envío por email</li>
-                    </ul>
-                </div>
-                <div class="feature-block">
-                    <i class="fas fa-boxes feature-block-icon"></i>
-                    <h3>Control de Inventario</h3>
-                    <ul>
-                        <li>Gestión de stock en tiempo real</li>
-                        <li>Múltiples bodegas</li>
-                        <li>Códigos de barras</li>
-                    </ul>
-                </div>
-                <div class="feature-block">
-                    <i class="fas fa-chart-pie feature-block-icon"></i>
-                    <h3>Reportes Financieros</h3>
-                    <ul>
-                        <li>Balance general</li>
-                        <li>Estado de resultados</li>
-                        <li>Flujo de caja</li>
-                    </ul>
-                </div>
+    <!-- Features Section -->
+    <section id="caracteristicas" class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center">
+                <h2 class="text-3xl font-extrabold text-gray-900 sm:text-4xl">
+                    Todo lo que necesitas para tu negocio
+                </h2>
+                <p class="mt-4 text-lg text-gray-500">
+                    Funcionalidades diseñadas para hacer tu gestión financiera más eficiente
+                </p>
             </div>
-        </div>
-    </section>
 
-    <section id="pricing" class="pricing-section">
-        <div class="section-container">
-            <h2 class="section-title">Versión v3.1.0Alpha - ¡Gratis!</h2>
-            <div class="pricing-grid">
-                <div class="pricing-card featured" style="transform: none; max-width: 600px; margin: 0 auto;">
-                    <div class="popular-tag">Alpha</div>
-                    <h3>Plan Completo</h3>
-                    <div class="price">$0<span>/mes</span></div>
-                    <p style="margin: 1rem 0; color: #666;">Durante el período de lanzamiento, accede a todas las funcionalidades sin costo</p>
-                    <ul>
-                        <li><i class="fas fa-check"></i> Usuarios ilimitados</li>
-                        <li><i class="fas fa-check"></i> Sistema de facturación completo</li>
-                        <li><i class="fas fa-check"></i> Control de inventario</li>
-                        <li><i class="fas fa-check"></i> Reportes financieros</li>
-                        <li><i class="fas fa-check"></i> Soporte técnico</li>
-                        <li><i class="fas fa-check"></i> Actualizaciones gratuitas</li>
-                    </ul>
-                    <a href="modules/auth/register.php" class="btn btn-primary">Comenzar ahora</a>
-                    <p style="margin-top: 1rem; font-size: 0.875rem; color: #666;">* Los precios se anunciarán al finalizar el período Alpha</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section id="about" class="about-section">
-        <div class="section-container">
-            <h2 class="section-title">Sobre VendEasy</h2>
-            <div class="about-content">
-                <div class="about-text">
-                    <p>VendEasy nace de la necesidad de ofrecer una solución contable moderna y accesible para las PyMEs en Colombia. Nuestro compromiso es simplificar la gestión financiera de tu negocio con tecnología de punta.</p>
-                    <div class="about-features">
-                        <div class="about-feature">
-                            <i class="fas fa-shield-alt"></i>
-                            <h4>Seguridad Garantizada</h4>
-                            <p>Datos encriptados y respaldos automáticos</p>
-                        </div>
-                        <div class="about-feature">
-                            <i class="fas fa-headset"></i>
-                            <h4>Soporte Local</h4>
-                            <p>Equipo de soporte en Colombia</p>
-                        </div>
-                        <div class="about-feature">
-                            <i class="fas fa-sync"></i>
-                            <h4>Actualizaciones Constantes</h4>
-                            <p>Mejoras continuas sin costo adicional</p>
-                        </div>
+            <div class="mt-20 grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+                <div class="relative p-6 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300">
+                    <div class="text-primary text-3xl mb-4">
+                        <i class="fas fa-file-invoice"></i>
                     </div>
+                    <h3 class="text-lg font-medium text-gray-900">Facturación Electrónica</h3>
+                    <p class="mt-2 text-gray-500">Cumple con la normativa vigente y emite facturas electrónicas de forma automática.</p>
+                </div>
+
+                <div class="relative p-6 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300">
+                    <div class="text-primary text-3xl mb-4">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900">Reportes Avanzados</h3>
+                    <p class="mt-2 text-gray-500">Visualiza el rendimiento de tu negocio con reportes detallados y personalizables.</p>
+                </div>
+
+                <div class="relative p-6 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300">
+                    <div class="text-primary text-3xl mb-4">
+                        <i class="fas fa-boxes"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900">Control de Inventario</h3>
+                    <p class="mt-2 text-gray-500">Gestiona tu stock en tiempo real con alertas automáticas y múltiples bodegas.</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <footer style="background: var(--light-bg); padding: 2rem; text-align: center; margin-top: 2rem;">
-        <div style="max-width: 1200px; margin: 0 auto;">
-            <div style="margin-bottom: 1rem;">
-                <a href="terminos-y-condiciones.php"
-                    style="color: var(--text-color); text-decoration: none; font-size: 0.875rem; margin: 0 0.5rem;">
-                    Términos y Condiciones
-                </a>
-                <span style="color: #666;">|</span>
-                <a href="politica-privacidad.php"
-                    style="color: var(--text-color); text-decoration: none; font-size: 0.875rem; margin: 0 0.5rem;">
-                    Política de Privacidad
-                </a>
+    <!-- Stats Section -->
+    <section class="bg-gray-50 py-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
+                <div class="bg-white p-6 rounded-lg shadow-sm text-center">
+                    <div class="text-4xl font-bold text-primary">100+</div>
+                    <p class="mt-2 text-gray-600">Empresas Activas</p>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-sm text-center">
+                    <div class="text-4xl font-bold text-primary">99.9%</div>
+                    <p class="mt-2 text-gray-600">Disponibilidad</p>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-sm text-center">
+                    <div class="text-4xl font-bold text-primary">24/7</div>
+                    <p class="mt-2 text-gray-600">Soporte Técnico</p>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-sm text-center">
+                    <div class="text-4xl font-bold text-primary">1M+</div>
+                    <p class="mt-2 text-gray-600">Facturas Emitidas</p>
+                </div>
             </div>
-            <p style="color: var(--text-color); font-size: 0.875rem;">
-                Desarrollado con <i class="fas fa-heart" style="color: #e11d48;"></i> por
-                <a href="https://github.com/JR-Solutions-Col"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style="color: var(--primary-color); text-decoration: none; font-weight: 500;">
-                    JR-Solutions
-                </a>
-            </p>
-            <p style="color: #666; font-size: 0.75rem; margin-top: 0.5rem;">
-                © <?php echo date('Y'); ?> VendEasy. Todos los derechos reservados.
-            </p>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="precios" class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center">
+                <h2 class="text-3xl font-extrabold text-gray-900 sm:text-4xl">
+                    Planes diseñados para tu negocio
+                </h2>
+                <p class="mt-4 text-lg text-gray-500">
+                    Elige el plan que mejor se adapte a tus necesidades
+                </p>
+            </div>
+
+            <div class="mt-16 grid grid-cols-1 gap-8 lg:grid-cols-3">
+                <!-- Plan Básico -->
+                <div class="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300 p-8">
+                    <h3 class="text-xl font-semibold text-gray-900">Básico</h3>
+                    <p class="mt-4 text-gray-500">Ideal para emprendedores</p>
+                    <p class="mt-8">
+                        <span class="text-4xl font-extrabold text-gray-900">$3</span>
+                        <span class="text-base font-medium text-gray-500">/mes</span>
+                    </p>
+                    <ul class="mt-8 space-y-4">
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-green-500 mr-2"></i>
+                            <span>Hasta 100 facturas mensuales</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-green-500 mr-2"></i>
+                            <span>1 Usuario</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-green-500 mr-2"></i>
+                            <span>Soporte por email</span>
+                        </li>
+                    </ul>
+                    <a href="modules/auth/register.php" class="mt-8 block w-full bg-primary text-white text-center py-3 rounded-md hover:bg-secondary transition-colors duration-200">
+                        Comenzar
+                    </a>
+                </div>
+
+                <!-- Plan Profesional -->
+                <div class="bg-white rounded-lg shadow-lg border-2 border-primary p-8 transform scale-105">
+                    <div class="absolute top-0 right-0 bg-primary text-white px-4 py-1 rounded-bl-lg rounded-tr-lg text-sm font-medium">
+                        Más Popular
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-900">Profesional</h3>
+                    <p class="mt-4 text-gray-500">Para pequeñas empresas</p>
+                    <p class="mt-8">
+                        <span class="text-4xl font-extrabold text-gray-900">$6</span>
+                        <span class="text-base font-medium text-gray-500">/mes</span>
+                    </p>
+                    <ul class="mt-8 space-y-4">
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-green-500 mr-2"></i>
+                            <span>Facturas ilimitadas</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-green-500 mr-2"></i>
+                            <span>5 Usuarios</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-green-500 mr-2"></i>
+                            <span>Soporte prioritario 24/7</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-green-500 mr-2"></i>
+                            <span>Reportes avanzados</span>
+                        </li>
+                    </ul>
+                    <a href="modules/auth/register.php" class="mt-8 block w-full bg-primary text-white text-center py-3 rounded-md hover:bg-secondary transition-colors duration-200">
+                        Comenzar
+                    </a>
+                </div>
+
+                <!-- Plan Empresarial -->
+                <div class="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300 p-8">
+                    <h3 class="text-xl font-semibold text-gray-900">Empresarial</h3>
+                    <p class="mt-4 text-gray-500">Para medianas y grandes empresas</p>
+                    <p class="mt-8">
+                        <span class="text-4xl font-extrabold text-gray-900">$9</span>
+                        <span class="text-base font-medium text-gray-500">/mes</span>
+                    </p>
+                    <ul class="mt-8 space-y-4">
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-green-500 mr-2"></i>
+                            <span>Todo lo de Profesional</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-green-500 mr-2"></i>
+                            <span>Usuarios ilimitados</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-green-500 mr-2"></i>
+                            <span>Facturas ilimitadas</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-green-500 mr-2"></i>
+                            <span>Sin Limites</span>
+                        </li>
+                    </ul>
+                    <a href="modules/auth/register.php" class="mt-8 block w-full bg-primary text-white text-center py-3 rounded-md hover:bg-secondary transition-colors duration-200">
+                        Contactar Ventas
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- About Section -->
+    <section id="nosotros" class="py-20 bg-gray-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center">
+                <h2 class="text-3xl font-extrabold text-gray-900 sm:text-4xl">
+                    Sobre VendEasy
+                </h2>
+                <p class="mt-4 text-lg text-gray-500 max-w-3xl mx-auto">
+                    Somos la plataforma líder en soluciones contables para empresas en Latinoamérica. 
+                    Nuestra misión es simplificar la gestión financiera de tu negocio con tecnología de última generación.
+                </p>
+            </div>
+
+            <div class="mt-20 grid grid-cols-1 gap-8 md:grid-cols-3">
+                <div class="text-center">
+                    <div class="inline-flex items-center justify-center h-12 w-12 rounded-md bg-primary text-white mb-4">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900">Seguridad Garantizada</h3>
+                    <p class="mt-2 text-gray-500">
+                        Certificación ISO 27001 y cumplimiento GDPR
+                    </p>
+                </div>
+
+                <div class="text-center">
+                    <div class="inline-flex items-center justify-center h-12 w-12 rounded-md bg-primary text-white mb-4">
+                        <i class="fas fa-headset"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900">Soporte Premium</h3>
+                    <p class="mt-2 text-gray-500">
+                        Equipo de soporte local 24/7
+                    </p>
+                </div>
+
+                <div class="text-center">
+                    <div class="inline-flex items-center justify-center h-12 w-12 rounded-md bg-primary text-white mb-4">
+                        <i class="fas fa-sync"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900">Innovación Constante</h3>
+                    <p class="mt-2 text-gray-500">
+                        Actualizaciones mensuales con nuevas funciones
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gray-900 text-white py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div>
+                    <h3 class="text-lg font-semibold mb-4">VendEasy</h3>
+                    <p class="text-gray-400 text-sm">
+                        Sistema contable profesional para empresas modernas.
+                    </p>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold mb-4">Enlaces</h3>
+                    <ul class="space-y-2">
+                        <li><a href="#caracteristicas" class="text-gray-400 hover:text-white transition-colors">Características</a></li>
+                        <li><a href="#precios" class="text-gray-400 hover:text-white transition-colors">Precios</a></li>
+                        <li><a href="#nosotros" class="text-gray-400 hover:text-white transition-colors">Nosotros</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold mb-4">Legal</h3>
+                    <ul class="space-y-2">
+                        <li><a href="terminos-y-condiciones.php" class="text-gray-400 hover:text-white transition-colors">Términos y Condiciones</a></li>
+                        <li><a href="politica-privacidad.php" class="text-gray-400 hover:text-white transition-colors">Política de Privacidad</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold mb-4">Contacto</h3>
+                    <ul class="space-y-2">
+                        <li class="text-gray-400">soporte@vendeasy.com</li>
+                        <li class="text-gray-400">+57 (1) 123-4567</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="mt-8 pt-8 border-t border-gray-800 text-center">
+                <p class="text-gray-400 text-sm">
+                    © <?php echo date('Y'); ?> VendEasy. Todos los derechos reservados.
+                </p>
+            </div>
         </div>
     </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Configuración del gráfico de ventas
-        const ctx = document.getElementById('ventasChart').getContext('2d');
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
-                datasets: [{
-                    label: 'Ventas Mensuales',
-                    data: [12, 19, 15, 25, 22, 30],
-                    borderColor: '#2563eb',
-                    tension: 0.4,
-                    fill: true,
-                    backgroundColor: 'rgba(37, 99, 235, 0.1)'
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: {
-                        display: false
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
+        // Mobile menu functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const menuButton = document.querySelector('.mobile-menu-button');
+            const mobileMenu = document.querySelector('.mobile-menu');
+
+            menuButton.addEventListener('click', function() {
+                mobileMenu.classList.toggle('hidden');
+                const icon = menuButton.querySelector('i');
+                if (mobileMenu.classList.contains('hidden')) {
+                    icon.classList.remove('fa-times');
+                    icon.classList.add('fa-bars');
+                } else {
+                    icon.classList.remove('fa-bars');
+                    icon.classList.add('fa-times');
                 }
-            }
-        });
+            });
 
-        // Funcionalidad del menú móvil
-        const menuToggle = document.querySelector('.menu-toggle');
-        const navLinks = document.querySelector('.nav-links');
-        const navButtons = document.querySelector('.nav-buttons');
+            // Close menu when clicking outside
+            document.addEventListener('click', function(event) {
+                if (!menuButton.contains(event.target) && !mobileMenu.contains(event.target)) {
+                    mobileMenu.classList.add('hidden');
+                    const icon = menuButton.querySelector('i');
+                    icon.classList.remove('fa-times');
+                    icon.classList.add('fa-bars');
+                }
+            });
 
-        menuToggle.addEventListener('click', function() {
-            navLinks.classList.toggle('active');
-            navButtons.classList.toggle('active');
-            
-            // Cambiar el ícono del menú
-            const icon = this.querySelector('i');
-            if (navLinks.classList.contains('active')) {
-                icon.classList.remove('fa-bars');
-                icon.classList.add('fa-times');
-            } else {
-                icon.classList.remove('fa-times');
-                icon.classList.add('fa-bars');
-            }
-        });
-
-        // Cerrar menú al hacer click en un enlace
-        document.querySelectorAll('.nav-link, .btn').forEach(link => {
-            link.addEventListener('click', () => {
-                navLinks.classList.remove('active');
-                navButtons.classList.remove('active');
-                menuToggle.querySelector('i').classList.remove('fa-times');
-                menuToggle.querySelector('i').classList.add('fa-bars');
+            // Smooth scroll for anchor links
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const target = document.querySelector(this.getAttribute('href'));
+                    if (target) {
+                        target.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start'
+                        });
+                        // Close mobile menu if open
+                        mobileMenu.classList.add('hidden');
+                    }
+                });
             });
         });
-
-        // Ajustar altura en móviles (para el problema del vh en móviles)
-        function setVH() {
-            let vh = window.innerHeight * 0.01;
-            document.documentElement.style.setProperty('--vh', `${vh}px`);
-        }
-
-        setVH();
-        window.addEventListener('resize', setVH);
-    });
     </script>
 </body>
-
 </html>

@@ -134,69 +134,163 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Inicio de sesión seguro para VendEasy">
-    <title>Login | VendEasy</title>
+    <meta name="description" content="Sistema de gestión empresarial VendEasy - Inicio de sesión">
+    <title>VendEasy | Iniciar Sesión</title>
     <link rel="icon" type="image/png" href="../../favicon/favicon.ico">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 3px solid #fff;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
 </head>
 
-<body class="min-h-screen flex items-center justify-center bg-gray-100 font-poppins">
-    <div class="bg-white shadow-md rounded-lg p-8 w-full max-w-md">
-        <h2 class="text-2xl font-semibold text-center text-gray-700">Bienvenido de nuevo</h2>
-        <p class="text-center text-gray-500 mb-6">Ingresa tus credenciales para continuar</p>
-
-        <?php if (isset($_SESSION['success_message'])): ?>
-            <div class="mb-4 p-4 bg-green-100 text-green-700 rounded">
-                <i class="fas fa-check-circle"></i> <?= htmlspecialchars($_SESSION['success_message']) ?>
-            </div>
-            <?php unset($_SESSION['success_message']); ?>
-        <?php endif; ?>
-
-        <?php if (isset($error)): ?>
-            <div class="mb-4 p-4 bg-red-100 text-red-700 rounded">
-                <i class="fas fa-exclamation-circle"></i> <?= htmlspecialchars($error) ?>
-            </div>
-        <?php endif; ?>
-
-        <form id="loginForm" method="POST" action="">
-            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
-
-            <div class="mb-4">
-                <label for="email" class="block text-gray-700">Correo Electrónico</label>
-                <input type="email" id="email" name="email" required autocomplete="email" spellcheck="false" placeholder="ejemplo@correo.com" class="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400">
-            </div>
-
-            <div class="mb-4">
-                <label for="password" class="block text-gray-700">Contraseña</label>
-                <div class="relative">
-                    <input type="password" id="password" name="password" required placeholder="••••••••" class="w-full px-4 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400">
-                    <button type="button" class="absolute inset-y-0 right-3 flex items-center text-gray-500" aria-label="Toggle password visibility">
-                        <i class="fas fa-eye"></i>
-                    </button>
+<body class="min-h-screen flex flex-col md:flex-row bg-gray-50">
+    <!-- Sección lateral con imagen y mensaje de bienvenida -->
+    <div class="hidden lg:flex lg:w-1/2 bg-primary-600 text-white p-12 flex-col justify-between">
+        <div>
+            <h1 class="text-4xl font-bold mb-4">VendEasy</h1>
+            <p class="text-primary-100">Sistema integral de gestión empresarial</p>
+        </div>
+        <div class="space-y-6">
+            <h2 class="text-3xl font-bold">Potencia tu negocio con tecnología inteligente</h2>
+            <p class="text-xl text-primary-100">Gestiona ventas, inventario y más en una sola plataforma.</p>
+            <div class="flex space-x-4">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-check-circle text-primary-300"></i>
+                    <span>Interfaz intuitiva</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-shield-alt text-primary-300"></i>
+                    <span>100% Seguro</span>
                 </div>
             </div>
+        </div>
+        <div class="text-sm text-primary-100">
+            © <?= date('Y') ?> VendEasy. Todos los derechos reservados.
+        </div>
+    </div>
 
-            <div class="mb-4 flex items-center">
-                <input type="checkbox" name="remember_me" id="remember_me" class="w-4 h-4">
-                <label for="remember_me" class="ml-2 text-gray-700">Mantener sesión iniciada</label>
+    <!-- Formulario de inicio de sesión -->
+    <div class="flex-1 flex items-center justify-center p-6 sm:p-12">
+        <div class="w-full max-w-md space-y-8">
+            <div class="text-center">
+                <h2 class="mt-6 text-3xl font-bold text-gray-900">Bienvenido de nuevo</h2>
+                <p class="mt-2 text-sm text-gray-600">Ingresa tus credenciales para continuar</p>
             </div>
 
-            <div class="mb-4 text-right">
-                <a href="recuperar-password.php" class="text-blue-500 hover:underline text-sm"><i class="fas fa-key"></i> ¿Olvidaste tu contraseña?</a>
+            <?php if (isset($_SESSION['success_message'])): ?>
+            <div class="p-4 bg-green-100 border border-green-200 text-green-700 rounded-lg flex items-center">
+                <i class="fas fa-check-circle mr-2"></i>
+                <?= htmlspecialchars($_SESSION['success_message']) ?>
             </div>
+            <?php unset($_SESSION['success_message']); endif; ?>
 
-            <button type="submit" class="w-full bg-blue-500 text-white py-2 rounded-md hover:bg-blue-600 transition duration-300">
-                <span>Iniciar Sesión</span>
-                <div class="spinner hidden"></div>
-            </button>
-        </form>
+            <?php if (isset($error)): ?>
+            <div class="p-4 bg-red-100 border border-red-200 text-red-700 rounded-lg flex items-center">
+                <i class="fas fa-exclamation-circle mr-2"></i>
+                <?= htmlspecialchars($error) ?>
+            </div>
+            <?php endif; ?>
 
-        <div class="mt-6 text-center">
-            <p>¿No tienes una cuenta?</p>
-            <a href="register.php" class="text-blue-500 hover:underline">Crear cuenta</a>
+            <form id="loginForm" method="POST" action="" class="mt-8 space-y-6">
+                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+
+                <div class="space-y-4">
+                    <div>
+                        <label for="email" class="block text-sm font-medium text-gray-700">Correo Electrónico</label>
+                        <div class="mt-1 relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-envelope text-gray-400"></i>
+                            </div>
+                            <input type="email" id="email" name="email" required autocomplete="email" 
+                                class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                placeholder="ejemplo@empresa.com">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-700">Contraseña</label>
+                        <div class="mt-1 relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-lock text-gray-400"></i>
+                            </div>
+                            <input type="password" id="password" name="password" required
+                                class="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                placeholder="••••••••">
+                            <button type="button" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 toggle-password">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <input type="checkbox" name="remember_me" id="remember_me" 
+                                class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded">
+                            <label for="remember_me" class="ml-2 block text-sm text-gray-700">
+                                Mantener sesión iniciada
+                            </label>
+                        </div>
+                        <a href="recuperar-password.php" class="text-sm font-medium text-primary-600 hover:text-primary-500">
+                            ¿Olvidaste tu contraseña?
+                        </a>
+                    </div>
+                </div>
+
+                <button type="submit" 
+                    class="group relative w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition duration-150 ease-in-out">
+                    <span class="absolute left-0 inset-y-0 flex items-center pl-3">
+                        <i class="fas fa-sign-in-alt"></i>
+                    </span>
+                    <span class="mx-auto">Iniciar Sesión</span>
+                    <div class="spinner hidden absolute right-4 top-1/2 transform -translate-y-1/2"></div>
+                </button>
+
+                <div class="text-center mt-4">
+                    <p class="text-sm text-gray-600">
+                        ¿No tienes una cuenta?
+                        <a href="register.php" class="font-medium text-primary-600 hover:text-primary-500">
+                            Crear cuenta
+                        </a>
+                    </p>
+                </div>
+            </form>
         </div>
     </div>
 

@@ -185,104 +185,233 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registro | VendEasy</title>
+    <meta name="description" content="Sistema de gestión empresarial VendEasy - Registro de cuenta">
+    <title>VendEasy | Crear Cuenta</title>
     <link rel="icon" type="image/png" href="../../favicon/favicon.ico"/>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link rel="stylesheet" href="../../css/auth.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 3px solid #fff;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .password-requirements li {
+            transition: all 0.3s ease;
+        }
+        .password-requirements li.met {
+            color: #059669;
+        }
+        .password-requirements li.met i {
+            color: #059669;
+        }
+        .strength-progress {
+            transition: all 0.3s ease;
+            height: 4px;
+            width: 0;
+            background-color: #ef4444;
+        }
+        .strength-progress.weak { background-color: #ef4444; }
+        .strength-progress.fair { background-color: #f59e0b; }
+        .strength-progress.good { background-color: #10b981; }
+        .strength-progress.strong { background-color: #059669; }
+    </style>
 </head>
-<body>
-    <div class="auth-container">
-        <div class="auth-header">
-            <h2>Crear cuenta nueva</h2>
-            <p>Únete a VendEasy y empieza a gestionar tu negocio</p>
-        </div>
 
-        <?php if (isset($error)): ?>
-            <div class="alert alert-error">
-                <i class="fas fa-exclamation-circle"></i>
+<body class="min-h-screen flex flex-col md:flex-row bg-gray-50">
+    <!-- Sección lateral con imagen y mensaje de bienvenida -->
+    <div class="hidden lg:flex lg:w-1/2 bg-primary-600 text-white p-12 flex-col justify-between">
+        <div>
+            <h1 class="text-4xl font-bold mb-4">VendEasy</h1>
+            <p class="text-primary-100">Sistema integral de gestión empresarial</p>
+        </div>
+        <div class="space-y-6">
+            <h2 class="text-3xl font-bold">Comienza tu viaje hacia el éxito empresarial</h2>
+            <p class="text-xl text-primary-100">Todo lo que necesitas para gestionar tu negocio en un solo lugar</p>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-chart-line text-primary-300"></i>
+                    <span>Control total</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-shield-alt text-primary-300"></i>
+                    <span>100% Seguro</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-sync text-primary-300"></i>
+                    <span>Tiempo real</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-mobile-alt text-primary-300"></i>
+                    <span>Multiplataforma</span>
+                </div>
+            </div>
+        </div>
+        <div class="text-sm text-primary-100">
+            © <?= date('Y') ?> VendEasy. Todos los derechos reservados.
+        </div>
+    </div>
+
+    <!-- Formulario de registro -->
+    <div class="flex-1 flex items-center justify-center p-6 sm:p-12">
+        <div class="w-full max-w-md space-y-8">
+            <div class="text-center">
+                <h2 class="mt-6 text-3xl font-bold text-gray-900">Crear cuenta nueva</h2>
+                <p class="mt-2 text-sm text-gray-600">Únete a VendEasy y empieza a gestionar tu negocio</p>
+            </div>
+
+            <?php if (isset($error)): ?>
+            <div class="p-4 bg-red-100 border border-red-200 text-red-700 rounded-lg flex items-center">
+                <i class="fas fa-exclamation-circle mr-2"></i>
                 <?= htmlspecialchars($error) ?>
             </div>
-        <?php endif; ?>
+            <?php endif; ?>
 
-        <form id="registerForm" method="POST" action="">
-            <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
-            
-            <div class="form-group">
-                <label for="nombre">Nombre Completo</label>
-                <div class="input-container">
-                    <i class="fas fa-user input-icon"></i>
-                    <input type="text" id="nombre" name="nombre" required 
-                           minlength="3" maxlength="100"
-                           placeholder="Ingresa tu nombre completo">
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label for="email">Correo Electrónico</label>
-                <div class="input-container">
-                    <i class="fas fa-envelope input-icon"></i>
-                    <input type="email" id="email" name="email" required 
-                           autocomplete="email" spellcheck="false"
-                           placeholder="ejemplo@correo.com">
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label for="password">Contraseña</label>
-                <div class="input-container password-container">
-                    <i class="fas fa-lock input-icon"></i>
-                    <input type="password" id="password" name="password" required 
-                           minlength="8"
-                           placeholder="Mínimo 8 caracteres">
-                    <button type="button" class="toggle-password">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                </div>
-                <div class="password-strength">
-                    <div class="strength-bar">
-                        <div class="strength-progress"></div>
+            <form id="registerForm" method="POST" action="" class="mt-8 space-y-6">
+                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
+                
+                <div class="space-y-4">
+                    <div>
+                        <label for="nombre" class="block text-sm font-medium text-gray-700">Nombre Completo</label>
+                        <div class="mt-1 relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-user text-gray-400"></i>
+                            </div>
+                            <input type="text" id="nombre" name="nombre" required 
+                                   minlength="3" maxlength="100"
+                                   class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                   placeholder="Ingresa tu nombre completo">
+                        </div>
                     </div>
-                    <small class="strength-text">La contraseña debe contener:</small>
-                    <ul class="password-requirements">
-                        <li data-requirement="length"><i class="fas fa-circle"></i> Mínimo 8 caracteres</li>
-                        <li data-requirement="uppercase"><i class="fas fa-circle"></i> Una letra mayúscula</li>
-                        <li data-requirement="lowercase"><i class="fas fa-circle"></i> Una letra minúscula</li>
-                        <li data-requirement="number"><i class="fas fa-circle"></i> Un número</li>
-                    </ul>
+
+                    <div>
+                        <label for="email" class="block text-sm font-medium text-gray-700">Correo Electrónico</label>
+                        <div class="mt-1 relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-envelope text-gray-400"></i>
+                            </div>
+                            <input type="email" id="email" name="email" required 
+                                   autocomplete="email" spellcheck="false"
+                                   class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                   placeholder="ejemplo@empresa.com">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-700">Contraseña</label>
+                        <div class="mt-1 relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-lock text-gray-400"></i>
+                            </div>
+                            <input type="password" id="password" name="password" required 
+                                   minlength="8"
+                                   class="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                   placeholder="Mínimo 8 caracteres">
+                            <button type="button" class="toggle-password absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                        <div class="mt-2 space-y-2">
+                            <div class="bg-gray-200 rounded-full h-1">
+                                <div class="strength-progress rounded-full"></div>
+                            </div>
+                            <p class="text-xs text-gray-600">La contraseña debe contener:</p>
+                            <ul class="password-requirements grid grid-cols-2 gap-2 text-xs text-gray-500">
+                                <li data-requirement="length" class="flex items-center space-x-1">
+                                    <i class="fas fa-circle text-xs"></i>
+                                    <span>Mínimo 8 caracteres</span>
+                                </li>
+                                <li data-requirement="uppercase" class="flex items-center space-x-1">
+                                    <i class="fas fa-circle text-xs"></i>
+                                    <span>Una mayúscula</span>
+                                </li>
+                                <li data-requirement="lowercase" class="flex items-center space-x-1">
+                                    <i class="fas fa-circle text-xs"></i>
+                                    <span>Una minúscula</span>
+                                </li>
+                                <li data-requirement="number" class="flex items-center space-x-1">
+                                    <i class="fas fa-circle text-xs"></i>
+                                    <span>Un número</span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="confirm_password" class="block text-sm font-medium text-gray-700">Confirmar Contraseña</label>
+                        <div class="mt-1 relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-lock text-gray-400"></i>
+                            </div>
+                            <input type="password" id="confirm_password" name="confirm_password" 
+                                   required minlength="8"
+                                   class="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                   placeholder="Repite tu contraseña">
+                            <button type="button" class="toggle-password absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center">
+                        <input type="checkbox" id="terms" name="terms" required
+                               class="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded">
+                        <label for="terms" class="ml-2 block text-sm text-gray-700">
+                            Acepto los <a href="../../terminos-y-condiciones.php" class="text-primary-600 hover:text-primary-500">términos y condiciones</a>
+                        </label>
+                    </div>
                 </div>
-            </div>
 
-            <div class="form-group">
-                <label for="confirm_password">Confirmar Contraseña</label>
-                <div class="input-container password-container">
-                    <i class="fas fa-lock input-icon"></i>
-                    <input type="password" id="confirm_password" name="confirm_password" 
-                           required minlength="8"
-                           placeholder="Repite tu contraseña">
-                    <button type="button" class="toggle-password">
-                        <i class="fas fa-eye"></i>
-                    </button>
+                <button type="submit" 
+                    class="group relative w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition duration-150 ease-in-out">
+                    <span class="absolute left-0 inset-y-0 flex items-center pl-3">
+                        <i class="fas fa-user-plus"></i>
+                    </span>
+                    <span class="mx-auto">Crear Cuenta</span>
+                    <div class="spinner hidden absolute right-4 top-1/2 transform -translate-y-1/2"></div>
+                </button>
+
+                <div class="text-center">
+                    <p class="text-sm text-gray-600">
+                        ¿Ya tienes una cuenta?
+                        <a href="login.php" class="font-medium text-primary-600 hover:text-primary-500">
+                            Iniciar Sesión
+                        </a>
+                    </p>
                 </div>
-            </div>
-
-            <div class="form-group checkbox-container">
-                <input type="checkbox" id="terms" name="terms" required>
-                <label for="terms">
-                    Acepto los <a href="../../terminos-y-condiciones.php" class="btn-link">términos y condiciones</a>
-                </label>
-            </div>
-
-            <button type="submit" class="btn-auth">
-                <span>Crear Cuenta</span>
-                <div class="spinner"></div>
-            </button>
-        </form>
-
-        <div class="auth-footer">
-            <p>¿Ya tienes una cuenta?</p>
-            <a href="login.php" class="btn-link">Iniciar Sesión</a>
+            </form>
         </div>
     </div>
 
@@ -361,7 +490,8 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 return;
             }
 
-            submitButton.classList.add('loading');
+            submitButton.disabled = true;
+            submitButton.querySelector('.spinner').classList.remove('hidden');
 
             try {
                 const formData = new FormData(this);
@@ -395,7 +525,8 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                     text: error.message || 'Ocurrió un error al procesar la solicitud'
                 });
             } finally {
-                submitButton.classList.remove('loading');
+                submitButton.disabled = false;
+                submitButton.querySelector('.spinner').classList.add('hidden');
             }
         });
     });

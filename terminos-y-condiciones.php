@@ -3,178 +3,201 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Términos y Condiciones | VendEasy</title>
-    <meta name="description" content="Términos y condiciones de uso de VendEasy">
+    <meta name="description" content="Sistema de gestión empresarial VendEasy - Términos y condiciones">
+    <title>VendEasy | Términos y Condiciones</title>
     <link rel="icon" type="image/png" href="/favicon/favicon.ico"/>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        :root {
-            --primary-color: #2563eb;
-            --secondary-color: #1e40af;
-            --text-color: #1f2937;
-            --light-bg: #f3f4f6;
-        }
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: 'Poppins', sans-serif;
-            line-height: 1.6;
-            color: var(--text-color);
-        }
-        .header {
-            background-color: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            padding: 1rem 2rem;
-            position: fixed;
-            width: 100%;
-            z-index: 100;
-        }
-        .nav {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .logo {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--primary-color);
-            text-decoration: none;
-        }
-        .main-content {
-            padding: 8rem 2rem 4rem;
-            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-            min-height: 100vh;
-        }
-        .terms-container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
-            padding: 2rem;
-            border-radius: 1rem;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        .terms-header {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-        .terms-header h1 {
-            font-size: 2.5rem;
-            color: var(--text-color);
-            margin-bottom: 1rem;
-        }
-        .terms-header p {
-            color: #6b7280;
-        }
-        .terms-content {
-            color: #4b5563;
-        }
-        .terms-section {
-            margin-bottom: 2rem;
-        }
-        .terms-section h2 {
-            color: var(--text-color);
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
-        }
-        .terms-section p {
-            margin-bottom: 1rem;
-        }
-        .terms-section ul {
-            margin-left: 1.5rem;
-            margin-bottom: 1rem;
-        }
-        .terms-section li {
-            margin-bottom: 0.5rem;
-        }
-        @media (max-width: 768px) {
-            .terms-header h1 {
-                font-size: 2rem;
-            }
-            .terms-section h2 {
-                font-size: 1.25rem;
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                        }
+                    }
+                }
             }
         }
-    </style>
+    </script>
 </head>
-<body>
-    <header class="header">
-        <nav class="nav">
-            <a href="/" class="logo">
-                <i class="fas fa-calculator"></i> VendEasy
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="fixed top-0 left-0 right-0 bg-white shadow-sm z-50">
+        <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <a href="/" class="flex items-center space-x-2 text-primary-600 hover:text-primary-700">
+                <i class="fas fa-calculator text-2xl"></i>
+                <span class="text-xl font-bold">VendEasy</span>
             </a>
+            <div class="flex items-center space-x-4">
+                <a href="/index.php" class="text-gray-600 hover:text-primary-600">Iniciar Sesión</a>
+                <a href="/index.php" class="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700">
+                    Crear Cuenta
+                </a>
+            </div>
         </nav>
     </header>
 
-    <main class="main-content">
-        <div class="terms-container">
-            <div class="terms-header">
-                <h1>Términos y Condiciones</h1>
-                <p>Última actualización: 08/Noviembre/2024</p>
-            </div>
-
-            <div class="terms-content">
-                <div class="terms-section">
-                    <h2>1. Aceptación de los términos</h2>
-                    <p>Al acceder y utilizar VendEasy, ya sea en su versión de prueba o de uso completo, aceptas y reconoces estar sujeto a estos términos y condiciones. Estos términos incluyen el uso de la versión Alpha de VendEasy, la cual puede contener errores y estar sujeta a cambios o mejoras constantes. Si no estás de acuerdo con alguno de estos términos, te recomendamos no utilizar el servicio.</p>
+    <!-- Main Content -->
+    <main class="pt-24 pb-16 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-4xl mx-auto">
+            <div class="bg-white rounded-2xl shadow-lg overflow-hidden">
+                <!-- Header Section -->
+                <div class="bg-gradient-to-r from-primary-600 to-primary-700 px-6 py-16 sm:px-10">
+                    <div class="max-w-3xl mx-auto text-center">
+                        <h1 class="text-3xl sm:text-4xl font-bold text-white mb-4">
+                            Términos y Condiciones
+                        </h1>
+                        <p class="text-primary-100">
+                            Última actualización: 08/Noviembre/2024
+                        </p>
+                    </div>
                 </div>
 
-                <div class="terms-section">
-                    <h2>2. Uso del servicio</h2>
-                    <p>VendEasy es un sistema de gestión contable que te permite:</p>
-                    <ul>
-                        <li>Gestionar ventas e inventario</li>
-                        <li>Generar reportes financieros</li>
-                        <li>Administrar clientes y proveedores</li>
-                        <li>Controlar gastos e ingresos</li>
-                    </ul>
-                    <p>Como sistema en versión Alpha, el servicio podría presentar limitaciones en la precisión de ciertos cálculos o reportes financieros, los cuales estamos trabajando para mejorar.</p>
-                </div>
+                <!-- Content Sections -->
+                <div class="px-6 py-8 sm:px-10 space-y-8">
+                    <section class="prose prose-blue max-w-none">
+                        <h2 class="text-2xl font-semibold text-gray-900 mb-4">1. Aceptación de los términos</h2>
+                        <p class="text-gray-600">
+                            Al acceder y utilizar VendEasy, aceptas y reconoces estar sujeto a estos términos y condiciones. 
+                            Si no estás de acuerdo con alguno de estos términos, te recomendamos no utilizar el servicio.
+                        </p>
+                    </section>
 
-                <div class="terms-section">
-                    <h2>3. Privacidad y protección de datos</h2>
-                    <p>Nos comprometemos a proteger tu información personal y a utilizarla exclusivamente para los fines específicos de VendEasy, en línea con las normativas vigentes de protección de datos, incluyendo la Ley de Protección de Datos Personales (Ley 1581 de 2012) en Colombia. Para más información, consulta nuestra Política de Privacidad, la cual detalla los derechos y el tratamiento de tus datos personales.</p>
-                </div>
+                    <section class="prose prose-blue max-w-none">
+                        <h2 class="text-2xl font-semibold text-gray-900 mb-4">2. Uso del servicio</h2>
+                        <p class="text-gray-600 mb-4">
+                            VendEasy es un sistema integral de gestión empresarial que te permite:
+                        </p>
+                        <ul class="space-y-2 text-gray-600 list-none">
+                            <li class="flex items-center">
+                                <i class="fas fa-check-circle text-primary-500 mr-2"></i>
+                                Gestionar ventas e inventario de manera eficiente
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-check-circle text-primary-500 mr-2"></i>
+                                Generar reportes financieros detallados y precisos
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-check-circle text-primary-500 mr-2"></i>
+                                Administrar clientes y proveedores de forma organizada
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-check-circle text-primary-500 mr-2"></i>
+                                Controlar gastos e ingresos con total precisión
+                            </li>
+                        </ul>
+                    </section>
 
-                <div class="terms-section">
-                    <h2>4. Responsabilidades del usuario</h2>
-                    <p>Como usuario de VendEasy, te comprometes a:</p>
-                    <ul>
-                        <li>Proporcionar información veraz y actualizada</li>
-                        <li>Mantener la confidencialidad de tus credenciales</li>
-                        <li>Usar el servicio de manera ética y legal</li>
-                        <li>No realizar actividades que puedan dañar el sistema</li>
-                    </ul>
-                    <p>Durante la fase Alpha, te pedimos que informes sobre cualquier error o problema técnico que encuentres para contribuir a la mejora continua del sistema.</p>
-                </div>
+                    <section class="prose prose-blue max-w-none">
+                        <h2 class="text-2xl font-semibold text-gray-900 mb-4">3. Privacidad y protección de datos</h2>
+                        <p class="text-gray-600">
+                            Nos comprometemos a proteger tu información personal y a utilizarla exclusivamente para los fines específicos 
+                            de VendEasy, en línea con las normativas vigentes de protección de datos, incluyendo la Ley de Protección 
+                            de Datos Personales (Ley 1581 de 2012) en Colombia. Para más información, consulta nuestra 
+                            <a href="/politica-privacidad.php" class="text-primary-600 hover:text-primary-700">Política de Privacidad</a>.
+                        </p>
+                    </section>
 
-                <div class="terms-section">
-                    <h2>5. Limitación de responsabilidad</h2>
-                    <p>VendEasy se ofrece "tal cual" en su estado actual de desarrollo (versión Alpha) y, como tal, no garantizamos que el servicio esté libre de errores ni que funcione sin interrupciones. No nos hacemos responsables de pérdidas, daños o inconvenientes derivados del uso del servicio, incluyendo cualquier inconsistencia o interrupción temporal que pueda presentarse en la versión de prueba. Trabajamos activamente para mejorar el sistema, y agradecemos tu comprensión y retroalimentación.</p>
-                </div>
+                    <section class="prose prose-blue max-w-none">
+                        <h2 class="text-2xl font-semibold text-gray-900 mb-4">4. Responsabilidades del usuario</h2>
+                        <p class="text-gray-600 mb-4">Como usuario de VendEasy, te comprometes a:</p>
+                        <ul class="space-y-2 text-gray-600 list-none">
+                            <li class="flex items-center">
+                                <i class="fas fa-shield-alt text-primary-500 mr-2"></i>
+                                Proporcionar información veraz y actualizada
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-lock text-primary-500 mr-2"></i>
+                                Mantener la confidencialidad de tus credenciales
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-check text-primary-500 mr-2"></i>
+                                Usar el servicio de manera ética y legal
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-ban text-primary-500 mr-2"></i>
+                                No realizar actividades que puedan dañar el sistema
+                            </li>
+                        </ul>
+                    </section>
 
-                <div class="terms-section">
-                    <h2>6. Modificaciones</h2>
-                    <p>Nos reservamos el derecho de modificar estos términos y condiciones en cualquier momento. En caso de realizarse cambios significativos que puedan afectar tu experiencia de uso o la gestión de tus datos, te notificaremos con anticipación. Los cambios menores entrarán en vigor inmediatamente después de su publicación en nuestro sitio web, por lo que te recomendamos revisar estos términos periódicamente.</p>
-                </div>
+                    <section class="prose prose-blue max-w-none">
+                        <h2 class="text-2xl font-semibold text-gray-900 mb-4">5. Limitación de responsabilidad</h2>
+                        <p class="text-gray-600">
+                            VendEasy se compromete a proporcionar un servicio confiable y de alta calidad. Sin embargo, 
+                            no podemos garantizar que el servicio esté libre de errores o que funcione sin interrupciones. 
+                            No nos hacemos responsables de pérdidas o daños indirectos derivados del uso del servicio.
+                        </p>
+                    </section>
 
-                <div class="terms-section">
-                    <h2>7. Contacto</h2>
-                    <p>Si tienes alguna pregunta sobre estos términos, puedes contactarnos a través de:</p>
-                    <ul>
-                        <li>Email: soporte@vendeasy.com</li>
-                        <li>Teléfono: +57 3116035791</li>
-                        <li>Dirección: Popayán, Colombia</li>
-                    </ul>
-                    <p>Durante la fase Alpha, nuestro equipo de soporte está disponible para responder consultas y recibir informes de errores en un horario de atención de lunes a viernes de 9:00 a.m. a 6:00 p.m. (hora de Colombia). Nos esforzamos en responder dentro de las 24 horas hábiles.</p>
+                    <section class="prose prose-blue max-w-none">
+                        <h2 class="text-2xl font-semibold text-gray-900 mb-4">6. Modificaciones</h2>
+                        <p class="text-gray-600">
+                            Nos reservamos el derecho de modificar estos términos y condiciones en cualquier momento. 
+                            Los cambios significativos serán notificados con anticipación a través de nuestro sitio web 
+                            o por correo electrónico.
+                        </p>
+                    </section>
+
+                    <section class="prose prose-blue max-w-none">
+                        <h2 class="text-2xl font-semibold text-gray-900 mb-4">7. Contacto</h2>
+                        <div class="bg-primary-50 rounded-lg p-6 border border-primary-100">
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">¿Necesitas ayuda?</h3>
+                            <div class="space-y-3">
+                                <div class="flex items-center">
+                                    <i class="fas fa-envelope text-primary-500 w-6"></i>
+                                    <span class="ml-2 text-gray-600">soporte@vendeasy.com</span>
+                                </div>
+                                <div class="flex items-center">
+                                    <i class="fas fa-phone text-primary-500 w-6"></i>
+                                    <span class="ml-2 text-gray-600">+57 3116035791</span>
+                                </div>
+                                <div class="flex items-center">
+                                    <i class="fas fa-map-marker-alt text-primary-500 w-6"></i>
+                                    <span class="ml-2 text-gray-600">Popayán, Colombia</span>
+                                </div>
+                                <div class="flex items-center">
+                                    <i class="fas fa-clock text-primary-500 w-6"></i>
+                                    <span class="ml-2 text-gray-600">Lunes a Viernes, 9:00 AM - 6:00 PM (COT)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
                 </div>
             </div>
         </div>
     </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200">
+        <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center">
+                <div class="text-gray-500 text-sm">
+                    © <?= date('Y') ?> VendEasy. Todos los derechos reservados.
+                </div>
+                <div class="flex space-x-6">
+                    <a href="/terminos-y-condiciones.php" class="text-gray-500 hover:text-primary-600 text-sm">
+                        Términos y Condiciones
+                    </a>
+                    <a href="/politica-privacidad.php" class="text-gray-500 hover:text-primary-600 text-sm">
+                        Política de Privacidad
+                    </a>
+                </div>
+            </div>
+        </div>
+    </footer>
 </body>
 </html>

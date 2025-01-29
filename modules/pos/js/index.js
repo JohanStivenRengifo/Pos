@@ -101,6 +101,184 @@ window.cerrarModalCliente = cerrarModalCliente;
 window.guardarCliente = guardarCliente;
 // El resto del código dentro del DOMContentLoaded
 document.addEventListener('DOMContentLoaded', function() {
+    // Variables globales
+    let carrito = [];
+    const ventaLista = document.getElementById('venta-lista');
+    const ventaListaEmpty = document.getElementById('venta-lista-empty');
+    const subtotalElement = document.getElementById('subtotal');
+    const descuentoInput = document.getElementById('descuento');
+    const descuentoMontoElement = document.getElementById('descuento-monto');
+    const totalElement = document.getElementById('venta-total');
+    const cantidadItemsElement = document.getElementById('cantidad-items');
+    const procesarVentaBtn = document.getElementById('procesar-venta');
+    const buscarProductoInput = document.getElementById('buscar-producto');
+
+    // Función para formatear moneda
+    function formatearMoneda(valor) {
+        return new Intl.NumberFormat('es-CO', {
+            style: 'currency',
+            currency: 'COP',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(valor);
+    }
+
+    // Función para actualizar el total del carrito
+    function actualizarTotal() {
+        const subtotal = carrito.reduce((acc, item) => acc + (item.precio * item.cantidad), 0);
+        const descuentoPorcentaje = parseFloat(descuentoInput.value) || 0;
+        const descuentoMonto = (subtotal * descuentoPorcentaje) / 100;
+        const total = subtotal - descuentoMonto;
+
+        subtotalElement.textContent = formatearMoneda(subtotal);
+        descuentoMontoElement.textContent = `-${formatearMoneda(descuentoMonto)}`;
+        totalElement.textContent = formatearMoneda(total);
+        cantidadItemsElement.textContent = carrito.reduce((acc, item) => acc + item.cantidad, 0);
+
+        // Habilitar/deshabilitar botón de procesar venta
+        procesarVentaBtn.disabled = carrito.length === 0;
+    }
+
+    // Función para agregar producto al carrito
+    function agregarAlCarrito(producto) {
+        const itemExistente = carrito.find(item => item.id === producto.id);
+
+        if (itemExistente) {
+            itemExistente.cantidad++;
+        } else {
+            carrito.push({
+                id: producto.id,
+                nombre: producto.nombre,
+                precio: producto.precio,
+                cantidad: 1
+            });
+        }
+
+        actualizarVistaCarrito();
+        actualizarTotal();
+    }
+
+    // Función para actualizar la vista del carrito
+    function actualizarVistaCarrito() {
+        if (carrito.length === 0) {
+            ventaLista.innerHTML = '';
+            ventaListaEmpty.classList.remove('hidden');
+            return;
+        }
+
+        ventaListaEmpty.classList.add('hidden');
+        ventaLista.innerHTML = carrito.map((item, index) => `
+            <tr class="border-b border-gray-100 last:border-0">
+                <td class="py-2 px-2">
+                    <p class="text-sm text-gray-800 line-clamp-1">${item.nombre}</p>
+                </td>
+                <td class="text-center">
+                    <div class="flex items-center justify-center space-x-1">
+                        <button onclick="modificarCantidad(${index}, -1)" class="text-gray-500 hover:text-red-600">
+                            <i class="fas fa-minus-circle"></i>
+                        </button>
+                        <span class="text-sm font-medium w-6 text-center">${item.cantidad}</span>
+                        <button onclick="modificarCantidad(${index}, 1)" class="text-gray-500 hover:text-green-600">
+                            <i class="fas fa-plus-circle"></i>
+                        </button>
+                    </div>
+                </td>
+                <td class="text-right">
+                    <span class="text-sm text-gray-600">${formatearMoneda(item.precio)}</span>
+                </td>
+                <td class="text-right">
+                    <span class="text-sm font-medium text-gray-800">${formatearMoneda(item.precio * item.cantidad)}</span>
+                </td>
+                <td class="text-center">
+                    <button onclick="eliminarDelCarrito(${index})" class="text-gray-400 hover:text-red-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    // Función para modificar cantidad
+    window.modificarCantidad = function(index, delta) {
+        const item = carrito[index];
+        const nuevaCantidad = item.cantidad + delta;
+
+        if (nuevaCantidad > 0) {
+            item.cantidad = nuevaCantidad;
+        } else {
+            carrito.splice(index, 1);
+        }
+
+        actualizarVistaCarrito();
+        actualizarTotal();
+    };
+
+    // Función para eliminar del carrito
+    window.eliminarDelCarrito = function(index) {
+        carrito.splice(index, 1);
+        actualizarVistaCarrito();
+        actualizarTotal();
+    };
+
+    // Event listeners
+    descuentoInput.addEventListener('input', function() {
+        if (this.value < 0) this.value = 0;
+        if (this.value > 100) this.value = 100;
+        actualizarTotal();
+    });
+
+    // Inicialización
+    actualizarVistaCarrito();
+    actualizarTotal();
+
+    // Agregar evento click a los productos
+    document.querySelectorAll('.item-view').forEach(item => {
+        item.addEventListener('click', function() {
+            const producto = {
+                id: this.dataset.id,
+                nombre: this.dataset.nombre,
+                precio: parseFloat(this.dataset.precio)
+            };
+            agregarAlCarrito(producto);
+        });
+    });
+
+    // Búsqueda de productos
+    buscarProductoInput.addEventListener('input', function() {
+        const busqueda = this.value.toLowerCase();
+        document.querySelectorAll('.item-view').forEach(item => {
+            const nombre = item.dataset.nombre.toLowerCase();
+            const codigo = item.dataset.codigo.toLowerCase();
+            const coincide = nombre.includes(busqueda) || codigo.includes(busqueda);
+            item.style.display = coincide ? '' : 'none';
+        });
+    });
+
+    // Procesar venta
+    procesarVentaBtn.addEventListener('click', function() {
+        if (carrito.length === 0) return;
+
+        const venta = {
+            items: carrito,
+            subtotal: parseFloat(subtotalElement.textContent.replace(/[^0-9.-]+/g, '')),
+            descuento: parseFloat(descuentoInput.value),
+            total: parseFloat(totalElement.textContent.replace(/[^0-9.-]+/g, '')),
+            cliente: document.getElementById('cliente-select').value,
+            tipo_documento: document.getElementById('tipo-documento').value,
+            numeracion: document.getElementById('numeracion').value,
+            metodo_pago: document.getElementById('metodo-pago').value
+        };
+
+        // Aquí iría la lógica para procesar la venta
+        console.log('Procesando venta:', venta);
+        
+        // Limpiar carrito después de procesar
+        carrito = [];
+        actualizarVistaCarrito();
+        actualizarTotal();
+        descuentoInput.value = 0;
+    });
+
     // Función para formatear moneda COP
     function formatCOP(number) {
         return new Intl.NumberFormat('es-CO', {
@@ -238,24 +416,6 @@ document.addEventListener('DOMContentLoaded', function() {
             procesarVentaBtn.classList.add('opacity-50', 'cursor-not-allowed');
         }
     }
-
-    // Manejar clics en productos
-    
-    document.querySelectorAll('.item-view').forEach(producto => {
-        producto.addEventListener('click', function() {
-            const productoData = {
-                id: this.dataset.id,
-                nombre: this.dataset.nombre,
-                precio: parseFloat(this.dataset.precio),
-                cantidad: parseInt(this.dataset.cantidad),
-                codigo: this.dataset.codigo
-            };
-            agregarProductoAlCarrito(productoData);
-        });
-    });
-
-    // Evento para el input de descuento
-    document.getElementById('descuento').addEventListener('input', actualizarTotales);
 
     // Función para procesar la venta
     function procesarVenta() {
