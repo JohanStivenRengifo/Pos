@@ -6,7 +6,8 @@ header('Content-Type: application/json');
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 
-require_once '../../config/database.php';
+require_once '../../../../config/db.php';
+require_once '../../controllers/alegra_integration.php';
 
 if (!isset($_SESSION['user_id'])) {
     http_response_code(401);
@@ -22,22 +23,32 @@ if (!isset($_SESSION['turno_actual'])) {
 }
 
 try {
-    // Verificar que el body sea JSON válido
-    $jsonInput = file_get_contents('php://input');
-    if (!$jsonInput) {
-        throw new Exception('No se recibieron datos');
-    }
+    // Verificar si hay datos POST
+    $data = json_decode(file_get_contents('php://input'), true);
     
-    $data = json_decode($jsonInput, true);
-    if (json_last_error() !== JSON_ERROR_NONE) {
-        throw new Exception('JSON inválido: ' . json_last_error_msg());
-    }
-    
-    if (empty($data['items'])) {
-        throw new Exception('No hay items en el carrito');
+    if (!$data) {
+        throw new Exception('No se recibieron datos de la venta');
     }
 
+    // Iniciar transacción
     $pdo->beginTransaction();
+
+    // Si es factura electrónica, procesar con Alegra
+    if ($data['tipo_documento'] === 'factura' && $data['numeracion'] === 'electronica') {
+        $alegra = new AlegraIntegration();
+        $alegraResponse = $alegra->createInvoice($data);
+
+        if (!$alegraResponse['success']) {
+            throw new Exception('Error al crear factura electrónica: ' . $alegraResponse['error']);
+        }
+
+        // Guardar referencia de Alegra y datos de facturación electrónica
+        $data['alegra_id'] = $alegraResponse['data']['id'];
+        $data['cufe'] = $alegraResponse['data']['cufe'];
+        $data['qr_code'] = $alegraResponse['data']['qr_code'];
+        $data['pdf_url'] = $alegraResponse['data']['pdf_url'];
+        $data['xml_url'] = $alegraResponse['data']['xml_url'];
+    }
 
     // Obtener el último número de factura
     $stmt = $pdo->prepare("
@@ -62,32 +73,47 @@ try {
     // Calcular totales
     $subtotal = 0;
     foreach ($data['items'] as $item) {
-        $subtotal += $item['precio'] * $item['cantidad'];
+        $subtotal += floatval($item['precio']) * intval($item['cantidad']);
     }
     
-    $descuento = ($subtotal * $data['descuento']) / 100;
+    $descuento = ($subtotal * floatval($data['descuento'])) / 100;
     $total = $subtotal - $descuento;
 
     // Insertar venta
     $stmt = $pdo->prepare("
         INSERT INTO ventas (
-            user_id, cliente_id, total, subtotal, descuento,
-            metodo_pago, numero_factura, tipo_documento,
-            numeracion_tipo, numeracion, turno_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            user_id, 
+            cliente_id,
+            tipo_documento,
+            numeracion,
+            total,
+            descuento,
+            metodo_pago,
+            numero_factura,
+            alegra_id,
+            turno_id,
+            cufe,
+            qr_code,
+            pdf_url,
+            xml_url
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
+
     $stmt->execute([
-        $_SESSION['user_id'],
+        $data['user_id'],
         $data['cliente_id'],
-        $total,
-        $subtotal,
-        $data['descuento'],
-        $data['metodo_pago'],
-        $numero_factura,
         $data['tipo_documento'],
         $data['numeracion'],
-        'principal',
-        $_SESSION['turno_actual']
+        $total,
+        $descuento,
+        $data['metodo_pago'],
+        $numero_factura,
+        $data['alegra_id'] ?? null,
+        $_SESSION['turno_actual'],
+        $data['cufe'] ?? null,
+        $data['qr_code'] ?? null,
+        $data['pdf_url'] ?? null,
+        $data['xml_url'] ?? null
     ]);
 
     $venta_id = $pdo->lastInsertId();
@@ -128,13 +154,13 @@ try {
 
     echo json_encode([
         'success' => true,
+        'message' => 'Venta procesada correctamente',
         'venta_id' => $venta_id,
-        'numero_factura' => $numero_factura
+        'alegra_id' => $data['alegra_id'] ?? null
     ]);
 
 } catch (Exception $e) {
     $pdo->rollBack();
-    http_response_code(500);
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage()

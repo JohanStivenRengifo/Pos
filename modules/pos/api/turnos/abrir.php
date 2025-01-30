@@ -19,7 +19,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // Verificar que el archivo existe antes de incluirlo
-if (!file_exists('../../config/database.php')) {
+if (!file_exists('../../../../config/db.php')) {
     echo json_encode([
         'success' => false,
         'message' => 'Error de configuración: No se encuentra el archivo de conexión'
@@ -28,7 +28,7 @@ if (!file_exists('../../config/database.php')) {
 }
 
 try {
-    require_once '../../config/database.php';
+    require_once '../../../../config/db.php';
 
     // Verificar que la conexión a la base de datos existe
     if (!isset($pdo) || !($pdo instanceof PDO)) {

@@ -1,10 +1,37 @@
 <?php
-session_start();
-require_once '../config/database.php';
+require_once '../../../config/db.php';
+require_once 'alegra_integration.php';
 
-if (!isset($_SESSION['user_id']) || !isset($_GET['id'])) {
-    header('Location: index.php');
-    exit;
+// Habilitar el reporte de errores
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+// Verificar y cargar FPDF
+$fpdfPaths = [
+    'fpdf/fpdf.php',                    // Ruta relativa actual
+    '../fpdf/fpdf.php',                 // Un nivel arriba
+    '../../fpdf/fpdf.php',             // Dos niveles arriba
+    '../../../fpdf/fpdf.php',          // Tres niveles arriba
+    '../../../vendor/fpdf/fpdf.php',   // En vendor
+    dirname(__FILE__) . '/fpdf/fpdf.php' // Ruta absoluta
+];
+
+$fpdfLoaded = false;
+foreach ($fpdfPaths as $path) {
+    if (file_exists($path)) {
+        require_once $path;
+        $fpdfLoaded = true;
+        break;
+    }
+}
+
+if (!$fpdfLoaded) {
+    die('Error: La librería FPDF no está instalada. Por favor, instale FPDF en una de las siguientes ubicaciones: ' . implode(', ', $fpdfPaths));
+}
+
+if (!isset($_GET['id'])) {
+    die('ID de venta no especificado');
 }
 
 try {
@@ -12,296 +39,234 @@ try {
     $stmt = $pdo->prepare("
         SELECT v.*, 
                c.primer_nombre, c.segundo_nombre, c.apellidos, 
-               c.identificacion, c.direccion, c.telefono,
-               c.tipo_persona, c.responsabilidad_tributaria,
-               e.nombre_empresa, e.nit, e.direccion as empresa_direccion,
-               e.telefono as empresa_telefono, e.correo_contacto,
-               e.regimen_fiscal, e.logo
+               c.identificacion, c.email, c.telefono, c.direccion,
+               e.nombre_empresa as empresa_nombre,
+               e.nit as empresa_nit,
+               e.direccion as empresa_direccion,
+               e.telefono as empresa_telefono,
+               e.correo_contacto as empresa_email,
+               e.prefijo_factura,
+               e.regimen_fiscal,
+               e.numero_inicial,
+               e.numero_final,
+               e.estado as empresa_estado
         FROM ventas v
         LEFT JOIN clientes c ON v.cliente_id = c.id
-        LEFT JOIN empresas e ON e.usuario_id = v.user_id
-        WHERE v.id = ? AND v.user_id = ?
+        LEFT JOIN empresas e ON e.estado = 1 AND e.es_principal = 1
+        WHERE v.id = ?
     ");
-    $stmt->execute([$_GET['id'], $_SESSION['user_id']]);
+    
+    if (!$stmt) {
+        throw new Exception('Error preparando la consulta: ' . $pdo->errorInfo()[2]);
+    }
+    
+    $stmt->execute([$_GET['id']]);
     $venta = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$venta) {
         throw new Exception('Venta no encontrada');
     }
 
-    // Obtener detalles de la venta
+    // Verificar si tenemos los datos de la empresa
+    if (empty($venta['empresa_nombre'])) {
+        // Intentar obtener la empresa principal
+        $stmtEmpresa = $pdo->prepare("
+            SELECT 
+                nombre_empresa,
+                nit,
+                direccion,
+                telefono,
+                correo_contacto as email,
+                prefijo_factura,
+                regimen_fiscal,
+                numero_inicial,
+                numero_final
+            FROM empresas 
+            WHERE estado = 1 AND es_principal = 1 
+            LIMIT 1
+        ");
+        $stmtEmpresa->execute();
+        $empresa = $stmtEmpresa->fetch(PDO::FETCH_ASSOC);
+        
+        if ($empresa) {
+            $venta['empresa_nombre'] = $empresa['nombre_empresa'];
+            $venta['empresa_nit'] = $empresa['nit'];
+            $venta['empresa_direccion'] = $empresa['direccion'];
+            $venta['empresa_telefono'] = $empresa['telefono'];
+            $venta['empresa_email'] = $empresa['email'];
+            $venta['prefijo_factura'] = $empresa['prefijo_factura'];
+            $venta['regimen_fiscal'] = $empresa['regimen_fiscal'];
+            $venta['numero_inicial'] = $empresa['numero_inicial'];
+            $venta['numero_final'] = $empresa['numero_final'];
+        }
+    }
+
+    // Construir la resolución DIAN
+    $venta['resolucion_facturacion'] = !empty($venta['numero_inicial']) && !empty($venta['numero_final']) 
+        ? 'Resolución DIAN No. ' . $venta['numero_inicial'] . ' al ' . $venta['numero_final']
+        : '';
+
+    // Si es factura electrónica y tiene ID de Alegra
+    if ($venta['numeracion'] === 'electronica' && !empty($venta['alegra_id'])) {
+        try {
+            $alegra = new AlegraIntegration();
+            $alegraResponse = $alegra->getInvoiceDetails($venta['alegra_id']);
+
+            if ($alegraResponse['success']) {
+                // Actualizar datos de la factura electrónica si es necesario
+                if (empty($venta['cufe']) || empty($venta['qr_code'])) {
+                    $updateStmt = $pdo->prepare("
+                        UPDATE ventas 
+                        SET cufe = ?, qr_code = ?, pdf_url = ?, xml_url = ?
+                        WHERE id = ?
+                    ");
+                    $updateStmt->execute([
+                        $alegraResponse['data']['cufe'],
+                        $alegraResponse['data']['qr_code'],
+                        $alegraResponse['data']['pdf_url'],
+                        $alegraResponse['data']['xml_url'],
+                        $venta['id']
+                    ]);
+                }
+
+                // Redirigir al PDF de Alegra
+                if (!empty($alegraResponse['data']['pdf_url'])) {
+                    header('Location: ' . $alegraResponse['data']['pdf_url']);
+                    exit;
+                }
+            }
+            
+            throw new Exception('No se pudo obtener el PDF de Alegra: ' . 
+                              ($alegraResponse['error'] ?? 'Error desconocido'));
+            
+        } catch (Exception $e) {
+            error_log('Error en Alegra Integration: ' . $e->getMessage());
+            throw new Exception('Error procesando factura electrónica: ' . $e->getMessage());
+        }
+    }
+
+    // Para facturas normales, obtener detalles
     $stmt = $pdo->prepare("
         SELECT vd.*, i.nombre, i.codigo_barras
         FROM venta_detalles vd
         LEFT JOIN inventario i ON vd.producto_id = i.id
         WHERE vd.venta_id = ?
     ");
-    $stmt->execute([$_GET['id']]);
+    $stmt->execute([$venta['id']]);
     $detalles = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-} catch (Exception $e) {
-    die("Error: " . $e->getMessage());
-}
+    // Antes de generar el PDF
+    ob_end_clean();
 
-// Agregar verificación para campos nulos
-function safe_text($text) {
-    return htmlspecialchars($text ?? '', ENT_QUOTES, 'UTF-8');
-}
-?>
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Factura <?= safe_text($venta['numero_factura']) ?></title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        /* Estilos base */
-        :root {
-            --page-width: 210mm;
-            --page-padding: 20px;
+    // Generar PDF normal
+    try {
+        $pdf = new FPDF();
+        $pdf->AddPage();
+        
+        // Configuración de márgenes y colores
+        $pdf->SetMargins(15, 15, 15);
+        $pdf->SetFillColor(240, 240, 240);
+        $pdf->SetDrawColor(200, 200, 200);
+        
+        // Logo y Encabezado de la empresa
+        $pdf->SetFont('Arial', 'B', 16);
+        $pdf->Cell(0, 15, utf8_decode($venta['empresa_nombre'] ?? ''), 0, 1, 'C');
+        
+        // Información de la empresa en dos columnas
+        $pdf->SetFont('Arial', '', 9);
+        $leftColumn = 'NIT: ' . ($venta['empresa_nit'] ?? '') . "\n";
+        $leftColumn .= 'Dir: ' . ($venta['empresa_direccion'] ?? '') . "\n";
+        $leftColumn .= 'Tel: ' . ($venta['empresa_telefono'] ?? '');
+        
+        $rightColumn = ($venta['empresa_email'] ?? '') . "\n";
+        if (!empty($venta['resolucion_facturacion'])) {
+            $rightColumn .= $venta['resolucion_facturacion'] . "\n";
+        }
+        $rightColumn .= 'Régimen: ' . ($venta['regimen_fiscal'] ?? '');
+        
+        // Posición inicial
+        $y = $pdf->GetY();
+        $pdf->SetXY(15, $y);
+        
+        // Columna izquierda
+        $pdf->MultiCell(95, 5, utf8_decode($leftColumn), 0, 'L');
+        
+        // Columna derecha
+        $pdf->SetXY(110, $y);
+        $pdf->MultiCell(85, 5, utf8_decode($rightColumn), 0, 'R');
+        
+        // Línea separadora
+        $pdf->Ln(5);
+        $pdf->Line(15, $pdf->GetY(), 195, $pdf->GetY());
+        $pdf->Ln(5);
+        
+        // Información de la factura
+        $pdf->SetFont('Arial', 'B', 12);
+        $pdf->Cell(0, 10, 'FACTURA DE VENTA: ' . ($venta['prefijo_factura'] ?? '') . $venta['numero_factura'], 0, 1, 'R');
+        $pdf->SetFont('Arial', '', 10);
+        $pdf->Cell(0, 5, 'Fecha: ' . date('d/m/Y', strtotime($venta['fecha'])), 0, 1, 'R');
+        
+        // Información del cliente en un cuadro
+        $pdf->Ln(5);
+        $pdf->SetFillColor(240, 240, 240);
+        $pdf->SetFont('Arial', 'B', 10);
+        $pdf->Cell(0, 7, ' INFORMACIÓN DEL CLIENTE', 1, 1, 'L', true);
+        $pdf->SetFont('Arial', '', 9);
+        
+        $nombreCliente = trim(
+            ($venta['primer_nombre'] ?? '') . ' ' . 
+            ($venta['segundo_nombre'] ?? '') . ' ' . 
+            ($venta['apellidos'] ?? '')
+        );
+        $pdf->Cell(97, 6, ' Nombre: ' . utf8_decode($nombreCliente), 'LR', 0);
+        $pdf->Cell(83, 6, ' ID: ' . ($venta['identificacion'] ?? ''), 'LR', 1);
+        $pdf->Cell(97, 6, ' Dir: ' . utf8_decode($venta['direccion'] ?? ''), 'LR', 0);
+        $pdf->Cell(83, 6, ' Tel: ' . ($venta['telefono'] ?? ''), 'LR', 1);
+        $pdf->Cell(180, 6, ' Email: ' . ($venta['email'] ?? ''), 'LRB', 1);
+        
+        // Detalles de la venta
+        $pdf->Ln(5);
+        $pdf->SetFillColor(240, 240, 240);
+        $pdf->SetFont('Arial', 'B', 9);
+        // Encabezados de la tabla
+        $pdf->Cell(80, 7, ' PRODUCTO', 1, 0, 'L', true);
+        $pdf->Cell(25, 7, ' CANT.', 1, 0, 'C', true);
+        $pdf->Cell(35, 7, ' PRECIO', 1, 0, 'R', true);
+        $pdf->Cell(40, 7, ' TOTAL', 1, 1, 'R', true);
+        
+        // Contenido de la tabla
+        $pdf->SetFont('Arial', '', 9);
+        foreach ($detalles as $detalle) {
+            $pdf->Cell(80, 6, ' ' . utf8_decode($detalle['nombre']), 1);
+            $pdf->Cell(25, 6, $detalle['cantidad'], 1, 0, 'C');
+            $pdf->Cell(35, 6, '$' . number_format($detalle['precio_unitario'], 0, ',', '.'), 1, 0, 'R');
+            $pdf->Cell(40, 6, '$' . number_format($detalle['cantidad'] * $detalle['precio_unitario'], 0, ',', '.'), 1, 1, 'R');
         }
         
-        @media print {
-            .no-print {
-                display: none !important;
-            }
-            body {
-                padding: 0;
-                margin: 0;
-                background: none;
-            }
-            .print-container {
-                box-shadow: none;
-                padding: var(--page-padding);
-                margin: 0;
-            }
-        }
+        // Totales con estilo
+        $pdf->SetFont('Arial', 'B', 9);
+        $pdf->Cell(140, 7, 'SUBTOTAL:', 1, 0, 'R', true);
+        $pdf->Cell(40, 7, '$' . number_format($venta['total'] + $venta['descuento'], 0, ',', '.'), 1, 1, 'R');
+        $pdf->Cell(140, 7, 'DESCUENTO:', 1, 0, 'R', true);
+        $pdf->Cell(40, 7, '$' . number_format($venta['descuento'], 0, ',', '.'), 1, 1, 'R');
+        $pdf->SetFont('Arial', 'B', 11);
+        $pdf->Cell(140, 8, 'TOTAL A PAGAR:', 1, 0, 'R', true);
+        $pdf->Cell(40, 8, '$' . number_format($venta['total'], 0, ',', '.'), 1, 1, 'R');
+        
+        // Pie de página
+        $pdf->Ln(10);
+        $pdf->SetFont('Arial', '', 8);
+        $pdf->MultiCell(0, 4, utf8_decode("GRACIAS POR SU COMPRA\nEsta factura es un título valor según el artículo 772 del Código de Comercio"), 0, 'C');
+        
+        $pdf->Output('I', 'factura.pdf'); // 'I' para mostrar en el navegador
+        exit;
+    } catch (Exception $e) {
+        error_log('Error generando PDF: ' . $e->getMessage());
+        throw new Exception('Error generando el PDF: ' . $e->getMessage());
+    }
 
-        /* Estilos para ticket 80mm */
-        @media print and (max-width: 80mm) {
-            :root {
-                --page-width: 80mm;
-                --page-padding: 2mm;
-            }
-            body {
-                font-size: 8pt;
-            }
-            .print-container {
-                padding: 2mm;
-            }
-            table {
-                font-size: 7pt;
-            }
-            th, td {
-                padding: 2px 4px;
-            }
-        }
-
-        /* Estilos para media carta */
-        @media print and (max-width: 140mm) {
-            :root {
-                --page-width: 140mm;
-                --page-padding: 5mm;
-            }
-        }
-
-        body {
-            font-family: 'Arial', sans-serif;
-            line-height: 1.4;
-            margin: 0;
-            padding: 20px;
-            background: #f5f5f5;
-        }
-
-        .print-container {
-            background: white;
-            width: var(--page-width);
-            margin: 0 auto;
-            padding: var(--page-padding);
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 10px;
-        }
-
-        .header h2 {
-            margin: 0;
-            font-size: 1.2em;
-            font-weight: bold;
-        }
-
-        .header p {
-            margin: 3px 0;
-            font-size: 0.9em;
-        }
-
-        .invoice-details {
-            border-top: 1px dashed #000;
-            border-bottom: 1px dashed #000;
-            padding: 5px 0;
-            margin: 10px 0;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 10px 0;
-        }
-
-        th, td {
-            text-align: left;
-            padding: 4px;
-            border-bottom: 1px solid #ddd;
-        }
-
-        .totals {
-            text-align: right;
-            margin-top: 10px;
-        }
-
-        .totals p {
-            margin: 2px 0;
-        }
-
-        .footer {
-            margin-top: 20px;
-            text-align: center;
-            font-size: 0.8em;
-            border-top: 1px dashed #000;
-            padding-top: 10px;
-        }
-
-        /* Botones de formato de impresión */
-        .print-options {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            display: flex;
-            gap: 10px;
-        }
-
-        .print-button {
-            padding: 10px 20px;
-            background: #4F46E5;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .print-button:hover {
-            background: #4338CA;
-        }
-    </style>
-</head>
-<body>
-    <div class="print-container">
-        <div class="header">
-            <h2><?= safe_text($venta['nombre_empresa']) ?></h2>
-            <p><?= safe_text($venta['nit']) ?></p>
-            <p><?= safe_text($venta['empresa_direccion']) ?></p>
-            <p>Tel: <?= safe_text($venta['empresa_telefono']) ?></p>
-            <p><?= safe_text($venta['correo_contacto']) ?></p>
-            <p><?= safe_text($venta['regimen_fiscal']) ?></p>
-        </div>
-
-        <div class="invoice-details">
-            <h3>FACTURA DE VENTA N° <?= safe_text($venta['numero_factura']) ?></h3>
-            <p>Fecha: <?= date('d/m/Y H:i', strtotime($venta['fecha'])) ?></p>
-            <p>Método de pago: <?= safe_text($venta['metodo_pago']) ?></p>
-        </div>
-
-        <div class="customer-info">
-            <p><strong>Cliente:</strong> <?= safe_text(trim($venta['primer_nombre'] . ' ' . $venta['segundo_nombre'] . ' ' . $venta['apellidos'])) ?></p>
-            <p><strong>ID:</strong> <?= safe_text($venta['identificacion']) ?></p>
-            <?php if (!empty($venta['telefono'])): ?>
-                <p><strong>Tel:</strong> <?= safe_text($venta['telefono']) ?></p>
-            <?php endif; ?>
-        </div>
-
-        <table>
-            <thead>
-                <tr>
-                    <th>Desc</th>
-                    <th>Cant</th>
-                    <th>Precio</th>
-                    <th>Total</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($detalles as $detalle): ?>
-                    <tr>
-                        <td><?= safe_text($detalle['nombre']) ?></td>
-                        <td><?= $detalle['cantidad'] ?></td>
-                        <td>$<?= number_format($detalle['precio_unitario'], 0, ',', '.') ?></td>
-                        <td>$<?= number_format($detalle['precio_unitario'] * $detalle['cantidad'], 0, ',', '.') ?></td>
-                    </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-
-        <div class="totals">
-            <p>Subtotal: $<?= number_format($venta['subtotal'], 0, ',', '.') ?></p>
-            <?php if ($venta['descuento'] > 0): ?>
-                <p>Descuento (<?= $venta['descuento'] ?>%): -$<?= number_format(($venta['subtotal'] * $venta['descuento'] / 100), 0, ',', '.') ?></p>
-            <?php endif; ?>
-            <h3>TOTAL: $<?= number_format($venta['total'], 0, ',', '.') ?></h3>
-        </div>
-
-        <div class="footer">
-            <p>¡Gracias por su compra!</p>
-            <p>Esta factura se asimila en todos sus efectos a una letra de cambio de conformidad con el Art. 774 del código de comercio.</p>
-        </div>
-    </div>
-
-    <!-- Botones de formato de impresión -->
-    <div class="print-options no-print">
-        <button onclick="printFormat('80mm')" class="print-button">
-            <i class="fas fa-receipt"></i>
-            Ticket 80mm
-        </button>
-        <button onclick="printFormat('media-carta')" class="print-button">
-            <i class="fas fa-file-alt"></i>
-            Media Carta
-        </button>
-        <button onclick="printFormat('carta')" class="print-button">
-            <i class="fas fa-print"></i>
-            Carta
-        </button>
-    </div>
-
-    <script>
-        function printFormat(format) {
-            const container = document.querySelector('.print-container');
-            
-            switch(format) {
-                case '80mm':
-                    container.style.width = '80mm';
-                    container.style.fontSize = '8pt';
-                    break;
-                case 'media-carta':
-                    container.style.width = '140mm';
-                    container.style.fontSize = '10pt';
-                    break;
-                case 'carta':
-                    container.style.width = '210mm';
-                    container.style.fontSize = '12pt';
-                    break;
-            }
-            
-            setTimeout(() => {
-                window.print();
-                // Restaurar el tamaño original después de imprimir
-                container.style.width = '';
-                container.style.fontSize = '';
-            }, 100);
-        }
-    </script>
-</body>
-</html> 
+} catch (Exception $e) {
+    error_log('Error en imprimir_factura.php: ' . $e->getMessage());
+    header('HTTP/1.1 500 Internal Server Error');
+    echo "Error: " . $e->getMessage();
+} 

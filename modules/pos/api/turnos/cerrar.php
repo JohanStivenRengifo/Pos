@@ -28,7 +28,7 @@ if (!file_exists('../../config/database.php')) {
 }
 
 try {
-    require_once '../../config/database.php';
+    require_once '../../../../config/db.php';
 
     // Verificar que la conexión a la base de datos existe
     if (!isset($pdo) || !($pdo instanceof PDO)) {

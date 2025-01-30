@@ -293,7 +293,7 @@ if (
 
                                             <?php
                                             // Ruta de la imagen por defecto (asegúrate de que esta ruta existe)
-                                            $defaultImage = 'assets/img/no-image.png';
+                                            $defaultImage = '../../assets/img/no-image.png';
                                             
                                             // Verificar si hay una imagen y construir la ruta
                                             $rutaImagen = !empty($producto['imagen_ruta']) 
@@ -740,6 +740,126 @@ if (
                         });
                     });
                 }
+            });
+        }
+
+        function imprimirRemision() {
+            Swal.fire({
+                title: '¿Desea imprimir la remisión?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, imprimir',
+                cancelButtonText: 'No',
+                confirmButtonColor: '#4F46E5',
+                cancelButtonColor: '#6B7280',
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Aquí va la lógica para imprimir la remisión
+                    imprimirTicket();
+                } else {
+                    imprimirTicket();
+                }
+            });
+        }
+
+        function imprimirTicket() {
+            Swal.fire({
+                title: '¿Desea imprimir el ticket de venta?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, imprimir',
+                cancelButtonText: 'No',
+                confirmButtonColor: '#4F46E5',
+                cancelButtonColor: '#6B7280',
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Aquí va la lógica para imprimir el ticket
+                    preguntarEnvioCorreo();
+                } else {
+                    preguntarEnvioCorreo();
+                }
+            });
+        }
+
+        function preguntarEnvioCorreo() {
+            Swal.fire({
+                title: '¿Desea enviar la factura por correo electrónico?',
+                icon: 'question',
+                input: 'email',
+                inputLabel: 'Correo electrónico',
+                inputPlaceholder: 'Ingrese el correo electrónico',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, enviar',
+                cancelButtonText: 'No',
+                confirmButtonColor: '#4F46E5',
+                cancelButtonColor: '#6B7280',
+                inputValidator: (value) => {
+                    if (!value) {
+                        return 'Debe ingresar un correo electrónico';
+                    }
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    enviarFacturaPorCorreo(result.value);
+                }
+            });
+        }
+
+        function enviarFacturaPorCorreo(email) {
+            // Mostrar indicador de carga
+            Swal.fire({
+                title: 'Enviando factura...',
+                text: 'Por favor espere',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            // Realizar la petición a la API de Alegra
+            fetch('api/alegra/enviar_factura_email.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    email: email,
+                    facturaId: window.ultimaFacturaId // Asegúrate de tener esta variable disponible
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Correo enviado!',
+                        text: 'La factura ha sido enviada correctamente',
+                        confirmButtonColor: '#4F46E5'
+                    });
+                } else {
+                    throw new Error(data.message || 'Error al enviar el correo');
+                }
+            })
+            .catch(error => {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: error.message,
+                    confirmButtonColor: '#EF4444'
+                });
+            });
+        }
+
+        // Modifica la función existente que maneja el éxito de la venta para incluir la nueva secuencia
+        function handleVentaExitosa(response) {
+            window.ultimaFacturaId = response.facturaId; // Guarda el ID de la factura
+            Swal.fire({
+                icon: 'success',
+                title: '¡Venta realizada!',
+                text: 'La venta se ha procesado correctamente.',
+                confirmButtonColor: '#4F46E5'
+            }).then(() => {
+                imprimirRemision();
             });
         }
     </script>
