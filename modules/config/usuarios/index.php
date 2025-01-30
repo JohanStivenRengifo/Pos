@@ -2,6 +2,37 @@
 session_start();
 require_once '../../../config/db.php';
 
+// Código de depuración - Agregar al inicio del archivo después de require_once '../../../config/db.php';
+error_log("=== INICIO DE DEPURACIÓN ===");
+
+// Verificar sesión actual
+error_log("SESSION user_id: " . ($_SESSION['user_id'] ?? 'no definido'));
+
+// Consulta directa a la tabla users
+try {
+    $debug_stmt = $pdo->query("
+        SELECT id, nombre, email, empresa_id, estado 
+        FROM users 
+        WHERE estado = 'activo'
+    ");
+    error_log("Usuarios activos en la base de datos:");
+    error_log(print_r($debug_stmt->fetchAll(PDO::FETCH_ASSOC), true));
+} catch (Exception $e) {
+    error_log("Error en consulta de depuración: " . $e->getMessage());
+}
+
+// Consulta a la tabla empresas
+try {
+    $debug_stmt = $pdo->query("
+        SELECT id, nombre, usuario_id
+        FROM empresas
+    ");
+    error_log("Empresas en la base de datos:");
+    error_log(print_r($debug_stmt->fetchAll(PDO::FETCH_ASSOC), true));
+} catch (Exception $e) {
+    error_log("Error en consulta de empresas: " . $e->getMessage());
+}
+
 // Verificar si el usuario está logueado
 if (!isset($_SESSION['user_id'])) {
     header("Location: ../../../index.php");
@@ -40,28 +71,11 @@ if (isset($_POST['action'])) {
                     throw new Exception("La contraseña debe tener al menos 6 caracteres");
                 }
 
-                // Obtener empresa_id del usuario actual
-                $stmt = $pdo->prepare("
-                    SELECT u.empresa_id, e.id as empresa_id_from_empresas 
-                    FROM users u 
-                    LEFT JOIN empresas e ON e.usuario_id = u.id 
-                    WHERE u.id = ?
-                ");
-                $stmt->execute([$_SESSION['user_id']]);
-                $result = $stmt->fetch(PDO::FETCH_ASSOC);
-                
-                $empresa_id = $result['empresa_id'] ?? $result['empresa_id_from_empresas'];
-
-                if (!$empresa_id) {
-                    throw new Exception("No se pudo determinar la empresa asociada al usuario. Por favor contacte al administrador.");
-                }
-
                 $result = crearUsuario([
                     'nombre' => trim($_POST['nombre']),
                     'email' => trim($_POST['email']),
                     'password' => $_POST['password'],
-                    'rol' => $_POST['rol'],
-                    'empresa_id' => $empresa_id
+                    'rol' => $_POST['rol']
                 ]);
 
                 if ($result) {
@@ -133,17 +147,87 @@ if (isset($_POST['action'])) {
     }
 }
 
-$user_id = $_SESSION['user_id'];
-$email = $_SESSION['email'];
+$user_id = $_SESSION['user_id'] ?? null;
+$email = $_SESSION['email'] ?? null;
+
+if (!$user_id) {
+    header("Location: ../../../index.php");
+    exit();
+}
+
 $user_info = getUserInfo($user_id);
-$usuarios = getUsuarios($user_info['empresa_id']);
+error_log("User Info para ID {$user_id}: " . print_r($user_info, true));
+
+if (!$user_info || empty($user_info['empresa_id'])) {
+    error_log("No se pudo obtener la empresa_id para el usuario {$user_id}");
+    $error_message = "No se pudo obtener la información del usuario o la empresa asociada.";
+    $usuarios = [];
+} else {
+    error_log("Obteniendo usuarios para empresa_id: " . $user_info['empresa_id']);
+    $usuarios = getUsuarios($user_info['empresa_id']);
+    error_log("Usuarios obtenidos: " . count($usuarios));
+}
 
 // Funciones necesarias
 function getUserInfo($user_id) {
     global $pdo;
-    $stmt = $pdo->prepare("SELECT email, nombre, empresa_id, rol FROM users WHERE id = ?");
-    $stmt->execute([$user_id]);
-    return $stmt->fetch(PDO::FETCH_ASSOC);
+    try {
+        error_log("Obteniendo información para user_id: " . $user_id);
+        
+        // Consulta principal
+        $stmt = $pdo->prepare("
+            SELECT 
+                u.id,
+                u.email,
+                u.nombre,
+                u.rol,
+                u.empresa_id,
+                e.id as empresa_relacionada_id
+            FROM users u
+            LEFT JOIN empresas e ON e.usuario_id = u.id
+            WHERE u.id = ?
+            AND u.estado = 'activo'
+        ");
+        
+        $stmt->execute([$user_id]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        error_log("Resultado inicial getUserInfo: " . print_r($result, true));
+        
+        if (!$result) {
+            error_log("No se encontró el usuario: " . $user_id);
+            return false;
+        }
+
+        // Determinar empresa_id
+        $empresa_id = $result['empresa_id'] ?? $result['empresa_relacionada_id'] ?? null;
+        
+        if (!$empresa_id) {
+            // Buscar en la tabla empresas
+            $stmt = $pdo->prepare("
+                SELECT id as empresa_id
+                FROM empresas
+                WHERE usuario_id = ?
+                LIMIT 1
+            ");
+            $stmt->execute([$user_id]);
+            $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($empresa) {
+                $empresa_id = $empresa['empresa_id'];
+            }
+        }
+        
+        $result['empresa_id'] = $empresa_id;
+        error_log("Información final del usuario: " . print_r($result, true));
+        
+        return $result;
+        
+    } catch (Exception $e) {
+        error_log("Error en getUserInfo: " . $e->getMessage());
+        error_log("Stack trace: " . $e->getTraceAsString());
+        return false;
+    }
 }
 
 function getRoles() {
@@ -159,32 +243,66 @@ function getRoles() {
 function getUsuarios($empresa_id) {
     global $pdo;
     
+    error_log("Buscando usuarios para empresa_id: " . $empresa_id);
+    
+    if (empty($empresa_id)) {
+        error_log("empresa_id está vacío");
+        return [];
+    }
+    
     try {
+        // Primera búsqueda - usuarios directamente relacionados
         $stmt = $pdo->prepare("
-            SELECT 
+            SELECT DISTINCT
                 u.id,
                 u.nombre,
                 u.email,
                 u.rol,
                 u.estado,
                 u.fecha_creacion,
-                (SELECT login_time 
-                 FROM login_history lh 
-                 WHERE lh.user_id = u.id 
-                 AND lh.status = 'success'
-                 ORDER BY login_time DESC 
-                 LIMIT 1) as ultimo_acceso
-            FROM users u 
-            WHERE u.empresa_id = ?
-            ORDER BY u.fecha_creacion DESC
+                u.empresa_id
+            FROM users u
+            WHERE u.empresa_id = :empresa_id
+            AND u.estado = 'activo'
         ");
         
-        $stmt->execute([$empresa_id]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $stmt->execute([':empresa_id' => $empresa_id]);
+        $usuarios = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        error_log("Primera búsqueda - usuarios encontrados: " . count($usuarios));
+        
+        // Segunda búsqueda - usuarios relacionados a través de la tabla empresas
+        $stmt = $pdo->prepare("
+            SELECT DISTINCT
+                u.id,
+                u.nombre,
+                u.email,
+                u.rol,
+                u.estado,
+                u.fecha_creacion,
+                :empresa_id as empresa_id
+            FROM users u
+            INNER JOIN empresas e ON e.usuario_id = u.id
+            WHERE e.id = :empresa_id
+            AND u.estado = 'activo'
+            AND u.id NOT IN (SELECT id FROM users WHERE empresa_id = :empresa_id)
+        ");
+        
+        $stmt->execute([':empresa_id' => $empresa_id]);
+        $usuarios_adicionales = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        error_log("Segunda búsqueda - usuarios adicionales encontrados: " . count($usuarios_adicionales));
+        
+        $todos_usuarios = array_merge($usuarios, $usuarios_adicionales);
+        error_log("Total usuarios encontrados: " . count($todos_usuarios));
+        error_log("Usuarios encontrados: " . print_r($todos_usuarios, true));
+        
+        return $todos_usuarios;
         
     } catch (PDOException $e) {
-        error_log("Error obteniendo usuarios: " . $e->getMessage());
-        throw new Exception("Error al obtener la lista de usuarios");
+        error_log("Error en getUsuarios: " . $e->getMessage());
+        error_log("Stack trace: " . $e->getTraceAsString());
+        return [];
     }
 }
 
@@ -206,6 +324,22 @@ function crearUsuario($data) {
         $roles_validos = array_keys(getRoles());
         if (!in_array($data['rol'], $roles_validos)) {
             throw new Exception("Rol no válido");
+        }
+
+        // Obtener empresa_id del usuario que está creando
+        $stmt = $pdo->prepare("
+            SELECT u.empresa_id, e.id as empresa_id_from_empresas 
+            FROM users u 
+            LEFT JOIN empresas e ON e.usuario_id = u.id 
+            WHERE u.id = ?
+        ");
+        $stmt->execute([$_SESSION['user_id']]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        $empresa_id = $result['empresa_id'] ?? $result['empresa_id_from_empresas'];
+
+        if (!$empresa_id) {
+            throw new Exception("No se pudo determinar la empresa para asociar al nuevo usuario");
         }
 
         // Insertar nuevo usuario
@@ -236,7 +370,7 @@ function crearUsuario($data) {
             ':email' => $data['email'],
             ':password' => $hashed_password,
             ':rol' => $data['rol'],
-            ':empresa_id' => $data['empresa_id'],
+            ':empresa_id' => $empresa_id, // Usar el empresa_id obtenido del usuario creador
             ':estado' => 'activo'
         ];
 
@@ -531,80 +665,141 @@ function eliminarUsuario($user_id, $empresa_id) {
         </div>
     </div>
 
-    <!-- Modal de Usuario -->
-    <div id="modalUsuario" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full">
-        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div class="flex justify-between items-center pb-3">
-                <h3 class="text-xl font-semibold text-gray-900" id="modalTitle">Crear Nuevo Usuario</h3>
-                <button onclick="cerrarModal()" class="text-gray-400 hover:text-gray-500">
-                    <i class="fas fa-times"></i>
+    <!-- Modal de Usuario - Versión mejorada -->
+    <div id="modalUsuario" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-8 border w-[600px] shadow-xl rounded-xl bg-white">
+            <!-- Encabezado del modal -->
+            <div class="flex justify-between items-center pb-6 border-b">
+                <h3 class="text-2xl font-bold text-gray-900" id="modalTitle">Crear Nuevo Usuario</h3>
+                <button onclick="cerrarModal()" class="text-gray-400 hover:text-gray-500 transition-colors">
+                    <i class="fas fa-times text-xl"></i>
                 </button>
             </div>
 
-            <form id="formUsuario" class="space-y-4">
+            <form id="formUsuario" class="mt-6">
                 <input type="hidden" id="user_id" name="user_id">
                 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
-                    <input type="text" 
-                           id="nombre_usuario" 
-                           name="nombre"
-                           class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                           required>
+                <!-- Grid de 2 columnas -->
+                <div class="grid grid-cols-2 gap-6">
+                    <!-- Columna izquierda -->
+                    <div class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Nombre completo
+                            </label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">
+                                    <i class="fas fa-user"></i>
+                                </span>
+                                <input type="text" 
+                                       id="nombre_usuario" 
+                                       name="nombre"
+                                       class="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                       placeholder="Ingrese el nombre completo"
+                                       required>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Correo electrónico
+                            </label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">
+                                    <i class="fas fa-envelope"></i>
+                                </span>
+                                <input type="email" 
+                                       id="email_usuario" 
+                                       name="email"
+                                       class="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                       placeholder="correo@ejemplo.com"
+                                       required>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Contraseña
+                            </label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">
+                                    <i class="fas fa-lock"></i>
+                                </span>
+                                <input type="password" 
+                                       id="password_usuario" 
+                                       name="password"
+                                       class="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                       placeholder="Mínimo 6 caracteres"
+                                       minlength="6">
+                                <p class="text-sm text-gray-500 mt-1.5 password-hint hidden">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    Dejar en blanco para mantener la contraseña actual
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Columna derecha -->
+                    <div class="space-y-6">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Rol del usuario
+                            </label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">
+                                    <i class="fas fa-user-tag"></i>
+                                </span>
+                                <select id="rol_usuario" 
+                                        name="rol"
+                                        class="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
+                                        required>
+                                    <option value="">Seleccione un rol</option>
+                                    <?php foreach (getRoles() as $key => $value): ?>
+                                        <option value="<?= htmlspecialchars($key) ?>">
+                                            <?= htmlspecialchars($value) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <span class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 pointer-events-none">
+                                    <i class="fas fa-chevron-down"></i>
+                                </span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                Estado
+                            </label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">
+                                    <i class="fas fa-toggle-on"></i>
+                                </span>
+                                <select id="estado_usuario" 
+                                        name="estado"
+                                        class="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
+                                        required>
+                                    <option value="activo">Activo</option>
+                                    <option value="inactivo">Inactivo</option>
+                                </select>
+                                <span class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 pointer-events-none">
+                                    <i class="fas fa-chevron-down"></i>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                    <input type="email" 
-                           id="email_usuario" 
-                           name="email"
-                           class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                           required>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
-                    <input type="password" 
-                           id="password_usuario" 
-                           name="password"
-                           class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                           minlength="6">
-                    <p class="text-sm text-gray-500 mt-1 password-hint" style="display: none;">
-                        Dejar en blanco para mantener la contraseña actual
-                    </p>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Rol</label>
-                    <select id="rol_usuario" name="rol"
-                            class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            required>
-                        <?php foreach (getRoles() as $key => $value): ?>
-                            <option value="<?= htmlspecialchars($key) ?>">
-                                <?= htmlspecialchars($value) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Estado</label>
-                    <select id="estado_usuario" name="estado"
-                            class="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            required>
-                        <option value="activo">Activo</option>
-                        <option value="inactivo">Inactivo</option>
-                    </select>
-                </div>
-
-                <div class="flex justify-end space-x-3 mt-6">
+                <!-- Botones de acción -->
+                <div class="flex justify-end space-x-4 mt-8 pt-6 border-t">
                     <button type="button" 
                             onclick="cerrarModal()"
-                            class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">
+                            class="px-6 py-2.5 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center">
+                        <i class="fas fa-times mr-2"></i>
                         Cancelar
                     </button>
                     <button type="submit" 
-                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                            class="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center">
+                        <i class="fas fa-save mr-2"></i>
                         Guardar
                     </button>
                 </div>

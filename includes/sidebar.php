@@ -61,11 +61,6 @@ $menu_categories = [
                 'name' => 'Turnos',
                 'url' => '/modules/turnos/index.php',
                 'icon' => 'fas fa-clock'
-            ],
-            'nomina' => [
-                'name' => 'Nómina',
-                'url' => '/modules/nomina/index.php',
-                'icon' => 'fas fa-file-invoice'
             ]
         ]
     ],
