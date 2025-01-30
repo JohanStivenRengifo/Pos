@@ -1,10 +1,13 @@
 <?php
+// Primero, asegurarnos de que no haya salida previa
+ob_start();
+
 require_once '../../../config/db.php';
 require_once 'alegra_integration.php';
 
-// Habilitar el reporte de errores
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
+// Habilitar el reporte de errores pero guardarlos en el log en lugar de mostrarlos
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
 error_reporting(E_ALL);
 
 // Verificar y cargar FPDF
@@ -33,6 +36,10 @@ if (!$fpdfLoaded) {
 if (!isset($_GET['id'])) {
     die('ID de venta no especificado');
 }
+
+// Antes de cualquier salida, agregar esto al inicio del archivo, justo después de los requires
+if (ob_get_level()) ob_end_clean();
+header('Content-Type: application/pdf');
 
 try {
     // Obtener datos de la venta
@@ -155,8 +162,15 @@ try {
     $stmt->execute([$venta['id']]);
     $detalles = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    // Antes de generar el PDF
-    ob_end_clean();
+    // Antes de generar el PDF, limpiar cualquier salida previa
+    while (ob_get_level()) {
+        ob_end_clean();
+    }
+    
+    // Establecer headers para PDF
+    header('Content-Type: application/pdf');
+    header('Cache-Control: private, max-age=0, must-revalidate');
+    header('Pragma: public');
 
     // Generar PDF normal
     try {
@@ -170,7 +184,7 @@ try {
         
         // Logo y Encabezado de la empresa
         $pdf->SetFont('Arial', 'B', 16);
-        $pdf->Cell(0, 15, utf8_decode($venta['empresa_nombre'] ?? ''), 0, 1, 'C');
+        $pdf->Cell(0, 15, mb_convert_encoding($venta['empresa_nombre'] ?? '', 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
         
         // Información de la empresa en dos columnas
         $pdf->SetFont('Arial', '', 9);
@@ -189,11 +203,11 @@ try {
         $pdf->SetXY(15, $y);
         
         // Columna izquierda
-        $pdf->MultiCell(95, 5, utf8_decode($leftColumn), 0, 'L');
+        $pdf->MultiCell(95, 5, mb_convert_encoding($leftColumn, 'ISO-8859-1', 'UTF-8'), 0, 'L');
         
         // Columna derecha
         $pdf->SetXY(110, $y);
-        $pdf->MultiCell(85, 5, utf8_decode($rightColumn), 0, 'R');
+        $pdf->MultiCell(85, 5, mb_convert_encoding($rightColumn, 'ISO-8859-1', 'UTF-8'), 0, 'R');
         
         // Línea separadora
         $pdf->Ln(5);
@@ -218,9 +232,9 @@ try {
             ($venta['segundo_nombre'] ?? '') . ' ' . 
             ($venta['apellidos'] ?? '')
         );
-        $pdf->Cell(97, 6, ' Nombre: ' . utf8_decode($nombreCliente), 'LR', 0);
+        $pdf->Cell(97, 6, ' Nombre: ' . mb_convert_encoding($nombreCliente, 'ISO-8859-1', 'UTF-8'), 'LR', 0);
         $pdf->Cell(83, 6, ' ID: ' . ($venta['identificacion'] ?? ''), 'LR', 1);
-        $pdf->Cell(97, 6, ' Dir: ' . utf8_decode($venta['direccion'] ?? ''), 'LR', 0);
+        $pdf->Cell(97, 6, ' Dir: ' . mb_convert_encoding($venta['direccion'] ?? '', 'ISO-8859-1', 'UTF-8'), 'LR', 0);
         $pdf->Cell(83, 6, ' Tel: ' . ($venta['telefono'] ?? ''), 'LR', 1);
         $pdf->Cell(180, 6, ' Email: ' . ($venta['email'] ?? ''), 'LRB', 1);
         
@@ -237,7 +251,7 @@ try {
         // Contenido de la tabla
         $pdf->SetFont('Arial', '', 9);
         foreach ($detalles as $detalle) {
-            $pdf->Cell(80, 6, ' ' . utf8_decode($detalle['nombre']), 1);
+            $pdf->Cell(80, 6, ' ' . mb_convert_encoding($detalle['nombre'], 'ISO-8859-1', 'UTF-8'), 1);
             $pdf->Cell(25, 6, $detalle['cantidad'], 1, 0, 'C');
             $pdf->Cell(35, 6, '$' . number_format($detalle['precio_unitario'], 0, ',', '.'), 1, 0, 'R');
             $pdf->Cell(40, 6, '$' . number_format($detalle['cantidad'] * $detalle['precio_unitario'], 0, ',', '.'), 1, 1, 'R');
@@ -256,9 +270,13 @@ try {
         // Pie de página
         $pdf->Ln(10);
         $pdf->SetFont('Arial', '', 8);
-        $pdf->MultiCell(0, 4, utf8_decode("GRACIAS POR SU COMPRA\nEsta factura es un título valor según el artículo 772 del Código de Comercio"), 0, 'C');
+        $pdf->MultiCell(0, 4, mb_convert_encoding("GRACIAS POR SU COMPRA\nEsta factura es un título valor según el artículo 772 del Código de Comercio", 'ISO-8859-1', 'UTF-8'), 0, 'C');
         
-        $pdf->Output('I', 'factura.pdf'); // 'I' para mostrar en el navegador
+        // Al final, antes de Output
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+        $pdf->Output('I', 'factura.pdf');
         exit;
     } catch (Exception $e) {
         error_log('Error generando PDF: ' . $e->getMessage());
@@ -267,6 +285,10 @@ try {
 
 } catch (Exception $e) {
     error_log('Error en imprimir_factura.php: ' . $e->getMessage());
+    // Limpiar cualquier salida parcial
+    if (ob_get_level()) {
+        ob_end_clean();
+    }
     header('HTTP/1.1 500 Internal Server Error');
     echo "Error: " . $e->getMessage();
 } 
