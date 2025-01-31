@@ -403,6 +403,12 @@ class AlegraIntegration {
                 throw new Exception($clienteAlegra['error']);
             }
 
+            // Obtener la plantilla de numeración electrónica
+            $numberTemplate = $this->getElectronicNumberTemplate();
+            if (!$numberTemplate['success']) {
+                throw new Exception('Error al obtener plantilla de numeración: ' . $numberTemplate['error']);
+            }
+
             // Procesar items
             $items = [];
             foreach ($data['items'] as $item) {
@@ -411,14 +417,21 @@ class AlegraIntegration {
                     throw new Exception('Error al procesar item: ' . $itemAlegra['error']);
                 }
 
+                // Agregar impuesto por defecto a cada item
                 $items[] = [
                     'id' => $itemAlegra['data']['id'],
                     'price' => floatval($item['precio']),
-                    'quantity' => intval($item['cantidad'])
+                    'quantity' => intval($item['cantidad']),
+                    'tax' => [[
+                        'id' => $this->getDefaultTax() ?? 6, // ID 6 es IVA 19% en Alegra
+                        'name' => 'IVA',
+                        'percentage' => 19,
+                        'type' => 'IVA'
+                    ]]
                 ];
             }
 
-            // Construir el payload para el borrador
+            // Construir el payload completo para factura electrónica
             $payload = [
                 'date' => date('Y-m-d'),
                 'dueDate' => date('Y-m-d'),
@@ -426,27 +439,39 @@ class AlegraIntegration {
                     'id' => $clienteAlegra['data']['id']
                 ],
                 'items' => $items,
-                'paymentForm' => 'CASH'  // Forma de pago de contado según DIAN
+                'numberTemplate' => [
+                    'id' => $numberTemplate['data']['id']
+                ],
+                'paymentForm' => [
+                    'paymentMethod' => $this->mapPaymentMeans($data['metodo_pago'] ?? 'efectivo'),
+                    'paymentMeans' => 'CASH', // Medio de pago según DIAN
+                    'paymentDueDate' => date('Y-m-d')
+                ],
+                'seller' => 1, // ID del vendedor por defecto
+                'anotation' => 'Factura de venta',
+                'stamp' => [
+                    'generateStamp' => true
+                ]
             ];
 
-            // 1. Crear borrador de factura
+            error_log('Payload de factura: ' . json_encode($payload));
+
+            // 1. Crear factura
             $response = $this->client->request('POST', 'invoices', [
                 'json' => $payload
             ]);
             $draftInvoice = json_decode($response->getBody()->getContents(), true);
 
             if (!isset($draftInvoice['id'])) {
-                throw new Exception('No se pudo crear el borrador de la factura');
+                throw new Exception('No se pudo crear la factura');
             }
 
-            // 2. Consultar la factura creada
-            $response = $this->client->request('GET', "invoices/{$draftInvoice['id']}");
-            $invoice = json_decode($response->getBody()->getContents(), true);
+            error_log('Factura creada: ' . json_encode($draftInvoice));
 
-            // Antes del timbrado
-            error_log('Intentando timbrar factura ID: ' . $draftInvoice['id']);
+            // 2. Esperar un momento antes de timbrar
+            sleep(2);
 
-            // 3. Timbrar la factura ante la DIAN
+            // 3. Timbrar la factura
             $stampPayload = [
                 'ids' => [$draftInvoice['id']]
             ];
@@ -460,32 +485,18 @@ class AlegraIntegration {
             $stampResult = json_decode($response->getBody()->getContents(), true);
             error_log('Respuesta de timbrado: ' . json_encode($stampResult));
 
-            // Verificar el resultado del timbrado
-            if (isset($stampResult['error'])) {
-                throw new Exception('Error al timbrar la factura: ' . ($stampResult['error']['message'] ?? 'Error desconocido'));
-            }
-
-            // Esperar un momento y consultar el estado final de la factura
-            sleep(3); // Aumentar el tiempo de espera a 3 segundos
+            // 4. Esperar y consultar estado final
+            sleep(3);
             
             $response = $this->client->request('GET', "invoices/{$draftInvoice['id']}");
             $finalInvoice = json_decode($response->getBody()->getContents(), true);
 
-            // Verificar que la factura esté lista
-            if (!isset($finalInvoice['status']) || !in_array($finalInvoice['status'], ['open', 'closed'])) {
-                error_log('Factura aún no está lista. Estado: ' . ($finalInvoice['status'] ?? 'desconocido'));
-            }
-
-            // Crear el pago de la factura
+            // 5. Crear el pago
             $paymentResult = $this->createPayment(
                 $draftInvoice['id'],
                 $finalInvoice['total'],
-                'CASH' // O mapear desde $data['metodo_pago']
+                $this->mapPaymentMeans($data['metodo_pago'] ?? 'efectivo')
             );
-
-            if (!$paymentResult['success']) {
-                error_log('Error al crear el pago: ' . ($paymentResult['error'] ?? 'Error desconocido'));
-            }
 
             return [
                 'success' => true,
@@ -496,7 +507,6 @@ class AlegraIntegration {
 
         } catch (\Exception $e) {
             error_log('Error en createInvoice: ' . $e->getMessage());
-            error_log('Payload: ' . print_r($payload ?? [], true));
             return [
                 'success' => false,
                 'error' => $e->getMessage()
@@ -561,8 +571,13 @@ class AlegraIntegration {
     }
 
     private function mapPaymentMeans($localMethod) {
-        // Ya que solo usaremos efectivo, siempre retornamos CASH
-        return 'CASH';
+        $paymentMap = [
+            'efectivo' => 'CASH',
+            'tarjeta' => 'CREDIT_CARD',
+            'transferencia' => 'BANK_TRANSFER'
+        ];
+        
+        return $paymentMap[strtolower($localMethod)] ?? 'CASH';
     }
 
     public function sendInvoiceEmail($invoiceId, $email = null) {
