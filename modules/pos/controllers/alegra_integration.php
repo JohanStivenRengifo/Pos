@@ -397,33 +397,38 @@ class AlegraIntegration {
 
     public function createInvoice($data) {
         try {
-            // Primero verificar si el cliente existe en Alegra
+            error_log('Iniciando proceso de facturación electrónica');
+
+            // 1. Preparar los datos básicos
             $clienteAlegra = $this->getOrCreateContact($data['cliente_id']);
             if (!$clienteAlegra['success']) {
-                throw new Exception($clienteAlegra['error']);
+                throw new Exception('Error con el cliente: ' . $clienteAlegra['error']);
             }
 
-            // Obtener la plantilla de numeración electrónica
             $numberTemplate = $this->getElectronicNumberTemplate();
             if (!$numberTemplate['success']) {
-                throw new Exception('Error al obtener plantilla de numeración: ' . $numberTemplate['error']);
+                throw new Exception('Error con la plantilla: ' . $numberTemplate['error']);
             }
 
-            // Procesar items
+            $seller = $this->getDefaultSeller();
+            if (!$seller['success']) {
+                throw new Exception('Error con el vendedor: ' . $seller['error']);
+            }
+
+            // 2. Preparar los items con impuestos
             $items = [];
             foreach ($data['items'] as $item) {
                 $itemAlegra = $this->findOrCreateItem($item);
                 if (!$itemAlegra['success']) {
-                    throw new Exception('Error al procesar item: ' . $itemAlegra['error']);
+                    throw new Exception('Error con el item: ' . $itemAlegra['error']);
                 }
 
-                // Agregar impuesto por defecto a cada item
                 $items[] = [
                     'id' => $itemAlegra['data']['id'],
                     'price' => floatval($item['precio']),
                     'quantity' => intval($item['cantidad']),
                     'tax' => [[
-                        'id' => $this->getDefaultTax() ?? 6, // ID 6 es IVA 19% en Alegra
+                        'id' => $this->getDefaultTax() ?? 6,
                         'name' => 'IVA',
                         'percentage' => 19,
                         'type' => 'IVA'
@@ -431,14 +436,8 @@ class AlegraIntegration {
                 ];
             }
 
-            // Obtener el vendedor por defecto
-            $seller = $this->getDefaultSeller();
-            if (!$seller['success']) {
-                throw new Exception('Error al obtener vendedor: ' . $seller['error']);
-            }
-
-            // Construir el payload completo para factura electrónica
-            $payload = [
+            // 3. Construir el payload para crear la factura
+            $invoicePayload = [
                 'date' => date('Y-m-d'),
                 'dueDate' => date('Y-m-d'),
                 'client' => [
@@ -450,58 +449,61 @@ class AlegraIntegration {
                 ],
                 'paymentForm' => [
                     'paymentMethod' => $this->mapPaymentMeans($data['metodo_pago'] ?? 'efectivo'),
-                    'paymentMeans' => 'CASH', // Medio de pago según DIAN
+                    'paymentMeans' => 'CASH',
                     'paymentDueDate' => date('Y-m-d')
                 ],
                 'seller' => [
-                    'id' => $seller['data']['id']  // Usar el ID del vendedor obtenido
+                    'id' => $seller['data']['id']
                 ],
-                'anotation' => 'Factura de venta',
-                'stamp' => [
-                    'generateStamp' => true
-                ]
+                'anotation' => 'Factura de venta'
             ];
 
-            error_log('Payload de factura: ' . json_encode($payload));
+            error_log('Creando factura con payload: ' . json_encode($invoicePayload));
 
-            // 1. Crear factura
+            // 4. Crear la factura
             $response = $this->client->request('POST', 'invoices', [
-                'json' => $payload
+                'json' => $invoicePayload
             ]);
-            $draftInvoice = json_decode($response->getBody()->getContents(), true);
-
-            if (!isset($draftInvoice['id'])) {
-                throw new Exception('No se pudo crear la factura');
+            
+            $invoice = json_decode($response->getBody()->getContents(), true);
+            if (!isset($invoice['id'])) {
+                throw new Exception('No se pudo crear la factura: ' . json_encode($invoice));
             }
 
-            error_log('Factura creada: ' . json_encode($draftInvoice));
+            error_log('Factura creada con ID: ' . $invoice['id']);
 
-            // 2. Esperar un momento antes de timbrar
-            sleep(2);
+            // 5. Verificar que la factura existe
+            $response = $this->client->request('GET', "invoices/{$invoice['id']}");
+            $invoiceStatus = json_decode($response->getBody()->getContents(), true);
+            
+            if (!isset($invoiceStatus['id'])) {
+                throw new Exception('No se pudo verificar la factura creada');
+            }
 
-            // 3. Timbrar la factura
+            error_log('Factura verificada, procediendo a timbrar');
+
+            // 6. Timbrar la factura
             $stampPayload = [
-                'ids' => [$draftInvoice['id']]
+                'ids' => [$invoice['id']]
             ];
 
-            error_log('Payload de timbrado: ' . json_encode($stampPayload));
+            error_log('Timbrando factura con payload: ' . json_encode($stampPayload));
 
             $response = $this->client->request('POST', 'invoices/stamp', [
                 'json' => $stampPayload
             ]);
 
             $stampResult = json_decode($response->getBody()->getContents(), true);
-            error_log('Respuesta de timbrado: ' . json_encode($stampResult));
+            error_log('Resultado del timbrado: ' . json_encode($stampResult));
 
-            // 4. Esperar y consultar estado final
+            // 7. Esperar y verificar el estado final
             sleep(3);
-            
-            $response = $this->client->request('GET', "invoices/{$draftInvoice['id']}");
+            $response = $this->client->request('GET', "invoices/{$invoice['id']}");
             $finalInvoice = json_decode($response->getBody()->getContents(), true);
 
-            // 5. Crear el pago
+            // 8. Crear el pago
             $paymentResult = $this->createPayment(
-                $draftInvoice['id'],
+                $invoice['id'],
                 $finalInvoice['total'],
                 $this->mapPaymentMeans($data['metodo_pago'] ?? 'efectivo')
             );
