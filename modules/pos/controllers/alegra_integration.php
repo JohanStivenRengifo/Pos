@@ -431,6 +431,12 @@ class AlegraIntegration {
                 ];
             }
 
+            // Obtener el vendedor por defecto
+            $seller = $this->getDefaultSeller();
+            if (!$seller['success']) {
+                throw new Exception('Error al obtener vendedor: ' . $seller['error']);
+            }
+
             // Construir el payload completo para factura electrónica
             $payload = [
                 'date' => date('Y-m-d'),
@@ -447,7 +453,9 @@ class AlegraIntegration {
                     'paymentMeans' => 'CASH', // Medio de pago según DIAN
                     'paymentDueDate' => date('Y-m-d')
                 ],
-                'seller' => 1, // ID del vendedor por defecto
+                'seller' => [
+                    'id' => $seller['data']['id']  // Usar el ID del vendedor obtenido
+                ],
                 'anotation' => 'Factura de venta',
                 'stamp' => [
                     'generateStamp' => true
@@ -699,6 +707,32 @@ class AlegraIntegration {
 
         } catch (\Exception $e) {
             error_log('Error consultando pagos: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    private function getDefaultSeller() {
+        try {
+            $response = $this->client->request('GET', 'sellers');
+            $sellers = json_decode($response->getBody()->getContents(), true);
+            
+            // Retornar el primer vendedor activo
+            foreach ($sellers as $seller) {
+                if ($seller['status'] === 'active') {
+                    return [
+                        'success' => true,
+                        'data' => $seller
+                    ];
+                }
+            }
+            
+            throw new Exception('No se encontró ningún vendedor activo');
+
+        } catch (\Exception $e) {
+            error_log('Error obteniendo vendedor: ' . $e->getMessage());
             return [
                 'success' => false,
                 'error' => $e->getMessage()
