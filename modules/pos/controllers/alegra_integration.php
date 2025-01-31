@@ -718,12 +718,45 @@ class AlegraIntegration {
 
     private function getDefaultSeller() {
         try {
+            error_log('Iniciando búsqueda/creación de vendedor por defecto');
+
+            // 1. Primero intentar obtener vendedores existentes
             $response = $this->client->request('GET', 'sellers');
             $sellers = json_decode($response->getBody()->getContents(), true);
             
-            // Retornar el primer vendedor activo
+            error_log('Respuesta de vendedores: ' . json_encode($sellers));
+            
+            // Verificar si la respuesta es un array
+            if (!is_array($sellers)) {
+                error_log('La respuesta de vendedores no es un array, creando vendedor nuevo');
+                $sellers = [];
+            }
+            
+            // 2. Buscar un vendedor activo o con el nombre específico
             foreach ($sellers as $seller) {
-                if ($seller['status'] === 'active') {
+                if ($seller['status'] === 'active' || 
+                    (isset($seller['name']) && $seller['name'] === 'Johan Stiven Rengifo')) {
+                    error_log('Vendedor encontrado: ' . json_encode($seller));
+                    
+                    // Si el vendedor existe pero no está activo, intentar activarlo
+                    if ($seller['status'] !== 'active') {
+                        try {
+                            $updateResponse = $this->client->request('PUT', 'sellers/' . $seller['id'], [
+                                'json' => [
+                                    'status' => 'active'
+                                ]
+                            ]);
+                            $updatedSeller = json_decode($updateResponse->getBody()->getContents(), true);
+                            error_log('Vendedor activado: ' . json_encode($updatedSeller));
+                            return [
+                                'success' => true,
+                                'data' => $updatedSeller
+                            ];
+                        } catch (\Exception $e) {
+                            error_log('Error activando vendedor existente: ' . $e->getMessage());
+                        }
+                    }
+                    
                     return [
                         'success' => true,
                         'data' => $seller
@@ -731,10 +764,43 @@ class AlegraIntegration {
                 }
             }
             
-            throw new Exception('No se encontró ningún vendedor activo');
+            // 3. Si no hay vendedor adecuado, crear uno nuevo
+            error_log('Creando nuevo vendedor...');
+            
+            $createPayload = [
+                'name' => 'Johan Stiven Rengifo',
+                'identification' => '1048067754',
+                'observations' => 'Vendedor principal',
+                'status' => 'active',
+                'email' => 'johanrengifo78@gmail.com',
+                'phone' => '3216371125'
+            ];
+
+            error_log('Payload para crear vendedor: ' . json_encode($createPayload));
+
+            try {
+                $response = $this->client->request('POST', 'sellers', [
+                    'json' => $createPayload
+                ]);
+
+                $newSeller = json_decode($response->getBody()->getContents(), true);
+                error_log('Respuesta de creación de vendedor: ' . json_encode($newSeller));
+
+                if (!isset($newSeller['id'])) {
+                    throw new Exception('La respuesta no contiene ID de vendedor');
+                }
+
+                return [
+                    'success' => true,
+                    'data' => $newSeller
+                ];
+            } catch (\Exception $e) {
+                error_log('Error creando nuevo vendedor: ' . $e->getMessage());
+                throw new Exception('No se pudo crear el vendedor: ' . $e->getMessage());
+            }
 
         } catch (\Exception $e) {
-            error_log('Error obteniendo vendedor: ' . $e->getMessage());
+            error_log('Error en getDefaultSeller: ' . $e->getMessage());
             return [
                 'success' => false,
                 'error' => $e->getMessage()
