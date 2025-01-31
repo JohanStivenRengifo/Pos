@@ -447,30 +447,22 @@ class AlegraIntegration {
                     'id' => $numberTemplate['data']['id']
                 ],
                 'paymentForm' => [
-                    'paymentMethod' => 'CASH', // Forma de pago según DIAN (CASH o CREDIT)
-                    'paymentMeans' => 'CASH', // Medio de pago según DIAN
-                    'paymentDueDate' => date('Y-m-d'),
-                    'paymentTerms' => [
-                        'term' => 0,
-                        'termType' => 'DAYS'
-                    ]
+                    'paymentMethod' => 'CASH',
+                    'paymentMeans' => 'INSTRUMENT_NOT_DEFINED', // Según la documentación de la DIAN
+                    'paymentDueDate' => date('Y-m-d')
                 ],
                 'seller' => [
                     'id' => $seller['data']['id']
                 ],
                 'anotation' => 'Factura de venta',
-                'priceList' => 1,
                 'currency' => [
                     'code' => 'COP'
                 ],
-                'operationType' => 'STANDARD', // Tipo de operación según DIAN
-                'documentType' => 'NATIONAL', // Tipo de factura según DIAN
-                'stamp' => [
-                    'generateStamp' => true
-                ]
+                'operationType' => 'STANDARD',
+                'documentType' => 'NATIONAL'
             ];
 
-            error_log('Creando factura con payload: ' . json_encode($invoicePayload));
+            error_log('Payload de factura: ' . json_encode($invoicePayload));
 
             // 4. Crear la factura
             $response = $this->client->request('POST', 'invoices', [
