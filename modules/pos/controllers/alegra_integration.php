@@ -447,8 +447,12 @@ class AlegraIntegration {
                     'id' => $numberTemplate['data']['id']
                 ],
                 'paymentForm' => [
-                    'paymentMethod' => 'CASH',
-                    'paymentMeans' => 'INSTRUMENT_NOT_DEFINED', // Según la documentación de la DIAN
+                    'paymentMethod' => [
+                        'code' => '10' // Efectivo según documentación DIAN
+                    ],
+                    'paymentMeans' => [
+                        'code' => '1' // Contado según documentación DIAN
+                    ],
                     'paymentDueDate' => date('Y-m-d')
                 ],
                 'seller' => [
