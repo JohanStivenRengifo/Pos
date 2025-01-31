@@ -451,16 +451,22 @@ class AlegraIntegration {
             $response = $this->client->request('GET', "invoices/{$draftInvoice['id']}");
             $invoice = json_decode($response->getBody()->getContents(), true);
 
+            // Antes del timbrado
+            error_log('Intentando timbrar factura ID: ' . $draftInvoice['id']);
+
             // 3. Timbrar la factura ante la DIAN
             $stampPayload = [
-                'invoices' => [$draftInvoice['id']]
+                'ids' => [$draftInvoice['id']]
             ];
+
+            error_log('Payload de timbrado: ' . json_encode($stampPayload));
 
             $response = $this->client->request('POST', 'invoices/stamp', [
                 'json' => $stampPayload
             ]);
-            
+
             $stampResult = json_decode($response->getBody()->getContents(), true);
+            error_log('Respuesta de timbrado: ' . json_encode($stampResult));
 
             // Verificar el resultado del timbrado
             if (isset($stampResult['error'])) {
