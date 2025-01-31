@@ -476,40 +476,22 @@ class AlegraIntegration {
                 error_log('Factura aún no está lista. Estado: ' . ($finalInvoice['status'] ?? 'desconocido'));
             }
 
-            // Después de verificar que la factura está lista
-            if (isset($finalInvoice['status']) && in_array($finalInvoice['status'], ['open', 'closed'])) {
-                // Crear el pago
-                $total = array_reduce($data['items'], function($carry, $item) {
-                    return $carry + ($item['precio'] * $item['cantidad']);
-                }, 0);
+            // Crear el pago de la factura
+            $paymentResult = $this->createPayment(
+                $draftInvoice['id'],
+                $finalInvoice['total'],
+                'CASH' // O mapear desde $data['metodo_pago']
+            );
 
-                // Convertir el método de pago local al formato de Alegra
-                $paymentMethod = $this->mapPaymentMethod($data['metodo_pago'] ?? 'efectivo');
-
-                $paymentResult = $this->createPayment(
-                    $draftInvoice['id'],
-                    $total,
-                    $paymentMethod
-                );
-
-                if (!$paymentResult['success']) {
-                    error_log('Error al crear el pago: ' . $paymentResult['error']);
-                }
-
-                // Incluir la información del pago en la respuesta
-                return [
-                    'success' => true,
-                    'data' => $finalInvoice,
-                    'stampResult' => $stampResult,
-                    'paymentResult' => $paymentResult,
-                    'alegra_id' => $draftInvoice['id']
-                ];
+            if (!$paymentResult['success']) {
+                error_log('Error al crear el pago: ' . ($paymentResult['error'] ?? 'Error desconocido'));
             }
 
             return [
                 'success' => true,
                 'data' => $finalInvoice,
-                'stampResult' => $stampResult
+                'stampResult' => $stampResult,
+                'paymentResult' => $paymentResult
             ];
 
         } catch (\Exception $e) {
@@ -637,7 +619,7 @@ class AlegraIntegration {
         }
     }
 
-    private function createPayment($invoiceId, $amount, $paymentMethod = 'CASH') {
+    public function createPayment($invoiceId, $amount, $paymentMethod = 'CASH') {
         try {
             error_log('Creando pago para factura ' . $invoiceId . ' por valor de ' . $amount);
 
@@ -646,14 +628,16 @@ class AlegraIntegration {
 
             $payload = [
                 'date' => date('Y-m-d'),
-                'amount' => $amount,
+                'amount' => floatval($amount),
                 'account' => [
                     'id' => $accountId
                 ],
-                'type' => 'in', // Ingreso
-                'method' => $paymentMethod,
-                'invoice' => [
-                    'id' => $invoiceId
+                'paymentMethod' => $paymentMethod,
+                'invoices' => [
+                    [
+                        'id' => $invoiceId,
+                        'amount' => floatval($amount)
+                    ]
                 ]
             ];
 
@@ -680,13 +664,30 @@ class AlegraIntegration {
         }
     }
 
-    private function mapPaymentMethod($localMethod) {
-        $methodMap = [
-            'efectivo' => 'CASH',
-            'tarjeta' => 'CARD',
-            'transferencia' => 'TRANSFER'
-        ];
+    public function getPayments($invoiceId = null) {
+        try {
+            $query = [];
+            if ($invoiceId) {
+                $query['invoice'] = $invoiceId;
+            }
 
-        return $methodMap[strtolower($localMethod)] ?? 'CASH';
+            $response = $this->client->request('GET', 'payments', [
+                'query' => $query
+            ]);
+
+            $result = json_decode($response->getBody()->getContents(), true);
+            
+            return [
+                'success' => true,
+                'data' => $result
+            ];
+
+        } catch (\Exception $e) {
+            error_log('Error consultando pagos: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
     }
 } 
