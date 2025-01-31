@@ -411,7 +411,7 @@ class AlegraIntegration {
                 throw new Exception($clienteAlegra['error']);
             }
 
-            // Procesar items de forma simple
+            // Procesar items
             $items = [];
             foreach ($data['items'] as $item) {
                 $itemAlegra = $this->findOrCreateItem($item);
@@ -426,7 +426,7 @@ class AlegraIntegration {
                 ];
             }
 
-            // Construir el payload con forma de pago
+            // Construir el payload para el borrador
             $payload = [
                 'date' => date('Y-m-d'),
                 'dueDate' => date('Y-m-d'),
@@ -437,18 +437,46 @@ class AlegraIntegration {
                 'paymentForm' => 'CASH'  // Forma de pago de contado según DIAN
             ];
 
-            error_log('Payload con forma de pago: ' . print_r($payload, true));
-
-            // Realizar la petición a Alegra
+            // 1. Crear borrador de factura
             $response = $this->client->request('POST', 'invoices', [
                 'json' => $payload
             ]);
+            $draftInvoice = json_decode($response->getBody()->getContents(), true);
 
-            $result = json_decode($response->getBody()->getContents(), true);
+            if (!isset($draftInvoice['id'])) {
+                throw new Exception('No se pudo crear el borrador de la factura');
+            }
+
+            // 2. Consultar la factura creada
+            $response = $this->client->request('GET', "invoices/{$draftInvoice['id']}");
+            $invoice = json_decode($response->getBody()->getContents(), true);
+
+            // 3. Timbrar la factura ante la DIAN
+            $stampPayload = [
+                'invoices' => [$draftInvoice['id']]
+            ];
+
+            $response = $this->client->request('POST', 'invoices/stamp', [
+                'json' => $stampPayload
+            ]);
+            
+            $stampResult = json_decode($response->getBody()->getContents(), true);
+
+            // Verificar el resultado del timbrado
+            if (isset($stampResult['error'])) {
+                throw new Exception('Error al timbrar la factura: ' . ($stampResult['error']['message'] ?? 'Error desconocido'));
+            }
+
+            // Esperar un momento y consultar el estado final de la factura
+            sleep(2); // Dar tiempo a que se procese el timbrado
+            
+            $response = $this->client->request('GET', "invoices/{$draftInvoice['id']}");
+            $finalInvoice = json_decode($response->getBody()->getContents(), true);
 
             return [
                 'success' => true,
-                'data' => $result
+                'data' => $finalInvoice,
+                'stampResult' => $stampResult
             ];
 
         } catch (\Exception $e) {
