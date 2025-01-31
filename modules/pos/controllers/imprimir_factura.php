@@ -122,9 +122,7 @@ try {
             error_log('Respuesta de Alegra para factura ' . $venta['alegra_id'] . ': ' . print_r($alegraResponse, true));
 
             if ($alegraResponse['success']) {
-                $invoiceData = $alegraResponse['data']['invoice_data'];
-                
-                // Actualizar datos de la factura electrónica
+                // Actualizar datos de la factura electrónica si es necesario
                 if (empty($venta['cufe']) || empty($venta['qr_code'])) {
                     $updateStmt = $pdo->prepare("
                         UPDATE ventas 
@@ -140,13 +138,36 @@ try {
                     ]);
                 }
 
-                // Usar los datos de Alegra para la impresión
-                $venta['numero_factura'] = $invoiceData['numberTemplate']['prefix'] . $invoiceData['number'];
-                $venta['cufe'] = $alegraResponse['data']['cufe'];
-                $venta['qr_code'] = $alegraResponse['data']['qr_code'];
-                $venta['fecha_emision'] = $invoiceData['date'];
-                $venta['fecha_vencimiento'] = $invoiceData['dueDate'];
-                // ... otros datos que quieras usar de Alegra
+                // Verificar que tenemos una URL válida del PDF
+                if (!empty($alegraResponse['data']['pdf_url'])) {
+                    $pdfUrl = $alegraResponse['data']['pdf_url'];
+                    
+                    // Verificar si la URL es válida
+                    if (filter_var($pdfUrl, FILTER_VALIDATE_URL)) {
+                        // Limpiar cualquier salida previa
+                        while (ob_get_level()) {
+                            ob_end_clean();
+                        }
+                        
+                        // Intentar obtener el PDF directamente
+                        $pdfContent = file_get_contents($pdfUrl);
+                        
+                        if ($pdfContent !== false) {
+                            header('Content-Type: application/pdf');
+                            header('Content-Length: ' . strlen($pdfContent));
+                            header('Cache-Control: private, max-age=0, must-revalidate');
+                            header('Pragma: public');
+                            echo $pdfContent;
+                            exit;
+                        } else {
+                            // Si no podemos obtener el contenido, redirigir
+                            header('Location: ' . $pdfUrl);
+                            exit;
+                        }
+                    }
+                }
+                
+                throw new Exception('URL del PDF no válida o no disponible');
             }
             
             throw new Exception('No se pudo obtener el PDF de Alegra: ' . 

@@ -447,50 +447,103 @@ document.addEventListener('DOMContentLoaded', function() {
                 const data = await response.json();
 
                 if (data.success) {
-                    // Preguntar por la remisión solo si es una venta (no cotización)
-                    if (tipoDocumento !== 'cotizacion') {
-                        const { isConfirmed: imprimirRemision } = await Swal.fire({
-                            title: '¿Generar remisión?',
-                            text: 'La remisión es el documento para despacho de bodega',
-                            icon: 'question',
-                            showCancelButton: true,
-                            confirmButtonText: 'Sí, generar remisión',
-                            cancelButtonText: 'No, solo ticket',
-                            confirmButtonColor: '#4F46E5',
-                            cancelButtonColor: '#9CA3AF'
-                        });
+                    // Guardar el ID de la última factura para uso posterior
+                    window.ultimaFacturaId = data.venta_id;
+                    window.ultimaFacturaAlegraId = data.alegra_id; // Asegurarnos de guardar también el ID de Alegra
 
-                        if (imprimirRemision) {
-                            // Imprimir remisión
-                            window.open(`controllers/imprimir_remision.php?id=${data.venta_id}`, '_blank');
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Venta realizada!',
+                        text: 'La venta se ha procesado correctamente.',
+                        confirmButtonColor: '#4F46E5'
+                    }).then(() => {
+                        if (tipoDocumento === 'factura' && numeracion === 'electronica') {
+                            // Para facturas electrónicas, preguntar por el envío por email primero
+                            Swal.fire({
+                                title: '¿Desea enviar la factura por correo electrónico?',
+                                icon: 'question',
+                                input: 'email',
+                                inputLabel: 'Correo electrónico',
+                                inputPlaceholder: 'Ingrese el correo electrónico',
+                                showCancelButton: true,
+                                confirmButtonText: 'Sí, enviar',
+                                cancelButtonText: 'No',
+                                confirmButtonColor: '#4F46E5',
+                                cancelButtonColor: '#6B7280',
+                                inputValidator: (value) => {
+                                    if (!value) {
+                                        return 'Debe ingresar un correo electrónico';
+                                    }
+                                }
+                            }).then((result) => {
+                                if (result.isConfirmed) {
+                                    enviarFacturaPorCorreo(result.value);
+                                }
+                                // Después de manejar el email, preguntar por la impresión
+                                Swal.fire({
+                                    title: '¿Desea ver/imprimir la factura?',
+                                    icon: 'question',
+                                    showCancelButton: true,
+                                    confirmButtonText: 'Sí, ver/imprimir',
+                                    cancelButtonText: 'No',
+                                    confirmButtonColor: '#4F46E5',
+                                    cancelButtonColor: '#6B7280'
+                                }).then((result) => {
+                                    if (result.isConfirmed) {
+                                        // Esperar un momento para que la factura esté lista
+                                        setTimeout(() => {
+                                            window.open(`controllers/imprimir_factura.php?id=${data.venta_id}`, '_blank');
+                                        }, 3000);
+                                    }
+                                });
+                            });
+                        } else {
+                            // Preguntar por la remisión solo si es una venta (no cotización)
+                            if (tipoDocumento !== 'cotizacion') {
+                                const { isConfirmed: imprimirRemision } = await Swal.fire({
+                                    title: '¿Generar remisión?',
+                                    text: 'La remisión es el documento para despacho de bodega',
+                                    icon: 'question',
+                                    showCancelButton: true,
+                                    confirmButtonText: 'Sí, generar remisión',
+                                    cancelButtonText: 'No, solo ticket',
+                                    confirmButtonColor: '#4F46E5',
+                                    cancelButtonColor: '#9CA3AF'
+                                });
+
+                                if (imprimirRemision) {
+                                    // Imprimir remisión
+                                    window.open(`controllers/imprimir_remision.php?id=${data.venta_id}`, '_blank');
+                                }
+
+                                // Después de la remisión o si no se quiso remisión, preguntar por el ticket
+                                const { isConfirmed: imprimirTicket } = await Swal.fire({
+                                    title: 'Imprimir ticket',
+                                    text: '¿Desea imprimir el ticket de venta?',
+                                    icon: 'question',
+                                    showCancelButton: true,
+                                    confirmButtonText: 'Sí, imprimir',
+                                    cancelButtonText: 'No, finalizar',
+                                    confirmButtonColor: '#4F46E5',
+                                    cancelButtonColor: '#9CA3AF'
+                                });
+
+                                if (imprimirTicket) {
+                                    window.open(`controllers/imprimir_factura.php?id=${data.venta_id}`, '_blank');
+                                }
+                            } else {
+                                // Si es cotización, mantener el comportamiento actual
+                                let imprimirUrl = `controllers/imprimir_cotizacion.php?id=${data.cotizacion_id}`;
+                                window.open(imprimirUrl, '_blank');
+                            }
+
+                            // Reiniciar carrito
+                            carrito.items = [];
+                            actualizarCarritoUI();
+                            // Recargar productos
+                            location.reload();
                         }
-
-                        // Después de la remisión o si no se quiso remisión, preguntar por el ticket
-                        const { isConfirmed: imprimirTicket } = await Swal.fire({
-                            title: 'Imprimir ticket',
-                            text: '¿Desea imprimir el ticket de venta?',
-                            icon: 'question',
-                            showCancelButton: true,
-                            confirmButtonText: 'Sí, imprimir',
-                            cancelButtonText: 'No, finalizar',
-                            confirmButtonColor: '#4F46E5',
-                            cancelButtonColor: '#9CA3AF'
-                        });
-
-                        if (imprimirTicket) {
-                            window.open(`controllers/imprimir_factura.php?id=${data.venta_id}`, '_blank');
-                        }
-                    } else {
-                        // Si es cotización, mantener el comportamiento actual
-                        let imprimirUrl = `controllers/imprimir_cotizacion.php?id=${data.cotizacion_id}`;
-                        window.open(imprimirUrl, '_blank');
-                    }
-
-                    // Reiniciar carrito
-                    carrito.items = [];
-                    actualizarCarritoUI();
-                    // Recargar productos
-                    location.reload();
+                    });
                 } else {
                     throw new Error(data.message);
                 }
@@ -522,50 +575,103 @@ document.addEventListener('DOMContentLoaded', function() {
                 const data = await response.json();
 
                 if (data.success) {
-                    // Preguntar por la remisión solo si es una venta (no cotización)
-                    if (tipoDocumento !== 'cotizacion') {
-                        const { isConfirmed: imprimirRemision } = await Swal.fire({
-                            title: '¿Generar remisión?',
-                            text: 'La remisión es el documento para despacho de bodega',
-                            icon: 'question',
-                            showCancelButton: true,
-                            confirmButtonText: 'Sí, generar remisión',
-                            cancelButtonText: 'No, solo ticket',
-                            confirmButtonColor: '#4F46E5',
-                            cancelButtonColor: '#9CA3AF'
-                        });
+                    // Guardar el ID de la última factura para uso posterior
+                    window.ultimaFacturaId = data.venta_id;
+                    window.ultimaFacturaAlegraId = data.alegra_id; // Asegurarnos de guardar también el ID de Alegra
 
-                        if (imprimirRemision) {
-                            // Imprimir remisión
-                            window.open(`controllers/imprimir_remision.php?id=${data.venta_id}`, '_blank');
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Venta realizada!',
+                        text: 'La venta se ha procesado correctamente.',
+                        confirmButtonColor: '#4F46E5'
+                    }).then(() => {
+                        if (tipoDocumento === 'factura' && numeracion === 'electronica') {
+                            // Para facturas electrónicas, preguntar por el envío por email primero
+                            Swal.fire({
+                                title: '¿Desea enviar la factura por correo electrónico?',
+                                icon: 'question',
+                                input: 'email',
+                                inputLabel: 'Correo electrónico',
+                                inputPlaceholder: 'Ingrese el correo electrónico',
+                                showCancelButton: true,
+                                confirmButtonText: 'Sí, enviar',
+                                cancelButtonText: 'No',
+                                confirmButtonColor: '#4F46E5',
+                                cancelButtonColor: '#6B7280',
+                                inputValidator: (value) => {
+                                    if (!value) {
+                                        return 'Debe ingresar un correo electrónico';
+                                    }
+                                }
+                            }).then((result) => {
+                                if (result.isConfirmed) {
+                                    enviarFacturaPorCorreo(result.value);
+                                }
+                                // Después de manejar el email, preguntar por la impresión
+                                Swal.fire({
+                                    title: '¿Desea ver/imprimir la factura?',
+                                    icon: 'question',
+                                    showCancelButton: true,
+                                    confirmButtonText: 'Sí, ver/imprimir',
+                                    cancelButtonText: 'No',
+                                    confirmButtonColor: '#4F46E5',
+                                    cancelButtonColor: '#6B7280'
+                                }).then((result) => {
+                                    if (result.isConfirmed) {
+                                        // Esperar un momento para que la factura esté lista
+                                        setTimeout(() => {
+                                            window.open(`controllers/imprimir_factura.php?id=${data.venta_id}`, '_blank');
+                                        }, 3000);
+                                    }
+                                });
+                            });
+                        } else {
+                            // Preguntar por la remisión solo si es una venta (no cotización)
+                            if (tipoDocumento !== 'cotizacion') {
+                                const { isConfirmed: imprimirRemision } = await Swal.fire({
+                                    title: '¿Generar remisión?',
+                                    text: 'La remisión es el documento para despacho de bodega',
+                                    icon: 'question',
+                                    showCancelButton: true,
+                                    confirmButtonText: 'Sí, generar remisión',
+                                    cancelButtonText: 'No, solo ticket',
+                                    confirmButtonColor: '#4F46E5',
+                                    cancelButtonColor: '#9CA3AF'
+                                });
+
+                                if (imprimirRemision) {
+                                    // Imprimir remisión
+                                    window.open(`controllers/imprimir_remision.php?id=${data.venta_id}`, '_blank');
+                                }
+
+                                // Después de la remisión o si no se quiso remisión, preguntar por el ticket
+                                const { isConfirmed: imprimirTicket } = await Swal.fire({
+                                    title: 'Imprimir ticket',
+                                    text: '¿Desea imprimir el ticket de venta?',
+                                    icon: 'question',
+                                    showCancelButton: true,
+                                    confirmButtonText: 'Sí, imprimir',
+                                    cancelButtonText: 'No, finalizar',
+                                    confirmButtonColor: '#4F46E5',
+                                    cancelButtonColor: '#9CA3AF'
+                                });
+
+                                if (imprimirTicket) {
+                                    window.open(`controllers/imprimir_factura.php?id=${data.venta_id}`, '_blank');
+                                }
+                            } else {
+                                // Si es cotización, mantener el comportamiento actual
+                                let imprimirUrl = `controllers/imprimir_cotizacion.php?id=${data.cotizacion_id}`;
+                                window.open(imprimirUrl, '_blank');
+                            }
+
+                            // Reiniciar carrito
+                            carrito.items = [];
+                            actualizarCarritoUI();
+                            // Recargar productos
+                            location.reload();
                         }
-
-                        // Después de la remisión o si no se quiso remisión, preguntar por el ticket
-                        const { isConfirmed: imprimirTicket } = await Swal.fire({
-                            title: 'Imprimir ticket',
-                            text: '¿Desea imprimir el ticket de venta?',
-                            icon: 'question',
-                            showCancelButton: true,
-                            confirmButtonText: 'Sí, imprimir',
-                            cancelButtonText: 'No, finalizar',
-                            confirmButtonColor: '#4F46E5',
-                            cancelButtonColor: '#9CA3AF'
-                        });
-
-                        if (imprimirTicket) {
-                            window.open(`controllers/imprimir_factura.php?id=${data.venta_id}`, '_blank');
-                        }
-                    } else {
-                        // Si es cotización, mantener el comportamiento actual
-                        let imprimirUrl = `controllers/imprimir_cotizacion.php?id=${data.cotizacion_id}`;
-                        window.open(imprimirUrl, '_blank');
-                    }
-
-                    // Reiniciar carrito
-                    carrito.items = [];
-                    actualizarCarritoUI();
-                    // Recargar productos
-                    location.reload();
+                    });
                 } else {
                     throw new Error(data.message);
                 }

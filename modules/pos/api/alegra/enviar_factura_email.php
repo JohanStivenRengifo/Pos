@@ -19,7 +19,7 @@ try {
 
     // Obtener el ID de Alegra de la factura
     $stmt = $pdo->prepare("
-        SELECT alegra_id 
+        SELECT alegra_id, numeracion 
         FROM ventas 
         WHERE id = ?
     ");
@@ -28,6 +28,10 @@ try {
 
     if (!$venta || empty($venta['alegra_id'])) {
         throw new Exception('Factura no encontrada o sin ID de Alegra');
+    }
+
+    if ($venta['numeracion'] !== 'electronica') {
+        throw new Exception('Esta factura no es electrónica');
     }
 
     // Enviar el correo
@@ -47,6 +51,7 @@ try {
     ]);
 
 } catch (Exception $e) {
+    error_log('Error en enviar_factura_email.php: ' . $e->getMessage());
     http_response_code(400);
     echo json_encode([
         'success' => false,
