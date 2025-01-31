@@ -447,15 +447,19 @@ class AlegraIntegration {
                     'id' => $numberTemplate['data']['id']
                 ],
                 'paymentForm' => [
-                    'paymentMethod' => $this->mapPaymentMeans($data['metodo_pago'] ?? 'efectivo'),
-                    'paymentMeans' => 'CASH',
-                    'paymentDueDate' => date('Y-m-d')
+                    'paymentMethod' => 'CASH', // Siempre CASH para la DIAN
+                    'paymentMeans' => 'CASH', // Medio de pago según DIAN
+                    'paymentDueDate' => date('Y-m-d'),
+                    'paymentTerms' => [
+                        'term' => 0,
+                        'termType' => 'DAYS'
+                    ]
                 ],
                 'seller' => [
                     'id' => $seller['data']['id']
                 ],
                 'anotation' => 'Factura de venta',
-                'priceList' => 1, // Lista de precios por defecto
+                'priceList' => 1,
                 'currency' => [
                     'code' => 'COP'
                 ]
@@ -584,13 +588,8 @@ class AlegraIntegration {
     }
 
     private function mapPaymentMeans($localMethod) {
-        $paymentMap = [
-            'efectivo' => 'CASH',
-            'tarjeta' => 'CREDIT_CARD',
-            'transferencia' => 'BANK_TRANSFER'
-        ];
-        
-        return $paymentMap[strtolower($localMethod)] ?? 'CASH';
+        // Para facturación electrónica, siempre retornamos CASH
+        return 'CASH';
     }
 
     public function sendInvoiceEmail($invoiceId, $email = null) {
