@@ -447,7 +447,7 @@ class AlegraIntegration {
                     'id' => $numberTemplate['data']['id']
                 ],
                 'paymentForm' => [
-                    'paymentMethod' => 'CASH', // Siempre CASH para la DIAN
+                    'paymentMethod' => 'CASH', // Forma de pago según DIAN (CASH o CREDIT)
                     'paymentMeans' => 'CASH', // Medio de pago según DIAN
                     'paymentDueDate' => date('Y-m-d'),
                     'paymentTerms' => [
@@ -462,6 +462,11 @@ class AlegraIntegration {
                 'priceList' => 1,
                 'currency' => [
                     'code' => 'COP'
+                ],
+                'operationType' => 'STANDARD', // Tipo de operación según DIAN
+                'documentType' => 'NATIONAL', // Tipo de factura según DIAN
+                'stamp' => [
+                    'generateStamp' => true
                 ]
             ];
 
