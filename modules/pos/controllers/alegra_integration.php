@@ -291,53 +291,68 @@ class AlegraIntegration {
 
     public function getInvoiceDetails($invoiceId) {
         try {
-            // Obtener los detalles completos de la factura
-            $response = $this->client->request('GET', "invoices/{$invoiceId}");
-            $result = json_decode($response->getBody()->getContents(), true);
+            // Intentar hasta 5 veces con un intervalo de 2 segundos
+            $maxIntentos = 5;
+            $intento = 0;
+            
+            while ($intento < $maxIntentos) {
+                // Obtener los detalles completos de la factura
+                $response = $this->client->request('GET', "invoices/{$invoiceId}");
+                $result = json_decode($response->getBody()->getContents(), true);
 
-            error_log('Respuesta completa de factura: ' . print_r($result, true));
+                error_log('Intento ' . ($intento + 1) . ' - Respuesta completa de factura: ' . print_r($result, true));
 
-            // Intentar obtener el PDF
-            try {
-                $pdfResponse = $this->client->request('GET', "invoices/{$invoiceId}/pdf");
-                $pdfResult = json_decode($pdfResponse->getBody()->getContents(), true);
-                
-                if (!empty($pdfResult['downloadLink'])) {
-                    return [
-                        'success' => true,
-                        'data' => [
-                            'pdf_url' => $pdfResult['downloadLink'],
-                            'cufe' => $result['electronic']['cufe'] ?? null,
-                            'qr_code' => $result['electronic']['qrCode'] ?? null,
-                            'xml_url' => $result['electronic']['xmlURL'] ?? null
-                        ]
-                    ];
+                // Verificar si la factura está lista (status = 'open' o 'closed')
+                if (isset($result['status']) && in_array($result['status'], ['open', 'closed'])) {
+                    // Intentar obtener el PDF
+                    try {
+                        $pdfResponse = $this->client->request('GET', "invoices/{$invoiceId}/pdf");
+                        $pdfResult = json_decode($pdfResponse->getBody()->getContents(), true);
+                        
+                        if (!empty($pdfResult['downloadLink'])) {
+                            return [
+                                'success' => true,
+                                'data' => [
+                                    'pdf_url' => $pdfResult['downloadLink'],
+                                    'cufe' => $result['electronic']['cufe'] ?? null,
+                                    'qr_code' => $result['electronic']['qrCode'] ?? null,
+                                    'xml_url' => $result['electronic']['xmlURL'] ?? null
+                                ]
+                            ];
+                        }
+                    } catch (\Exception $e) {
+                        error_log('Error obteniendo PDF: ' . $e->getMessage());
+                    }
+
+                    // Si el PDF directo falla, intentar con la descarga
+                    try {
+                        $downloadResponse = $this->client->request('GET', "invoices/{$invoiceId}/pdf/download");
+                        $headers = $downloadResponse->getHeaders();
+                        
+                        if (isset($headers['Location'][0])) {
+                            return [
+                                'success' => true,
+                                'data' => [
+                                    'pdf_url' => $headers['Location'][0],
+                                    'cufe' => $result['electronic']['cufe'] ?? null,
+                                    'qr_code' => $result['electronic']['qrCode'] ?? null,
+                                    'xml_url' => $result['electronic']['xmlURL'] ?? null
+                                ]
+                            ];
+                        }
+                    } catch (\Exception $e) {
+                        error_log('Error obteniendo PDF por descarga directa: ' . $e->getMessage());
+                    }
                 }
-            } catch (\Exception $e) {
-                error_log('Error obteniendo PDF: ' . $e->getMessage());
+
+                // Si la factura no está lista, esperar antes del siguiente intento
+                $intento++;
+                if ($intento < $maxIntentos) {
+                    sleep(2);
+                }
             }
 
-            // Si no se pudo obtener por el método anterior, intentar con la descarga directa
-            try {
-                $downloadResponse = $this->client->request('GET', "invoices/{$invoiceId}/pdf/download");
-                $headers = $downloadResponse->getHeaders();
-                
-                if (isset($headers['Location'][0])) {
-                    return [
-                        'success' => true,
-                        'data' => [
-                            'pdf_url' => $headers['Location'][0],
-                            'cufe' => $result['electronic']['cufe'] ?? null,
-                            'qr_code' => $result['electronic']['qrCode'] ?? null,
-                            'xml_url' => $result['electronic']['xmlURL'] ?? null
-                        ]
-                    ];
-                }
-            } catch (\Exception $e) {
-                error_log('Error obteniendo PDF por descarga directa: ' . $e->getMessage());
-            }
-
-            throw new Exception('No se pudo obtener la URL del PDF');
+            throw new Exception('La factura aún no está lista para descarga después de ' . $maxIntentos . ' intentos');
 
         } catch (\Exception $e) {
             error_log('Error en getInvoiceDetails: ' . $e->getMessage());
@@ -451,10 +466,44 @@ class AlegraIntegration {
             }
 
             // Esperar un momento y consultar el estado final de la factura
-            sleep(2); // Dar tiempo a que se procese el timbrado
+            sleep(3); // Aumentar el tiempo de espera a 3 segundos
             
             $response = $this->client->request('GET', "invoices/{$draftInvoice['id']}");
             $finalInvoice = json_decode($response->getBody()->getContents(), true);
+
+            // Verificar que la factura esté lista
+            if (!isset($finalInvoice['status']) || !in_array($finalInvoice['status'], ['open', 'closed'])) {
+                error_log('Factura aún no está lista. Estado: ' . ($finalInvoice['status'] ?? 'desconocido'));
+            }
+
+            // Después de verificar que la factura está lista
+            if (isset($finalInvoice['status']) && in_array($finalInvoice['status'], ['open', 'closed'])) {
+                // Crear el pago
+                $total = array_reduce($data['items'], function($carry, $item) {
+                    return $carry + ($item['precio'] * $item['cantidad']);
+                }, 0);
+
+                // Convertir el método de pago local al formato de Alegra
+                $paymentMethod = $this->mapPaymentMethod($data['metodo_pago'] ?? 'efectivo');
+
+                $paymentResult = $this->createPayment(
+                    $draftInvoice['id'],
+                    $total,
+                    $paymentMethod
+                );
+
+                if (!$paymentResult['success']) {
+                    error_log('Error al crear el pago: ' . $paymentResult['error']);
+                }
+
+                // Incluir la información del pago en la respuesta
+                return [
+                    'success' => true,
+                    'data' => $finalInvoice,
+                    'stampResult' => $stampResult,
+                    'paymentResult' => $paymentResult
+                ];
+            }
 
             return [
                 'success' => true,
@@ -585,5 +634,58 @@ class AlegraIntegration {
             error_log('Error obteniendo cuentas: ' . $e->getMessage());
             return 1; // ID por defecto en caso de error
         }
+    }
+
+    private function createPayment($invoiceId, $amount, $paymentMethod = 'CASH') {
+        try {
+            error_log('Creando pago para factura ' . $invoiceId . ' por valor de ' . $amount);
+
+            // Obtener la cuenta por defecto
+            $accountId = $this->getDefaultAccount();
+
+            $payload = [
+                'date' => date('Y-m-d'),
+                'amount' => $amount,
+                'account' => [
+                    'id' => $accountId
+                ],
+                'type' => 'in', // Ingreso
+                'method' => $paymentMethod,
+                'invoice' => [
+                    'id' => $invoiceId
+                ]
+            ];
+
+            error_log('Payload de pago: ' . json_encode($payload));
+
+            $response = $this->client->request('POST', 'payments', [
+                'json' => $payload
+            ]);
+
+            $result = json_decode($response->getBody()->getContents(), true);
+            error_log('Respuesta de creación de pago: ' . json_encode($result));
+
+            return [
+                'success' => true,
+                'data' => $result
+            ];
+
+        } catch (\Exception $e) {
+            error_log('Error creando pago: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    private function mapPaymentMethod($localMethod) {
+        $methodMap = [
+            'efectivo' => 'CASH',
+            'tarjeta' => 'CARD',
+            'transferencia' => 'TRANSFER'
+        ];
+
+        return $methodMap[strtolower($localMethod)] ?? 'CASH';
     }
 } 
