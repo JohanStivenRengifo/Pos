@@ -291,20 +291,45 @@ class AlegraIntegration {
 
     public function getInvoiceDetails($invoiceId) {
         try {
-            // Intentar obtener el PDF usando el endpoint específico de descarga
+            // Obtener los detalles completos de la factura
+            $response = $this->client->request('GET', "invoices/{$invoiceId}");
+            $result = json_decode($response->getBody()->getContents(), true);
+
+            error_log('Respuesta completa de factura: ' . print_r($result, true));
+
+            // Intentar obtener el PDF
+            try {
+                $pdfResponse = $this->client->request('GET', "invoices/{$invoiceId}/pdf");
+                $pdfResult = json_decode($pdfResponse->getBody()->getContents(), true);
+                
+                if (!empty($pdfResult['downloadLink'])) {
+                    return [
+                        'success' => true,
+                        'data' => [
+                            'pdf_url' => $pdfResult['downloadLink'],
+                            'cufe' => $result['electronic']['cufe'] ?? null,
+                            'qr_code' => $result['electronic']['qrCode'] ?? null,
+                            'xml_url' => $result['electronic']['xmlURL'] ?? null
+                        ]
+                    ];
+                }
+            } catch (\Exception $e) {
+                error_log('Error obteniendo PDF: ' . $e->getMessage());
+            }
+
+            // Si no se pudo obtener por el método anterior, intentar con la descarga directa
             try {
                 $downloadResponse = $this->client->request('GET', "invoices/{$invoiceId}/pdf/download");
-                
-                // Si la respuesta es exitosa, la URL estará en los headers
                 $headers = $downloadResponse->getHeaders();
+                
                 if (isset($headers['Location'][0])) {
                     return [
                         'success' => true,
                         'data' => [
                             'pdf_url' => $headers['Location'][0],
-                            'cufe' => null,
-                            'qr_code' => null,
-                            'xml_url' => null
+                            'cufe' => $result['electronic']['cufe'] ?? null,
+                            'qr_code' => $result['electronic']['qrCode'] ?? null,
+                            'xml_url' => $result['electronic']['xmlURL'] ?? null
                         ]
                     ];
                 }
@@ -312,55 +337,7 @@ class AlegraIntegration {
                 error_log('Error obteniendo PDF por descarga directa: ' . $e->getMessage());
             }
 
-            // Si la descarga directa falla, intentar obtener la URL del PDF
-            try {
-                $pdfResponse = $this->client->request('GET', "invoices/{$invoiceId}/pdf");
-                $pdfResult = json_decode($pdfResponse->getBody()->getContents(), true);
-                
-                error_log('Respuesta PDF de Alegra: ' . print_r($pdfResult, true));
-                
-                if (!empty($pdfResult['downloadLink'])) {
-                    return [
-                        'success' => true,
-                        'data' => [
-                            'pdf_url' => $pdfResult['downloadLink'],
-                            'cufe' => null,
-                            'qr_code' => null,
-                            'xml_url' => null
-                        ]
-                    ];
-                }
-            } catch (\Exception $e) {
-                error_log('Error obteniendo URL del PDF: ' . $e->getMessage());
-            }
-
-            // Como último recurso, intentar obtener los detalles completos de la factura
-            $response = $this->client->request('GET', "invoices/{$invoiceId}");
-            $result = json_decode($response->getBody()->getContents(), true);
-
-            error_log('Respuesta completa de factura: ' . print_r($result, true));
-
-            // Buscar la URL del PDF en varios campos posibles
-            $pdfUrl = $result['pdfLink'] ?? 
-                      $result['downloadPdfUrl'] ?? 
-                      $result['pdf'] ?? 
-                      $result['downloadLink'] ?? 
-                      $result['pdfURL'] ?? 
-                      null;
-
-            if (empty($pdfUrl)) {
-                throw new Exception('No se encontró ninguna URL de PDF disponible');
-            }
-
-            return [
-                'success' => true,
-                'data' => [
-                    'pdf_url' => $pdfUrl,
-                    'cufe' => $result['electronic']['cufe'] ?? null,
-                    'qr_code' => $result['electronic']['qrCode'] ?? null,
-                    'xml_url' => $result['electronic']['xmlURL'] ?? null
-                ]
-            ];
+            throw new Exception('No se pudo obtener la URL del PDF');
 
         } catch (\Exception $e) {
             error_log('Error en getInvoiceDetails: ' . $e->getMessage());
@@ -563,6 +540,8 @@ class AlegraIntegration {
                 $payload['email'] = $email;
             }
 
+            error_log('Intentando enviar factura ' . $invoiceId . ' por correo a: ' . ($email ?? 'email del cliente'));
+
             $response = $this->client->request('POST', "invoices/{$invoiceId}/email", [
                 'headers' => [
                     'accept' => 'application/json',
@@ -572,9 +551,12 @@ class AlegraIntegration {
             ]);
 
             $result = json_decode($response->getBody()->getContents(), true);
+            error_log('Respuesta de envío de email: ' . print_r($result, true));
+
             return [
                 'success' => true,
-                'message' => 'Factura enviada por correo exitosamente'
+                'message' => 'Factura enviada por correo exitosamente',
+                'data' => $result
             ];
 
         } catch (\Exception $e) {

@@ -1,43 +1,55 @@
 <?php
-require_once('../../../../config/db.php');
-require_once('../../../../vendor/autoload.php');
+require_once '../../../config/db.php';
+require_once '../../controllers/alegra_integration.php';
 
 header('Content-Type: application/json');
 
 try {
-    // Obtener datos del POST
-    $data = json_decode(file_get_contents('php://input'), true);
-    $email = $data['email'] ?? '';
-    $facturaId = $data['facturaId'] ?? '';
-
-    if (empty($email) || empty($facturaId)) {
-        throw new Exception('Datos incompletos');
+    // Verificar método de solicitud
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        throw new Exception('Método no permitido');
     }
 
-    $client = new \GuzzleHttp\Client();
+    // Obtener datos del request
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    if (!isset($data['facturaId'])) {
+        throw new Exception('ID de factura no proporcionado');
+    }
 
-    $response = $client->request('POST', "https://api.alegra.com/api/v1/invoices/{$facturaId}/email", [
-        'headers' => [
-            'accept' => 'application/json',
-            'authorization' => 'Basic ' . base64_encode('johanrengifo78@gmail.com:f3c179c2337c190b3697'),
-            'content-type' => 'application/json',
-        ],
-        'json' => [
-            'email' => $email
-        ]
-    ]);
+    // Obtener el ID de Alegra de la factura
+    $stmt = $pdo->prepare("
+        SELECT alegra_id 
+        FROM ventas 
+        WHERE id = ?
+    ");
+    $stmt->execute([$data['facturaId']]);
+    $venta = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    $responseData = json_decode($response->getBody(), true);
+    if (!$venta || empty($venta['alegra_id'])) {
+        throw new Exception('Factura no encontrada o sin ID de Alegra');
+    }
+
+    // Enviar el correo
+    $alegra = new AlegraIntegration();
+    $result = $alegra->sendInvoiceEmail(
+        $venta['alegra_id'],
+        $data['email'] ?? null
+    );
+
+    if (!$result['success']) {
+        throw new Exception($result['error']);
+    }
 
     echo json_encode([
         'success' => true,
-        'message' => 'Factura enviada correctamente'
+        'message' => $result['message']
     ]);
 
 } catch (Exception $e) {
-    http_response_code(500);
+    http_response_code(400);
     echo json_encode([
         'success' => false,
-        'message' => $e->getMessage()
+        'error' => $e->getMessage()
     ]);
 } 

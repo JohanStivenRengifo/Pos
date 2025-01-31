@@ -674,4 +674,49 @@ document.addEventListener('DOMContentLoaded', function() {
             codigoBarras = '';
         }
     });
-}); 
+});
+
+function enviarFacturaPorCorreo(email) {
+    // Mostrar indicador de carga
+    Swal.fire({
+        title: 'Enviando factura...',
+        text: 'Por favor espere',
+        allowOutsideClick: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
+    // Realizar la petición
+    fetch('api/alegra/enviar_factura_email.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            email: email,
+            facturaId: window.ultimaFacturaId // Asegúrate de tener esta variable disponible
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Swal.fire({
+                icon: 'success',
+                title: '¡Correo enviado!',
+                text: 'La factura ha sido enviada correctamente',
+                confirmButtonColor: '#4F46E5'
+            });
+        } else {
+            throw new Error(data.error || 'Error al enviar el correo');
+        }
+    })
+    .catch(error => {
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: error.message,
+            confirmButtonColor: '#EF4444'
+        });
+    });
+} 
