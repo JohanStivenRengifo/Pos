@@ -193,7 +193,7 @@ class AlegraIntegration {
                 return $existingItem;
             }
 
-            // Si no existe, crear nuevo item
+            // Si no existe, crear nuevo item sin IVA
             $payload = [
                 'name' => $item['nombre'],
                 'price' => floatval($item['precio']),
@@ -203,7 +203,14 @@ class AlegraIntegration {
                     'unit' => 'unit',
                     'available' => intval($item['cantidad'])
                 ],
-                'itemType' => 'PRODUCT'
+                'itemType' => 'PRODUCT',
+                'tax' => [], // Array vacío de impuestos
+                'priceList' => [
+                    [
+                        'idPriceList' => 1,
+                        'price' => floatval($item['precio'])
+                    ]
+                ]
             ];
 
             // Agregar campos opcionales si están disponibles
@@ -211,11 +218,7 @@ class AlegraIntegration {
                 $payload['reference'] = $item['codigo_barras'];
             }
 
-            if (!empty($item['categoria'])) {
-                $payload['category'] = [
-                    'id' => 1
-                ];
-            }
+            error_log('Creando item sin IVA: ' . json_encode($payload));
 
             $response = $this->client->request('POST', 'items', [
                 'json' => $payload
@@ -234,6 +237,7 @@ class AlegraIntegration {
             ];
 
         } catch (\Exception $e) {
+            error_log('Error creando item: ' . $e->getMessage());
             return [
                 'success' => false,
                 'error' => $e->getMessage()
@@ -415,7 +419,7 @@ class AlegraIntegration {
                 throw new Exception('Error con el vendedor: ' . $seller['error']);
             }
 
-            // 2. Preparar los items con impuestos
+            // 2. Preparar los items SIN impuestos (no responsables de IVA)
             $items = [];
             foreach ($data['items'] as $item) {
                 $itemAlegra = $this->findOrCreateItem($item);
@@ -426,13 +430,8 @@ class AlegraIntegration {
                 $items[] = [
                     'id' => $itemAlegra['data']['id'],
                     'price' => floatval($item['precio']),
-                    'quantity' => intval($item['cantidad']),
-                    'tax' => [[
-                        'id' => $this->getDefaultTax() ?? 6,
-                        'name' => 'IVA',
-                        'percentage' => 19,
-                        'type' => 'IVA'
-                    ]]
+                    'quantity' => intval($item['cantidad'])
+                    // Removemos el campo 'tax' ya que no somos responsables de IVA
                 ];
             }
 
@@ -455,7 +454,11 @@ class AlegraIntegration {
                 'seller' => [
                     'id' => $seller['data']['id']
                 ],
-                'anotation' => 'Factura de venta'
+                'anotation' => 'Factura de venta',
+                'priceList' => 1, // Lista de precios por defecto
+                'currency' => [
+                    'code' => 'COP'
+                ]
             ];
 
             error_log('Creando factura con payload: ' . json_encode($invoicePayload));
