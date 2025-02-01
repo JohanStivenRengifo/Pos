@@ -455,8 +455,14 @@ class AlegraIntegration
                 'numberTemplate' => [
                     'id' => $numberTemplate['data']['id']
                 ],
-                // Removemos paymentForm y agregamos paymentMethod directo
-                'paymentMethod' => 'cash',
+                'paymentForm' => [
+                    'paymentMethod' => [
+                        'code' => '10'  // 10 = Efectivo según DIAN
+                    ],
+                    'paymentMeans' => [
+                        'code' => '1'   // 1 = Contado según DIAN
+                    ]
+                ],
                 'seller' => [
                     'id' => $seller['data']['id']
                 ],
@@ -464,23 +470,12 @@ class AlegraIntegration
                 'currency' => [
                     'code' => 'COP'
                 ],
-                // Agregamos el payment directamente en la factura
-                'payments' => [
-                    [
-                        'date' => date('Y-m-d'),
-                        'account' => [
-                            'id' => $this->getDefaultAccount()
-                        ],
-                        'amount' => array_reduce($items, function($carry, $item) {
-                            return $carry + ($item['price'] * $item['quantity']);
-                        }, 0),
-                        'paymentMethod' => 'cash'
-                    ]
-                ],
                 'operationType' => 'STANDARD',
                 'documentType' => 'NATIONAL'
             ];
 
+            // Removemos el campo payments ya que lo manejaremos después de crear la factura
+            
             error_log('Payload de factura: ' . json_encode($invoicePayload));
 
             // 4. Crear la factura con manejo mejorado de errores
