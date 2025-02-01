@@ -456,9 +456,9 @@ class AlegraIntegration
                     'id' => $numberTemplate['data']['id']
                 ],
                 'paymentForm' => [
-                    'paymentMethod' => '10',     // Efectivo según DIAN
-                    'paymentMeans' => '1',       // Contado según DIAN
-                    'dueDate' => date('Y-m-d')   // Fecha de vencimiento
+                    'paymentMethod' => 'CASH',    // Cambiado a CASH según documentación
+                    'paymentMeans' => 'CASH',     // Cambiado a CASH según documentación
+                    'dueDate' => date('Y-m-d')
                 ],
                 'seller' => [
                     'id' => $seller['data']['id']
@@ -608,7 +608,7 @@ class AlegraIntegration
     }
 
     private function mapPaymentMeans($localMethod) {
-        // Solo permitimos efectivo
+        // Siempre retornamos CASH según la documentación de Alegra
         return 'CASH';
     }
 
