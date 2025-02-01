@@ -1,12 +1,14 @@
 <?php
 require_once(__DIR__ . '/../../../vendor/autoload.php');
 
-class AlegraIntegration {
+class AlegraIntegration
+{
     private $client;
     private $credentials;
     private $taxes = null;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->credentials = base64_encode('johanrengifo78@gmail.com:f3c179c3237c190b3697');
         $this->client = new \GuzzleHttp\Client([
             'base_uri' => 'https://api.alegra.com/api/v1/',
@@ -18,7 +20,8 @@ class AlegraIntegration {
         ]);
     }
 
-    private function getTaxes() {
+    private function getTaxes()
+    {
         if ($this->taxes === null) {
             try {
                 $response = $this->client->request('GET', 'taxes');
@@ -31,7 +34,8 @@ class AlegraIntegration {
         return $this->taxes;
     }
 
-    private function getDefaultTax() {
+    private function getDefaultTax()
+    {
         $taxes = $this->getTaxes();
         // Buscar el impuesto por nombre o porcentaje
         foreach ($taxes as $tax) {
@@ -44,14 +48,15 @@ class AlegraIntegration {
         return null;
     }
 
-    public function findContactByIdentification($identification) {
+    public function findContactByIdentification($identification)
+    {
         try {
             $response = $this->client->request('GET', 'contacts', [
                 'query' => ['identification' => $identification]
             ]);
 
             $result = json_decode($response->getBody()->getContents(), true);
-            
+
             // Si encontramos contactos, retornar el primero
             if (!empty($result)) {
                 return [
@@ -64,7 +69,6 @@ class AlegraIntegration {
                 'success' => false,
                 'error' => 'Contacto no encontrado'
             ];
-
         } catch (\Exception $e) {
             return [
                 'success' => false,
@@ -73,11 +77,12 @@ class AlegraIntegration {
         }
     }
 
-    public function createContact($clientData) {
+    public function createContact($clientData)
+    {
         try {
             // Primero buscar si el contacto ya existe
             $existingContact = $this->findContactByIdentification($clientData['documento']);
-            
+
             if ($existingContact['success']) {
                 return $existingContact;
             }
@@ -137,7 +142,6 @@ class AlegraIntegration {
                 'success' => true,
                 'data' => $result
             ];
-
         } catch (\Exception $e) {
             return [
                 'success' => false,
@@ -146,7 +150,8 @@ class AlegraIntegration {
         }
     }
 
-    private function getIdentificationType($tipoPersona, $identificacion) {
+    private function getIdentificationType($tipoPersona, $identificacion)
+    {
         // Si es consumidor final
         if ($identificacion === '222222222222') {
             return 'CC';
@@ -162,7 +167,8 @@ class AlegraIntegration {
         return $typeMap[$tipoPersona] ?? 'CC';
     }
 
-    private function mapPersonType($tipoPersona) {
+    private function mapPersonType($tipoPersona)
+    {
         // Mapeo según documentación de Alegra Colombia
         $typeMap = [
             'juridica' => 'LEGAL_ENTITY',
@@ -172,7 +178,8 @@ class AlegraIntegration {
         return $typeMap[$tipoPersona] ?? 'PERSON_ENTITY';
     }
 
-    private function mapRegime($responsabilidad) {
+    private function mapRegime($responsabilidad)
+    {
         // Mapeo según documentación de Alegra Colombia
         $regimeMap = [
             'iva' => 'COMMON_REGIME',
@@ -184,11 +191,12 @@ class AlegraIntegration {
         return $regimeMap[$responsabilidad] ?? 'SIMPLIFIED_REGIME';
     }
 
-    public function findOrCreateItem($item) {
+    public function findOrCreateItem($item)
+    {
         try {
             // Primero buscar si el item existe
             $existingItem = $this->findItemByName($item['nombre']);
-            
+
             if ($existingItem['success']) {
                 return $existingItem;
             }
@@ -225,7 +233,7 @@ class AlegraIntegration {
             ]);
 
             $result = json_decode($response->getBody()->getContents(), true);
-            
+
             // Guardar el ID de Alegra en tu base de datos
             if (isset($result['id'])) {
                 $this->saveAlegraItemId($item['id'], $result['id']);
@@ -235,7 +243,6 @@ class AlegraIntegration {
                 'success' => true,
                 'data' => $result
             ];
-
         } catch (\Exception $e) {
             error_log('Error creando item: ' . $e->getMessage());
             return [
@@ -245,7 +252,8 @@ class AlegraIntegration {
         }
     }
 
-    private function saveAlegraItemId($localId, $alegraId) {
+    private function saveAlegraItemId($localId, $alegraId)
+    {
         try {
             global $pdo;
             $stmt = $pdo->prepare("
@@ -260,14 +268,15 @@ class AlegraIntegration {
         }
     }
 
-    public function findItemByName($name) {
+    public function findItemByName($name)
+    {
         try {
             $response = $this->client->request('GET', 'items', [
                 'query' => ['query' => $name]
             ]);
 
             $result = json_decode($response->getBody()->getContents(), true);
-            
+
             // Si encontramos items, retornar el primero que coincida exactamente
             if (!empty($result)) {
                 foreach ($result as $item) {
@@ -284,7 +293,6 @@ class AlegraIntegration {
                 'success' => false,
                 'error' => 'Item no encontrado'
             ];
-
         } catch (\Exception $e) {
             return [
                 'success' => false,
@@ -293,12 +301,13 @@ class AlegraIntegration {
         }
     }
 
-    public function getInvoiceDetails($invoiceId) {
+    public function getInvoiceDetails($invoiceId)
+    {
         try {
             // Intentar hasta 5 veces con un intervalo de 2 segundos
             $maxIntentos = 5;
             $intento = 0;
-            
+
             while ($intento < $maxIntentos) {
                 // Obtener los detalles completos de la factura
                 $response = $this->client->request('GET', "invoices/{$invoiceId}");
@@ -312,7 +321,7 @@ class AlegraIntegration {
                     try {
                         $pdfResponse = $this->client->request('GET', "invoices/{$invoiceId}/pdf");
                         $pdfResult = json_decode($pdfResponse->getBody()->getContents(), true);
-                        
+
                         if (!empty($pdfResult['downloadLink'])) {
                             return [
                                 'success' => true,
@@ -332,7 +341,7 @@ class AlegraIntegration {
                     try {
                         $downloadResponse = $this->client->request('GET', "invoices/{$invoiceId}/pdf/download");
                         $headers = $downloadResponse->getHeaders();
-                        
+
                         if (isset($headers['Location'][0])) {
                             return [
                                 'success' => true,
@@ -357,7 +366,6 @@ class AlegraIntegration {
             }
 
             throw new Exception('La factura aún no está lista para descarga después de ' . $maxIntentos . ' intentos');
-
         } catch (\Exception $e) {
             error_log('Error en getInvoiceDetails: ' . $e->getMessage());
             return [
@@ -367,7 +375,8 @@ class AlegraIntegration {
         }
     }
 
-    private function getElectronicNumberTemplate() {
+    private function getElectronicNumberTemplate()
+    {
         try {
             $response = $this->client->request('GET', 'number-templates', [
                 'query' => [
@@ -377,7 +386,7 @@ class AlegraIntegration {
             ]);
 
             $templates = json_decode($response->getBody()->getContents(), true);
-            
+
             // Buscar una plantilla electrónica activa
             foreach ($templates as $template) {
                 if ($template['isElectronic'] && $template['status'] === 'active') {
@@ -389,7 +398,6 @@ class AlegraIntegration {
             }
 
             throw new Exception('No se encontró una plantilla de numeración electrónica activa');
-
         } catch (\Exception $e) {
             error_log('Error obteniendo plantilla de numeración: ' . $e->getMessage());
             return [
@@ -399,7 +407,8 @@ class AlegraIntegration {
         }
     }
 
-    public function createInvoice($data) {
+    public function createInvoice($data)
+    {
         try {
             error_log('Iniciando proceso de facturación electrónica');
 
@@ -448,10 +457,10 @@ class AlegraIntegration {
                 ],
                 'paymentForm' => [
                     'paymentMethod' => [
-                        'code' => '10' // Efectivo según documentación DIAN
+                        'code' => $this->mapPaymentMeans('CASH') // Mapea correctamente el método
                     ],
                     'paymentMeans' => [
-                        'code' => '1' // Contado según documentación DIAN
+                        'code' => ('CASH') // Contado o crédito
                     ],
                     'paymentDueDate' => date('Y-m-d')
                 ],
@@ -472,7 +481,7 @@ class AlegraIntegration {
             $response = $this->client->request('POST', 'invoices', [
                 'json' => $invoicePayload
             ]);
-            
+
             $invoice = json_decode($response->getBody()->getContents(), true);
             if (!isset($invoice['id'])) {
                 throw new Exception('No se pudo crear la factura: ' . json_encode($invoice));
@@ -483,7 +492,7 @@ class AlegraIntegration {
             // 5. Verificar que la factura existe
             $response = $this->client->request('GET', "invoices/{$invoice['id']}");
             $invoiceStatus = json_decode($response->getBody()->getContents(), true);
-            
+
             if (!isset($invoiceStatus['id'])) {
                 throw new Exception('No se pudo verificar la factura creada');
             }
@@ -513,7 +522,7 @@ class AlegraIntegration {
             $paymentResult = $this->createPayment(
                 $invoice['id'],
                 $finalInvoice['total'],
-                $this->mapPaymentMeans($data['metodo_pago'] ?? 'efectivo')
+                $this->mapPaymentMeans('CASH')
             );
 
             return [
@@ -522,7 +531,6 @@ class AlegraIntegration {
                 'stampResult' => $stampResult,
                 'paymentResult' => $paymentResult
             ];
-
         } catch (\Exception $e) {
             error_log('Error en createInvoice: ' . $e->getMessage());
             return [
@@ -532,7 +540,8 @@ class AlegraIntegration {
         }
     }
 
-    private function getOrCreateContact($clienteId) {
+    private function getOrCreateContact($clienteId)
+    {
         try {
             // Obtener datos del cliente de la base de datos
             global $pdo;
@@ -567,7 +576,7 @@ class AlegraIntegration {
 
             // Si no tiene ID de Alegra, crear el contacto
             $result = $this->createContact($cliente);
-            
+
             if ($result['success']) {
                 // Guardar el ID de Alegra en la base de datos
                 $stmt = $pdo->prepare("
@@ -579,7 +588,6 @@ class AlegraIntegration {
             }
 
             return $result;
-
         } catch (\Exception $e) {
             return [
                 'success' => false,
@@ -589,11 +597,12 @@ class AlegraIntegration {
     }
 
     private function mapPaymentMeans($localMethod) {
-        // Para facturación electrónica, siempre retornamos CASH
+        // Solo permitimos efectivo
         return 'CASH';
     }
 
-    public function sendInvoiceEmail($invoiceId, $email = null) {
+    public function sendInvoiceEmail($invoiceId, $email = null)
+    {
         try {
             $payload = [];
             if ($email) {
@@ -618,7 +627,6 @@ class AlegraIntegration {
                 'message' => 'Factura enviada por correo exitosamente',
                 'data' => $result
             ];
-
         } catch (\Exception $e) {
             error_log('Error enviando email: ' . $e->getMessage());
             return [
@@ -628,18 +636,19 @@ class AlegraIntegration {
         }
     }
 
-    private function getDefaultAccount() {
+    private function getDefaultAccount()
+    {
         try {
             $response = $this->client->request('GET', 'accounts');
             $accounts = json_decode($response->getBody()->getContents(), true);
-            
+
             // Retornar la primera cuenta activa
             foreach ($accounts as $account) {
                 if ($account['status'] === 'active') {
                     return $account['id'];
                 }
             }
-            
+
             return 1; // ID por defecto si no se encuentra ninguna
         } catch (\Exception $e) {
             error_log('Error obteniendo cuentas: ' . $e->getMessage());
@@ -647,7 +656,8 @@ class AlegraIntegration {
         }
     }
 
-    public function createPayment($invoiceId, $amount, $paymentMethod = 'CASH') {
+    public function createPayment($invoiceId, $amount, $paymentMethod = 'CASH')
+    {
         try {
             error_log('Creando pago para factura ' . $invoiceId . ' por valor de ' . $amount);
 
@@ -682,7 +692,6 @@ class AlegraIntegration {
                 'success' => true,
                 'data' => $result
             ];
-
         } catch (\Exception $e) {
             error_log('Error creando pago: ' . $e->getMessage());
             return [
@@ -692,7 +701,8 @@ class AlegraIntegration {
         }
     }
 
-    public function getPayments($invoiceId = null) {
+    public function getPayments($invoiceId = null)
+    {
         try {
             $query = [];
             if ($invoiceId) {
@@ -704,12 +714,11 @@ class AlegraIntegration {
             ]);
 
             $result = json_decode($response->getBody()->getContents(), true);
-            
+
             return [
                 'success' => true,
                 'data' => $result
             ];
-
         } catch (\Exception $e) {
             error_log('Error consultando pagos: ' . $e->getMessage());
             return [
@@ -719,28 +728,31 @@ class AlegraIntegration {
         }
     }
 
-    private function getDefaultSeller() {
+    private function getDefaultSeller()
+    {
         try {
             error_log('Iniciando búsqueda/creación de vendedor por defecto');
 
             // 1. Primero intentar obtener vendedores existentes
             $response = $this->client->request('GET', 'sellers');
             $sellers = json_decode($response->getBody()->getContents(), true);
-            
+
             error_log('Respuesta de vendedores: ' . json_encode($sellers));
-            
+
             // Verificar si la respuesta es un array
             if (!is_array($sellers)) {
                 error_log('La respuesta de vendedores no es un array, creando vendedor nuevo');
                 $sellers = [];
             }
-            
+
             // 2. Buscar un vendedor activo o con el nombre específico
             foreach ($sellers as $seller) {
-                if ($seller['status'] === 'active' || 
-                    (isset($seller['name']) && $seller['name'] === 'Johan Stiven Rengifo')) {
+                if (
+                    $seller['status'] === 'active' ||
+                    (isset($seller['name']) && $seller['name'] === 'Johan Stiven Rengifo')
+                ) {
                     error_log('Vendedor encontrado: ' . json_encode($seller));
-                    
+
                     // Si el vendedor existe pero no está activo, intentar activarlo
                     if ($seller['status'] !== 'active') {
                         try {
@@ -759,17 +771,17 @@ class AlegraIntegration {
                             error_log('Error activando vendedor existente: ' . $e->getMessage());
                         }
                     }
-                    
+
                     return [
                         'success' => true,
                         'data' => $seller
                     ];
                 }
             }
-            
+
             // 3. Si no hay vendedor adecuado, crear uno nuevo
             error_log('Creando nuevo vendedor...');
-            
+
             $createPayload = [
                 'name' => 'Johan Stiven Rengifo',
                 'identification' => '1048067754',
@@ -801,7 +813,6 @@ class AlegraIntegration {
                 error_log('Error creando nuevo vendedor: ' . $e->getMessage());
                 throw new Exception('No se pudo crear el vendedor: ' . $e->getMessage());
             }
-
         } catch (\Exception $e) {
             error_log('Error en getDefaultSeller: ' . $e->getMessage());
             return [
@@ -810,4 +821,4 @@ class AlegraIntegration {
             ];
         }
     }
-} 
+}
