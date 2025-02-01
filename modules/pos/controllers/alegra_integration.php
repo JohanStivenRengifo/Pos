@@ -457,11 +457,14 @@ class AlegraIntegration
                 ],
                 'paymentForm' => [
                     'paymentMethod' => [
-                        'code' => '10'  // 10 = Efectivo según DIAN
+                        'code' => 1,  // 1 = Instrumento no definido
+                        'name' => 'Efectivo'
                     ],
                     'paymentMeans' => [
-                        'code' => '1'   // 1 = Contado según DIAN
-                    ]
+                        'code' => 10,  // 10 = Efectivo
+                        'name' => 'Efectivo'
+                    ],
+                    'dueDate' => date('Y-m-d')
                 ],
                 'seller' => [
                     'id' => $seller['data']['id']
