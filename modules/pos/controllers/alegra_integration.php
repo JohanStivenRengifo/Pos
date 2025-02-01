@@ -455,17 +455,27 @@ class AlegraIntegration
                 'numberTemplate' => [
                     'id' => $numberTemplate['data']['id']
                 ],
-                'paymentForm' => [
-                    'paymentMethod' => 'CASH',    // Cambiado a CASH según documentación
-                    'paymentMeans' => 'CASH',     // Cambiado a CASH según documentación
-                    'dueDate' => date('Y-m-d')
-                ],
+                // Removemos paymentForm y agregamos paymentMethod directo
+                'paymentMethod' => 'cash',
                 'seller' => [
                     'id' => $seller['data']['id']
                 ],
                 'anotation' => 'Factura de venta',
                 'currency' => [
                     'code' => 'COP'
+                ],
+                // Agregamos el payment directamente en la factura
+                'payments' => [
+                    [
+                        'date' => date('Y-m-d'),
+                        'account' => [
+                            'id' => $this->getDefaultAccount()
+                        ],
+                        'amount' => array_reduce($items, function($carry, $item) {
+                            return $carry + ($item['price'] * $item['quantity']);
+                        }, 0),
+                        'paymentMethod' => 'cash'
+                    ]
                 ],
                 'operationType' => 'STANDARD',
                 'documentType' => 'NATIONAL'
@@ -608,8 +618,8 @@ class AlegraIntegration
     }
 
     private function mapPaymentMeans($localMethod) {
-        // Siempre retornamos CASH según la documentación de Alegra
-        return 'CASH';
+        // Retornamos 'cash' en minúsculas según la documentación
+        return 'cash';
     }
 
     public function sendInvoiceEmail($invoiceId, $email = null)
