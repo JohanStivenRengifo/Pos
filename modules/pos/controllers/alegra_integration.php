@@ -456,19 +456,9 @@ class AlegraIntegration
                     'id' => $numberTemplate['data']['id']
                 ],
                 'paymentForm' => [
-<<<<<<< HEAD
-                    'paymentMethod' => '10', // Efectivo
-                    'paymentMeans' => '1',   // Contado
-                    'dueDate' => date('Y-m-d')
-=======
-                    'paymentMethod' => [
-                        'code' => $this->mapPaymentMeans('CASH') // Mapea correctamente el método
-                    ],
-                    'paymentMeans' => [
-                        'code' => ('CASH') // Contado o crédito
-                    ],
-                    'paymentDueDate' => date('Y-m-d')
->>>>>>> 78375808072b8c7f6749be0c756bfa10a96cbb27
+                    'paymentMethod' => '10',     // Efectivo según DIAN
+                    'paymentMeans' => '1',       // Contado según DIAN
+                    'dueDate' => date('Y-m-d')   // Fecha de vencimiento
                 ],
                 'seller' => [
                     'id' => $seller['data']['id']
@@ -483,14 +473,29 @@ class AlegraIntegration
 
             error_log('Payload de factura: ' . json_encode($invoicePayload));
 
-            // 4. Crear la factura
-            $response = $this->client->request('POST', 'invoices', [
-                'json' => $invoicePayload
-            ]);
-
-            $invoice = json_decode($response->getBody()->getContents(), true);
-            if (!isset($invoice['id'])) {
-                throw new Exception('No se pudo crear la factura: ' . json_encode($invoice));
+            // 4. Crear la factura con manejo mejorado de errores
+            try {
+                $response = $this->client->request('POST', 'invoices', [
+                    'json' => $invoicePayload
+                ]);
+                
+                $responseBody = $response->getBody()->getContents();
+                error_log('Respuesta cruda de Alegra: ' . $responseBody);
+                
+                $invoice = json_decode($responseBody, true);
+                
+                if (json_last_error() !== JSON_ERROR_NONE) {
+                    throw new Exception('Error decodificando respuesta JSON: ' . json_last_error_msg());
+                }
+                
+                if (!isset($invoice['id'])) {
+                    throw new Exception('No se pudo crear la factura. Respuesta: ' . $responseBody);
+                }
+                
+            } catch (\GuzzleHttp\Exception\ClientException $e) {
+                $errorBody = $e->getResponse()->getBody()->getContents();
+                error_log('Error de cliente HTTP: ' . $errorBody);
+                throw new Exception('Error creando factura: ' . $errorBody);
             }
 
             error_log('Factura creada con ID: ' . $invoice['id']);
