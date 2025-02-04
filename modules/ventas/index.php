@@ -61,6 +61,45 @@ function anularVenta($id, $user_id) {
     }
 }
 
+// Agregar después de las otras funciones
+function enviarFacturaCorreo($id, $email) {
+    try {
+        $url = "https://api.alegra.com/api/v1/invoices/{$id}/email";
+        $data = [
+            'emails' => [$email],
+            'sendCopyToUser' => true,
+            'invoiceType' => 'copy',
+            'emailMessage' => [
+                'subject' => 'Factura de venta - VendEasy'
+            ]
+        ];
+
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Accept: application/json',
+            'Authorization: Basic am9oYW5yZW5naWZvNzhAZ21haWwuY29tOmYzYzE3OWMzMjM3YzE5MGIzNjk3',
+            'Content-Type: application/json'
+        ]);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        $result = json_decode($response, true);
+
+        if ($httpCode === 200) {
+            return ['status' => true, 'message' => 'Factura enviada exitosamente'];
+        } else {
+            throw new Exception($result['message'] ?? 'Error al enviar la factura');
+        }
+    } catch (Exception $e) {
+        return ['status' => false, 'message' => 'Error: ' . $e->getMessage()];
+    }
+}
+
 // Procesar solicitudes AJAX
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WITH'])) {
     $action = $_POST['action'] ?? '';
@@ -69,6 +108,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
         case 'anular_venta':
             $id = (int)$_POST['id'];
             $result = anularVenta($id, $user_id);
+            ApiResponse::send($result['status'], $result['message']);
+            break;
+            
+        case 'enviar_correo':
+            $id = (int)$_POST['id'];
+            $email = $_POST['email'];
+            $result = enviarFacturaCorreo($id, $email);
             ApiResponse::send($result['status'], $result['message']);
             break;
             
@@ -383,18 +429,26 @@ try {
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                         <div class="flex space-x-2">
                                             <button onclick="imprimirVenta(<?= $venta['id'] ?>)" 
-                                                    class="text-blue-600 hover:text-blue-900">
+                                                    class="text-blue-600 hover:text-blue-900"
+                                                    title="Imprimir factura">
                                                 <i class="fas fa-print"></i>
                                             </button>
                                             <button onclick="editarVenta(<?= $venta['id'] ?>)" 
-                                                    class="text-green-600 hover:text-green-900">
+                                                    class="text-green-600 hover:text-green-900"
+                                                    title="Editar venta">
                                                 <i class="fas fa-edit"></i>
                                             </button>
                                             <?php if ($venta['estado'] !== 'Anulada'): ?>
-                                            <button onclick="confirmarAnulacion(<?= $venta['id'] ?>)" 
-                                                    class="text-red-600 hover:text-red-900">
-                                                <i class="fas fa-trash-alt"></i>
-                                            </button>
+                                                <button onclick="enviarCorreo(<?= $venta['id'] ?>)" 
+                                                        class="text-purple-600 hover:text-purple-900"
+                                                        title="Enviar por correo">
+                                                    <i class="fas fa-envelope"></i>
+                                                </button>
+                                                <button onclick="confirmarAnulacion(<?= $venta['id'] ?>)" 
+                                                        class="text-red-600 hover:text-red-900"
+                                                        title="Anular venta">
+                                                    <i class="fas fa-trash-alt"></i>
+                                                </button>
                                             <?php endif; ?>
                                         </div>
                                     </td>
@@ -583,12 +637,72 @@ try {
         .action-button i {
             font-size: 1.1rem;
         }
+
+        .btn-email { color: #9333EA; }
+        .btn-email:hover { background-color: #F3E8FF; }
     `;
 
     // Agregar los estilos al documento
     const styleSheet = document.createElement("style");
     styleSheet.textContent = additionalStyles;
     document.head.appendChild(styleSheet);
+
+    // Agregar al final del archivo, dentro de la sección de script
+    function enviarCorreo(id) {
+        Swal.fire({
+            title: 'Enviar Factura',
+            html: `
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700">Correo electrónico</label>
+                    <input type="email" id="email" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Enviar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#6366F1',
+            preConfirm: () => {
+                const email = document.getElementById('email').value;
+                if (!email) {
+                    Swal.showValidationMessage('Por favor ingrese un correo electrónico');
+                    return false;
+                }
+                return email;
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const email = result.value;
+                
+                fetch('index.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: `action=enviar_correo&id=${id}&email=${encodeURIComponent(email)}`
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: '¡Éxito!',
+                            text: data.message
+                        });
+                    } else {
+                        throw new Error(data.message);
+                    }
+                })
+                .catch(error => {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: error.message || 'Error al enviar el correo'
+                    });
+                });
+            }
+        });
+    }
     </script>
 </body>
 </html>
