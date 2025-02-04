@@ -208,13 +208,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
 }
 
 // Función para obtener todos los proveedores asociados al usuario actual
-function getUserProveedores($user_id)
-{
+function getUserProveedores($user_id) {
     global $pdo;
-    $query = "SELECT * FROM proveedores WHERE user_id = ?";
-    $stmt = $pdo->prepare($query);
-    $stmt->execute([$user_id]);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    try {
+        $query = "SELECT * FROM proveedores WHERE user_id = ? ORDER BY created_at DESC";
+        $stmt = $pdo->prepare($query);
+        $stmt->execute([$user_id]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {
+        error_log("Error al obtener proveedores: " . $e->getMessage());
+        return [];
+    }
 }
 
 // Guardar nuevo proveedor si se envía el formulario
@@ -271,7 +275,6 @@ $proveedores = getUserProveedores($user_id);
     <link rel="icon" type="image/png" href="/favicon/favicon.ico"/>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
-    <link rel="stylesheet" href="../../css/welcome.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
@@ -408,7 +411,6 @@ $proveedores = getUserProveedores($user_id);
     <!-- Modal para el formulario (inicialmente oculto) -->
     <div id="proveedorModal" class="hidden fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full z-50">
         <div class="relative top-20 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white">
-            <!-- El contenido del formulario existente va aquí -->
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-xl font-bold text-gray-800" id="modalTitle">Nuevo Proveedor</h2>
                 <button onclick="closeProveedorModal()" class="text-gray-600 hover:text-gray-800">
@@ -416,9 +418,120 @@ $proveedores = getUserProveedores($user_id);
                 </button>
             </div>
             
-            <!-- Mover el formulario existente aquí -->
-            <form method="POST" class="space-y-6" enctype="multipart/form-data">
-                <!-- ... contenido del formulario ... -->
+            <form id="proveedorForm" method="POST" class="space-y-6" enctype="multipart/form-data">
+                <input type="hidden" name="action" value="add">
+                
+                <!-- Información de Identificación -->
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Tipo de Identificación *
+                            </label>
+                            <select name="tipo_identificacion" required
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                                <option value="NIT">NIT - Número de identificación tributaria</option>
+                                <option value="CC">Cédula de Ciudadanía</option>
+                                <option value="CE">Cédula de Extranjería</option>
+                                <option value="PA">Pasaporte</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2">
+                            <div class="col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Número de Identificación *
+                                </label>
+                                <input type="text" name="identificacion" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    DV
+                                </label>
+                                <input type="text" name="dv" maxlength="2"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Información del Proveedor -->
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <div class="grid grid-cols-1 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Tipo de Persona *
+                            </label>
+                            <select name="tipo_persona" required onchange="togglePersonaFields(this.value)"
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                                <option value="juridica">Persona Jurídica</option>
+                                <option value="natural">Persona Natural</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Responsabilidad Tributaria *
+                            </label>
+                            <select name="responsabilidad_tributaria" required
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                                <option value="IVA">Responsable de IVA</option>
+                                <option value="NO_IVA">No Responsable de IVA</option>
+                            </select>
+                        </div>
+                        <div class="persona-juridica">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Razón Social *
+                            </label>
+                            <input type="text" name="nombre" required
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Información de Contacto -->
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Email *
+                            </label>
+                            <input type="email" name="email" required
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Teléfono *
+                            </label>
+                            <input type="tel" name="telefono" required
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Dirección *
+                            </label>
+                            <input type="text" name="direccion" required
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Ciudad/Departamento *
+                            </label>
+                            <input type="text" name="municipio_departamento" required
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-4">
+                    <button type="button" onclick="closeProveedorModal()"
+                            class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors">
+                        Cancelar
+                    </button>
+                    <button type="submit"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                        Guardar Proveedor
+                    </button>
+                </div>
             </form>
         </div>
     </div>
@@ -470,17 +583,11 @@ $proveedores = getUserProveedores($user_id);
     }
 
     // Manejador del formulario de proveedor
-    document.querySelector('form').addEventListener('submit', async function(e) {
+    document.getElementById('proveedorForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         
         const formData = new FormData(this);
-        formData.append('action', 'add');
-
-        if (!validateEmail(formData.get('email'))) {
-            showError('Error de validación', 'Por favor, ingrese un correo electrónico válido');
-            return;
-        }
-
+        
         try {
             const response = await fetch('', {
                 method: 'POST',
@@ -490,17 +597,31 @@ $proveedores = getUserProveedores($user_id);
                 }
             });
 
-            const data = await response.json();
+            const result = await response.json();
             
-            if (data.status) {
-                showNotification('success', data.message);
-                this.reset();
+            if (result.status) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Éxito',
+                    text: result.message,
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+                closeProveedorModal();
                 setTimeout(() => location.reload(), 1500);
             } else {
-                showError('Error', data.message);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: result.message
+                });
             }
         } catch (error) {
-            showError('Error', 'Ocurrió un error al procesar la solicitud');
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Ocurrió un error al procesar la solicitud'
+            });
         }
     });
 
@@ -633,7 +754,7 @@ $proveedores = getUserProveedores($user_id);
         }
     }
 
-    function showAddProveedorModal() {
+    function showAddProveedorForm() {
         const modal = document.getElementById('proveedorModal');
         modal.classList.remove('hidden');
         document.body.style.overflow = 'hidden';
@@ -643,6 +764,7 @@ $proveedores = getUserProveedores($user_id);
         const modal = document.getElementById('proveedorModal');
         modal.classList.add('hidden');
         document.body.style.overflow = 'auto';
+        document.getElementById('proveedorForm').reset();
     }
 
     // Cerrar modal al hacer clic fuera de él
@@ -672,17 +794,6 @@ $proveedores = getUserProveedores($user_id);
             }
         });
     });
-
-    // Añadir animaciones al modal
-    function showAddProveedorForm() {
-        const modal = document.getElementById('proveedorModal');
-        modal.classList.remove('hidden');
-        setTimeout(() => {
-            modal.querySelector('.relative').classList.add('transform', 'translate-y-0', 'opacity-100');
-            modal.querySelector('.relative').classList.remove('translate-y-4', 'opacity-0');
-        }, 10);
-        document.body.style.overflow = 'hidden';
-    }
     </script>
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
     <script>
