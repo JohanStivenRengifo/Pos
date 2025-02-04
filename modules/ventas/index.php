@@ -63,8 +63,19 @@ function anularVenta($id, $user_id) {
 
 // Agregar después de las otras funciones
 function enviarFacturaCorreo($id, $email) {
+    global $pdo;
+    
     try {
-        $url = "https://api.alegra.com/api/v1/invoices/{$id}/email";
+        // Primero verificar si la factura tiene alegra_id
+        $stmt = $pdo->prepare("SELECT alegra_id FROM ventas WHERE id = ?");
+        $stmt->execute([$id]);
+        $venta = $stmt->fetch();
+        
+        if (!$venta || !$venta['alegra_id']) {
+            throw new Exception('Esta factura no está sincronizada con Alegra');
+        }
+
+        $url = "https://api.alegra.com/api/v1/invoices/{$venta['alegra_id']}/email";
         $data = [
             'emails' => [$email],
             'sendCopyToUser' => true,
@@ -127,10 +138,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
 function getUserVentas($user_id, $limit, $offset) {
     global $pdo;
     try {
-        // Modificar la consulta para incluir todos los campos necesarios
         $query = "SELECT 
                     v.*, 
                     c.nombre AS cliente_nombre,
+                    c.email AS cliente_email,
                     CASE 
                         WHEN v.anulada = 1 THEN 'Anulada'
                         WHEN v.estado_factura = 'pagada' THEN 'Cobrada'
@@ -139,7 +150,8 @@ function getUserVentas($user_id, $limit, $offset) {
                     END AS estado,
                     v.fecha as fecha_creacion,
                     COALESCE(v.fecha, v.fecha) as fecha_vencimiento,
-                    COALESCE(v.estado_factura, 'Por emitir') as estado_dian
+                    COALESCE(v.estado_factura, 'Por emitir') as estado_dian,
+                    v.alegra_id
                   FROM ventas v 
                   LEFT JOIN clientes c ON v.cliente_id = c.id 
                   WHERE v.user_id = :user_id 
@@ -439,11 +451,13 @@ try {
                                                 <i class="fas fa-edit"></i>
                                             </button>
                                             <?php if ($venta['estado'] !== 'Anulada'): ?>
-                                                <button onclick="enviarCorreo(<?= $venta['id'] ?>)" 
-                                                        class="text-purple-600 hover:text-purple-900"
-                                                        title="Enviar por correo">
-                                                    <i class="fas fa-envelope"></i>
-                                                </button>
+                                                <?php if (!empty($venta['alegra_id'])): ?>
+                                                    <button onclick="enviarCorreo(<?= $venta['id'] ?>, '<?= htmlspecialchars($venta['cliente_email'] ?? '') ?>')" 
+                                                            class="text-purple-600 hover:text-purple-900"
+                                                            title="Enviar por correo electrónico">
+                                                        <i class="fas fa-envelope"></i>
+                                                    </button>
+                                                <?php endif; ?>
                                                 <button onclick="confirmarAnulacion(<?= $venta['id'] ?>)" 
                                                         class="text-red-600 hover:text-red-900"
                                                         title="Anular venta">
@@ -648,13 +662,13 @@ try {
     document.head.appendChild(styleSheet);
 
     // Agregar al final del archivo, dentro de la sección de script
-    function enviarCorreo(id) {
+    function enviarCorreo(id, clienteEmail) {
         Swal.fire({
             title: 'Enviar Factura',
             html: `
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700">Correo electrónico</label>
-                    <input type="email" id="email" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    <input type="email" id="email" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" value="${clienteEmail || ''}">
                 </div>
             `,
             showCancelButton: true,
