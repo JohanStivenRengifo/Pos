@@ -33,13 +33,11 @@ try {
     // Iniciar transacción
     $pdo->beginTransaction();
 
-    // Determinar el estado de la factura y estado DIAN
+    // Determinar el estado de la factura
     $estado_factura = 'NO EMITIDA';
-    $estado_dian = 'No Electrónica';
     
     if ($data['tipo_documento'] === 'factura') {
         if ($data['numeracion'] === 'electronica') {
-            $estado_dian = 'Por Emitir';
             // Si es factura electrónica, procesar con Alegra
             $alegra = new AlegraIntegration();
             $alegraResponse = $alegra->createInvoice($data);
@@ -50,7 +48,6 @@ try {
 
             // Actualizar estados después de procesar con Alegra
             $estado_factura = 'EMITIDA';
-            $estado_dian = 'Aprobada';
 
             // Guardar referencia de Alegra y datos de facturación electrónica
             $data['alegra_id'] = $alegraResponse['data']['id'];
@@ -97,7 +94,6 @@ try {
             cliente_id,
             tipo_documento,
             numeracion,
-            numeracion_tipo,
             total,
             subtotal,
             descuento,
@@ -106,7 +102,6 @@ try {
             alegra_id,
             turno_id,
             estado_factura,
-            estado_dian,
             estado,
             cufe,
             qr_code,
@@ -114,16 +109,15 @@ try {
             xml_url,
             fecha
         ) VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW()
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW()
         )
     ");
 
     $stmt->execute([
-        $_SESSION['user_id'],  // Aseguramos que se guarde el user_id de la sesión
+        $_SESSION['user_id'],
         $data['cliente_id'],
         $data['tipo_documento'],
         $data['numeracion'],
-        $data['numeracion'] === 'electronica' ? 'electronica' : 'principal',
         $total,
         $subtotal,
         $descuento,
@@ -132,7 +126,6 @@ try {
         $data['alegra_id'] ?? null,
         $_SESSION['turno_actual'],
         $estado_factura,
-        $estado_dian,
         'completada',
         $data['cufe'] ?? null,
         $data['qr_code'] ?? null,
@@ -181,8 +174,7 @@ try {
         'message' => 'Venta procesada correctamente',
         'venta_id' => $venta_id,
         'alegra_id' => $data['alegra_id'] ?? null,
-        'estado_factura' => $estado_factura,
-        'estado_dian' => $estado_dian
+        'estado_factura' => $estado_factura
     ]);
 
 } catch (Exception $e) {
