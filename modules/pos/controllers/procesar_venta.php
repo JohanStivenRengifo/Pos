@@ -37,8 +37,9 @@ try {
                 descuento,
                 total,
                 metodo_pago,
-                fecha
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                fecha,
+                estado
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'completada')
         ");
 
         $stmt->execute([

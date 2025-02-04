@@ -85,24 +85,30 @@ function getUserVentas($user_id, $limit, $offset) {
                     v.*, 
                     c.nombre AS cliente_nombre,
                     v.fecha AS fecha_creacion,
-                    v.fecha_vencimiento,
+                    COALESCE(v.fecha_vencimiento, v.fecha) as fecha_vencimiento,
                     v.total,
-                    v.saldo_pendiente,
+                    COALESCE(
+                        (SELECT SUM(vd.cantidad * vd.precio_unitario) 
+                         FROM venta_detalles vd 
+                         WHERE vd.venta_id = v.id), 0
+                    ) as total_calculado,
                     CASE 
                         WHEN v.anulada = 1 THEN 'Anulada'
-                        WHEN v.saldo_pendiente = 0 THEN 'Cobrada'
-                        WHEN v.saldo_pendiente = v.total THEN 'Pendiente'
-                        WHEN v.saldo_pendiente > 0 THEN 'Por Cobrar'
+                        WHEN v.estado_factura = 'pagada' THEN 'Cobrada'
+                        WHEN v.estado_factura = 'pendiente' THEN 'Por Cobrar'
+                        ELSE 'Pendiente'
                     END AS estado,
                     CASE 
-                        WHEN v.estado_dian IS NULL THEN 'Por emitir'
-                        ELSE v.estado_dian 
-                    END AS estado_dian
+                        WHEN v.estado_factura IS NULL THEN 'Por emitir'
+                        ELSE v.estado_factura 
+                    END AS estado_dian,
+                    COALESCE(v.saldo_pendiente, v.total) as saldo_pendiente
                   FROM ventas v 
                   LEFT JOIN clientes c ON v.cliente_id = c.id 
                   WHERE v.user_id = :user_id 
                   ORDER BY v.fecha DESC
                   LIMIT :limit OFFSET :offset";
+                  
         $stmt = $pdo->prepare($query);
         $stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
         $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
@@ -139,6 +145,7 @@ function getTotalVentasMonto($user_id) {
             FROM ventas 
             WHERE user_id = ? 
             AND anulada = 0
+            AND estado_factura != 'anulada'
         ");
         $stmt->execute([$user_id]);
         return $stmt->fetchColumn();
@@ -157,6 +164,7 @@ function getVentasDia($user_id) {
             WHERE user_id = ? 
             AND DATE(fecha) = CURDATE() 
             AND anulada = 0
+            AND estado_factura != 'anulada'
         ");
         $stmt->execute([$user_id]);
         return $stmt->fetchColumn();
@@ -173,7 +181,7 @@ function getTotalAnuladas($user_id) {
             SELECT COUNT(*) 
             FROM ventas 
             WHERE user_id = ? 
-            AND anulada = 1
+            AND (anulada = 1 OR estado_factura = 'anulada')
         ");
         $stmt->execute([$user_id]);
         return $stmt->fetchColumn();
