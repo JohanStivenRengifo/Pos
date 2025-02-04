@@ -284,310 +284,142 @@ $proveedores = getUserProveedores($user_id);
         <div class="main-body p-6 w-full">
             <!-- Encabezado -->
             <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
-                <h1 class="text-2xl font-bold text-gray-800 mb-2">Gestión de Proveedores</h1>
-                <p class="text-gray-600">Administra tus proveedores de manera eficiente</p>
-            </div>
-
-            <!-- Formulario de Nuevo Proveedor -->
-            <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
-                <h2 class="text-xl font-semibold text-gray-800 mb-4">
-                    <i class="fas fa-plus-circle mr-2 text-blue-500"></i>
-                    Nuevo Proveedor
-                </h2>
-                
-                <form method="POST" class="max-w-2xl mx-auto" enctype="multipart/form-data">
-                    <!-- Foto de Perfil -->
-                    <div class="bg-gray-50 p-4 rounded-lg mb-6">
-                        <h4 class="text-lg font-medium text-gray-700 mb-4">
-                            <i class="fas fa-camera text-blue-500 mr-2"></i>
-                            Foto de Perfil
-                        </h4>
-                        <div class="flex items-center space-x-4">
-                            <div class="w-32 h-32 relative">
-                                <img id="preview-foto" src="/assets/img/default-avatar.png" 
-                                     class="w-full h-full object-cover rounded-full border-4 border-white shadow-lg">
-                                <label class="absolute bottom-0 right-0 bg-blue-500 text-white rounded-full p-2 cursor-pointer hover:bg-blue-600">
-                                    <i class="fas fa-upload"></i>
-                                    <input type="file" name="foto_perfil" class="hidden" accept="image/*" 
-                                           onchange="previewImage(this, 'preview-foto')">
-                                </label>
-                            </div>
-                        </div>
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-800 mb-2">Gestión de Proveedores</h1>
+                        <p class="text-gray-600">Administra la información de tus proveedores de manera eficiente</p>
                     </div>
-
-                    <!-- Información de Identificación -->
-                    <div class="bg-gray-50 p-4 rounded-lg mb-6">
-                        <h4 class="text-lg font-medium text-gray-700 mb-4">
-                            <i class="fas fa-id-card text-blue-500 mr-2"></i>
-                            Información de Identificación
-                        </h4>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    Tipo de Identificación *
-                                </label>
-                                <select name="tipo_identificacion" required
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                                    <option value="NIT">NIT - Número de identificación tributaria</option>
-                                    <option value="CC">Cédula de Ciudadanía</option>
-                                    <option value="CE">Cédula de Extranjería</option>
-                                    <option value="PA">Pasaporte</option>
-                                </select>
-                            </div>
-                            <div class="grid grid-cols-3 gap-2">
-                                <div class="col-span-2">
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">
-                                        Número de Identificación *
-                                    </label>
-                                    <input type="text" name="identificacion" required
-                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                                </div>
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">
-                                        DV
-                                    </label>
-                                    <input type="text" name="dv" maxlength="2"
-                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Información Personal/Empresarial -->
-                    <div class="bg-gray-50 p-4 rounded-lg mb-6">
-                        <h4 class="text-lg font-medium text-gray-700 mb-4">
-                            <i class="fas fa-user text-blue-500 mr-2"></i>
-                            Información del Proveedor
-                        </h4>
-                        <div class="grid grid-cols-1 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    Tipo de Persona *
-                                </label>
-                                <select name="tipo_persona" required onchange="togglePersonaFields(this.value)"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                                    <option value="juridica">Persona Jurídica</option>
-                                    <option value="natural">Persona Natural</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    Responsabilidad Tributaria *
-                                </label>
-                                <select name="responsabilidad_tributaria" required
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                                    <option value="IVA">Responsable de IVA</option>
-                                    <option value="NO_IVA">No Responsable de IVA</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 persona-natural hidden">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    Primer Nombre *
-                                </label>
-                                <input type="text" name="primer_nombre"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    Segundo Nombre
-                                </label>
-                                <input type="text" name="segundo_nombre"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    Apellidos *
-                                </label>
-                                <input type="text" name="apellidos"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                            </div>
-                        </div>
-
-                        <div class="persona-juridica mt-4">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
-                                Razón Social *
-                            </label>
-                            <input type="text" name="nombre" required
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                        </div>
-                    </div>
-
-                    <!-- Ubicación -->
-                    <div class="bg-gray-50 p-4 rounded-lg mb-6">
-                        <h4 class="text-lg font-medium text-gray-700 mb-4">
-                            <i class="fas fa-map-marker-alt text-blue-500 mr-2"></i>
-                            Ubicación
-                        </h4>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    Municipio / Departamento
-                                </label>
-                                <select name="municipio_departamento"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                                    <!-- Opciones de departamentos... -->
-                                </select>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    Dirección
-                                </label>
-                                <input type="text" name="direccion"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    Código Postal
-                                </label>
-                                <input type="text" name="codigo_postal"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Información de Contacto -->
-                    <div class="bg-gray-50 p-4 rounded-lg mb-6">
-                        <h4 class="text-lg font-medium text-gray-700 mb-4">
-                            <i class="fas fa-address-book text-blue-500 mr-2"></i>
-                            Información de Contacto
-                        </h4>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    Correo Electrónico *
-                                </label>
-                                <input type="email" name="email" required placeholder="Ejemplo@email.com"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    Correo Electrónico 2
-                                </label>
-                                <input type="email" name="email2" placeholder="Ejemplo@email.com"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    Teléfono *
-                                </label>
-                                <input type="tel" name="telefono" required
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    Teléfono 2
-                                </label>
-                                <input type="tel" name="telefono2"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">
-                                    Celular
-                                </label>
-                                <input type="tel" name="celular"
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="flex justify-end space-x-4">
-                        <button type="submit" name="add_proveedor"
-                                class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-md transition duration-200">
-                            <i class="fas fa-save mr-2"></i>
-                            Guardar Proveedor
+                    <div class="flex gap-4">
+                        <button onclick="showAddProveedorForm()" 
+                                class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center">
+                            <i class="fas fa-plus mr-2"></i>
+                            Nuevo Proveedor
+                        </button>
+                        <button onclick="exportToExcel()" 
+                                class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center">
+                            <i class="fas fa-file-excel mr-2"></i>
+                            Exportar
                         </button>
                     </div>
-                </form>
+                </div>
+            </div>
+
+            <!-- Buscador -->
+            <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
+                <div class="relative">
+                    <input type="text" 
+                           id="searchProveedor"
+                           placeholder="Buscar proveedor..." 
+                           class="w-full px-4 py-2 pl-10 pr-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                </div>
             </div>
 
             <!-- Tabla de Proveedores -->
-            <div class="bg-white rounded-lg shadow-sm p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-semibold text-gray-800">
-                        <i class="fas fa-list mr-2 text-blue-500"></i>
-                        Listado de Proveedores
-                    </h2>
-                    <div class="flex items-center gap-2">
-                        <button onclick="exportToExcel()" 
-                                class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-md transition duration-200 flex items-center">
-                            <i class="fas fa-file-excel mr-2"></i>
-                            Exportar Excel
-                        </button>
-                        <span class="text-sm text-gray-500">
-                            Total: <?= count($proveedores) ?> proveedores
-                        </span>
-                    </div>
-                </div>
-
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Nombre
-                                </th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Contacto
-                                </th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Dirección
-                                </th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Acciones
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            <?php if (empty($proveedores)): ?>
-                            <tr>
-                                <td colspan="4" class="px-6 py-4 text-center text-gray-500">
-                                    No hay proveedores registrados
-                                </td>
-                            </tr>
-                            <?php else: ?>
-                                <?php foreach ($proveedores as $proveedor): ?>
-                                <tr class="hover:bg-gray-50">
-                                    <td class="px-6 py-4">
-                                        <div class="text-sm font-medium text-gray-900">
-                                            <?= htmlspecialchars($proveedor['nombre']); ?>
+            <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Perfil</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre Completo</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Identificación</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contacto</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ubicación</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        <?php foreach ($proveedores as $proveedor): ?>
+                        <tr class="hover:bg-gray-50 transition-colors">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex-shrink-0 h-10 w-10">
+                                    <?php if ($proveedor['foto_perfil']): ?>
+                                        <img class="h-10 w-10 rounded-full object-cover" 
+                                             src="/uploads/proveedores/<?= htmlspecialchars($proveedor['foto_perfil']) ?>" 
+                                             alt="Foto de perfil">
+                                    <?php else: ?>
+                                        <div class="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                                            <i class="fas fa-user text-gray-400"></i>
                                         </div>
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <div class="text-sm text-gray-900">
-                                            <i class="fas fa-envelope mr-1 text-gray-400"></i>
-                                            <?= htmlspecialchars($proveedor['email']); ?>
-                                        </div>
-                                        <div class="text-sm text-gray-500">
-                                            <i class="fas fa-phone mr-1 text-gray-400"></i>
-                                            <?= htmlspecialchars($proveedor['telefono']); ?>
-                                        </div>
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <div class="text-sm text-gray-500">
-                                            <i class="fas fa-map-marker-alt mr-1 text-gray-400"></i>
-                                            <?= htmlspecialchars($proveedor['direccion']); ?>
-                                        </div>
-                                    </td>
-                                    <td class="px-6 py-4 text-sm font-medium">
-                                        <button onclick="editProveedor(<?= htmlspecialchars(json_encode($proveedor)); ?>)"
-                                            class="text-blue-600 hover:text-blue-900 mr-3">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button onclick="deleteProveedor(<?= htmlspecialchars($proveedor['id']); ?>)"
-                                            class="text-red-600 hover:text-red-900">
-                                            <i class="fas fa-trash-alt"></i>
-                                        </button>
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
+                                    <?php endif; ?>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium text-gray-900">
+                                    <?= htmlspecialchars($proveedor['nombre']) ?>
+                                </div>
+                                <?php if ($proveedor['tipo_persona'] === 'juridica'): ?>
+                                    <div class="text-sm text-gray-500">
+                                        <i class="fas fa-building mr-1"></i> Persona Jurídica
+                                    </div>
+                                <?php endif; ?>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                           <?= $proveedor['tipo_identificacion'] === 'NIT' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800' ?>">
+                                    <?= htmlspecialchars($proveedor['tipo_identificacion']) ?>
+                                </span>
+                                <div class="text-sm text-gray-900 mt-1">
+                                    <?= htmlspecialchars($proveedor['identificacion']) ?>
+                                    <?php if ($proveedor['dv']): ?>-<?= htmlspecialchars($proveedor['dv']) ?><?php endif; ?>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-900">
+                                    <i class="fas fa-envelope mr-1 text-gray-400"></i>
+                                    <?= htmlspecialchars($proveedor['email']) ?>
+                                </div>
+                                <div class="text-sm text-gray-500">
+                                    <i class="fas fa-phone mr-1 text-gray-400"></i>
+                                    <?= htmlspecialchars($proveedor['telefono']) ?>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-900">
+                                    <?= htmlspecialchars($proveedor['municipio_departamento']) ?>
+                                </div>
+                                <?php if ($proveedor['direccion']): ?>
+                                <div class="text-sm text-gray-500">
+                                    <i class="fas fa-map-marker-alt mr-1 text-gray-400"></i>
+                                    <?= htmlspecialchars($proveedor['direccion']) ?>
+                                </div>
+                                <?php endif; ?>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <button onclick="editProveedor(<?= htmlspecialchars(json_encode($proveedor)) ?>)"
+                                        class="text-indigo-600 hover:text-indigo-900 mr-3">
+                                    <i class="fas fa-edit"></i>
+                                    <span class="ml-1">Editar</span>
+                                </button>
+                                <button onclick="deleteProveedor(<?= $proveedor['id'] ?>)"
+                                        class="text-red-600 hover:text-red-900">
+                                    <i class="fas fa-trash-alt"></i>
+                                    <span class="ml-1">Eliminar</span>
+                                </button>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
             </div>
+        </div>
+    </div>
+
+    <!-- Modal para el formulario (inicialmente oculto) -->
+    <div id="proveedorModal" class="hidden fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-full max-w-4xl shadow-lg rounded-md bg-white">
+            <!-- El contenido del formulario existente va aquí -->
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800" id="modalTitle">Nuevo Proveedor</h2>
+                <button onclick="closeProveedorModal()" class="text-gray-600 hover:text-gray-800">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <!-- Mover el formulario existente aquí -->
+            <form method="POST" class="space-y-6" enctype="multipart/form-data">
+                <!-- ... contenido del formulario ... -->
+            </form>
         </div>
     </div>
 
@@ -800,6 +632,57 @@ $proveedores = getUserProveedores($user_id);
             }
         }
     }
+
+    function showAddProveedorModal() {
+        const modal = document.getElementById('proveedorModal');
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeProveedorModal() {
+        const modal = document.getElementById('proveedorModal');
+        modal.classList.add('hidden');
+        document.body.style.overflow = 'auto';
+    }
+
+    // Cerrar modal al hacer clic fuera de él
+    document.getElementById('proveedorModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeProveedorModal();
+        }
+    });
+
+    // Mejorar la búsqueda
+    document.getElementById('searchProveedor').addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase();
+        const rows = document.querySelectorAll('tbody tr');
+        
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            const shouldShow = text.includes(searchTerm);
+            row.style.display = shouldShow ? '' : 'none';
+            
+            // Añadir una transición suave
+            if (shouldShow) {
+                row.classList.add('opacity-100');
+                row.classList.remove('opacity-0');
+            } else {
+                row.classList.add('opacity-0');
+                row.classList.remove('opacity-100');
+            }
+        });
+    });
+
+    // Añadir animaciones al modal
+    function showAddProveedorForm() {
+        const modal = document.getElementById('proveedorModal');
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            modal.querySelector('.relative').classList.add('transform', 'translate-y-0', 'opacity-100');
+            modal.querySelector('.relative').classList.remove('translate-y-4', 'opacity-0');
+        }, 10);
+        document.body.style.overflow = 'hidden';
+    }
     </script>
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
     <script>
@@ -831,5 +714,32 @@ $proveedores = getUserProveedores($user_id);
         XLSX.writeFile(wb, "Proveedores_VendEasy.xlsx");
     }
     </script>
+
+    <style>
+    /* Animaciones para el modal */
+    .modal-enter {
+        transform: translateY(-4rem);
+        opacity: 0;
+    }
+
+    .modal-enter-active {
+        transform: translateY(0);
+        opacity: 1;
+        transition: all 0.3s ease-out;
+    }
+
+    /* Transiciones para la tabla */
+    tbody tr {
+        transition: all 0.3s ease-in-out;
+    }
+
+    .opacity-0 {
+        opacity: 0;
+    }
+
+    .opacity-100 {
+        opacity: 1;
+    }
+    </style>
 </body>
 </html>
