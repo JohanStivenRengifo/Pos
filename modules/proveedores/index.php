@@ -352,9 +352,9 @@ $proveedores = getUserProveedores($user_id);
                             <i class="fas fa-plus mr-2"></i>
                             Nuevo Proveedor
                         </button>
-                        <button onclick="exportToExcel()" 
+                        <button onclick="showExportOptions()" 
                                 class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center">
-                            <i class="fas fa-file-excel mr-2"></i>
+                            <i class="fas fa-file-export mr-2"></i>
                             Exportar
                         </button>
                     </div>
@@ -835,31 +835,123 @@ $proveedores = getUserProveedores($user_id);
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
     <script>
     function exportToExcel() {
-        // Crear array con los datos
+        // Crear array con los datos y encabezados completos
         const data = [
-            ['Nombre', 'Email', 'Teléfono', 'Dirección'] // Encabezados
+            [
+                'Tipo de Persona',
+                'Tipo de Identificación',
+                'Número de Identificación',
+                'DV',
+                'Razón Social/Nombre',
+                'Primer Nombre',
+                'Segundo Nombre',
+                'Apellidos',
+                'Responsabilidad Tributaria',
+                'Email Principal',
+                'Email Secundario',
+                'Teléfono Principal',
+                'Teléfono Secundario',
+                'Celular',
+                'Departamento/Municipio',
+                'Dirección',
+                'Código Postal',
+                'Fecha de Registro'
+            ]
         ];
         
         // Obtener todas las filas de la tabla
         const rows = document.querySelectorAll('table tbody tr');
         rows.forEach(row => {
             if (!row.querySelector('td[colspan]')) { // Excluir fila de "No hay proveedores"
-                const nombre = row.querySelector('td:nth-child(1)').textContent.trim();
-                const email = row.querySelector('td:nth-child(2)').textContent.trim().split('\n')[0].trim();
-                const telefono = row.querySelector('td:nth-child(2)').textContent.trim().split('\n')[1].trim();
-                const direccion = row.querySelector('td:nth-child(3)').textContent.trim();
+                const proveedor = JSON.parse(row.querySelector('button[onclick^="editProveedor"]').getAttribute('onclick').split('(')[1].split(')')[0]);
                 
-                data.push([nombre, email, telefono, direccion]);
+                // Formatear la fecha
+                const fecha = new Date(proveedor.created_at);
+                const fechaFormateada = fecha.toLocaleDateString('es-CO', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+
+                data.push([
+                    proveedor.tipo_persona === 'juridica' ? 'Persona Jurídica' : 'Persona Natural',
+                    proveedor.tipo_identificacion,
+                    proveedor.identificacion,
+                    proveedor.dv || '',
+                    proveedor.nombre,
+                    proveedor.primer_nombre || '',
+                    proveedor.segundo_nombre || '',
+                    proveedor.apellidos || '',
+                    proveedor.responsabilidad_tributaria === 'IVA' ? 'Responsable de IVA' : 'No Responsable de IVA',
+                    proveedor.email,
+                    proveedor.email2 || '',
+                    proveedor.telefono,
+                    proveedor.telefono2 || '',
+                    proveedor.celular || '',
+                    proveedor.municipio_departamento,
+                    proveedor.direccion,
+                    proveedor.codigo_postal || '',
+                    fechaFormateada
+                ]);
             }
         });
 
         // Crear libro de trabajo y hoja
         const ws = XLSX.utils.aoa_to_sheet(data);
+
+        // Ajustar el ancho de las columnas
+        const wscols = data[0].map(() => ({ wch: 20 })); // Ancho de 20 para todas las columnas
+        ws['!cols'] = wscols;
+
+        // Aplicar estilos a la cabecera
+        const headerRange = XLSX.utils.decode_range(ws['!ref']);
+        for (let C = headerRange.s.c; C <= headerRange.e.c; ++C) {
+            const address = XLSX.utils.encode_col(C) + "1";
+            if (!ws[address]) continue;
+            ws[address].s = {
+                fill: { fgColor: { rgb: "4F46E5" } }, // Color de fondo
+                font: { bold: true, color: { rgb: "FFFFFF" } }, // Texto en negrita y blanco
+                alignment: { horizontal: "center" } // Centrar texto
+            };
+        }
+
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Proveedores");
 
-        // Generar archivo y descargarlo
-        XLSX.writeFile(wb, "Proveedores_VendEasy.xlsx");
+        // Generar archivo y descargarlo con la fecha actual
+        const fecha = new Date().toLocaleDateString('es-CO', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        }).replace(/\//g, '-');
+        
+        XLSX.writeFile(wb, `Proveedores_VendEasy_${fecha}.xlsx`);
+    }
+
+    // Actualizar el botón de exportar para mostrar opciones
+    function showExportOptions() {
+        Swal.fire({
+            title: 'Exportar Proveedores',
+            text: '¿En qué formato deseas exportar la información?',
+            icon: 'question',
+            showCancelButton: true,
+            showDenyButton: true,
+            confirmButtonText: 'Excel',
+            denyButtonText: 'CSV',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#059669',
+            denyButtonColor: '#6B7280',
+            cancelButtonColor: '#EF4444'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                exportToExcel();
+            } else if (result.isDenied) {
+                // Aquí puedes implementar la exportación a CSV si lo deseas
+                Swal.fire('Próximamente', 'La exportación a CSV estará disponible pronto', 'info');
+            }
+        });
     }
     </script>
 
