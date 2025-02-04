@@ -117,13 +117,67 @@ function deleteProveedor($id, $user_id) {
     }
 }
 
-function updateProveedor($id, $user_id, $nombre, $email, $telefono, $direccion) {
+function updateProveedor($id, $user_id, $data) {
     global $pdo;
     try {
-        $query = "UPDATE proveedores SET nombre = ?, email = ?, telefono = ?, direccion = ? WHERE id = ? AND user_id = ?";
+        // Preparar los datos según el tipo de persona
+        $nombre = null;
+        $primer_nombre = null;
+        $segundo_nombre = null;
+        $apellidos = null;
+
+        if ($data['tipo_persona'] === 'natural') {
+            $nombre = $data['primer_nombre'] . ' ' . $data['apellidos'];
+            $primer_nombre = $data['primer_nombre'];
+            $segundo_nombre = $data['segundo_nombre'];
+            $apellidos = $data['apellidos'];
+        } else {
+            $nombre = $data['nombre'];
+        }
+
+        $query = "UPDATE proveedores SET 
+            nombre = ?, 
+            email = ?, 
+            telefono = ?, 
+            direccion = ?,
+            tipo_identificacion = ?,
+            identificacion = ?,
+            dv = ?,
+            primer_nombre = ?,
+            segundo_nombre = ?,
+            apellidos = ?,
+            municipio_departamento = ?,
+            codigo_postal = ?,
+            tipo_persona = ?,
+            responsabilidad_tributaria = ?,
+            email2 = ?,
+            telefono2 = ?,
+            celular = ?
+            WHERE id = ? AND user_id = ?";
+
         $stmt = $pdo->prepare($query);
-        $result = $stmt->execute([$nombre, $email, $telefono, $direccion, $id, $user_id]);
-        
+        $result = $stmt->execute([
+            $nombre,
+            $data['email'],
+            $data['telefono'],
+            $data['direccion'],
+            $data['tipo_identificacion'],
+            $data['identificacion'],
+            $data['dv'],
+            $primer_nombre,
+            $segundo_nombre,
+            $apellidos,
+            $data['municipio_departamento'],
+            $data['codigo_postal'],
+            $data['tipo_persona'],
+            $data['responsabilidad_tributaria'],
+            $data['email2'],
+            $data['telefono2'],
+            $data['celular'],
+            $id,
+            $user_id
+        ]);
+
         if ($result && $stmt->rowCount() > 0) {
             return ['status' => true, 'message' => 'Proveedor actualizado exitosamente'];
         }
@@ -175,24 +229,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
 
         case 'update':
             $id = filter_var($_POST['id'], FILTER_VALIDATE_INT);
-            $nombre = trim($_POST['nombre']);
-            $email = filter_var(trim($_POST['email']), FILTER_SANITIZE_EMAIL);
-            $telefono = trim($_POST['telefono']);
-            $direccion = trim($_POST['direccion']);
-
             if (!$id) {
                 ApiResponse::send(false, 'ID de proveedor inválido');
             }
 
-            if (empty($nombre) || empty($email) || empty($telefono) || empty($direccion)) {
-                ApiResponse::send(false, 'Por favor, complete todos los campos.');
+            // Validar campos requeridos
+            $required_fields = ['nombre', 'email', 'telefono', 'direccion', 'tipo_identificacion', 
+                               'identificacion', 'tipo_persona', 'responsabilidad_tributaria'];
+            foreach ($required_fields as $field) {
+                if (empty($_POST[$field])) {
+                    ApiResponse::send(false, 'Por favor, complete todos los campos requeridos.');
+                }
             }
 
-            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            if (!filter_var($_POST['email'], FILTER_VALIDATE_EMAIL)) {
                 ApiResponse::send(false, 'Por favor, ingrese un correo electrónico válido.');
             }
 
-            $result = updateProveedor($id, $user_id, $nombre, $email, $telefono, $direccion);
+            $result = updateProveedor($id, $user_id, $_POST);
             ApiResponse::send($result['status'], $result['message']);
             break;
 
@@ -627,76 +681,39 @@ $proveedores = getUserProveedores($user_id);
 
     // Función para editar proveedor
     async function editProveedor(proveedor) {
-        const { value: formValues } = await Swal.fire({
-            title: 'Editar Proveedor',
-            html: `
-                <form id="editForm">
-                    <div class="form-group">
-                        <label for="nombre">Nombre</label>
-                        <input id="nombre" class="swal2-input" value="${proveedor.nombre}" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="email">Email</label>
-                        <input id="email" class="swal2-input" value="${proveedor.email}" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="telefono">Teléfono</label>
-                        <input id="telefono" class="swal2-input" value="${proveedor.telefono}" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="direccion">Dirección</label>
-                        <input id="direccion" class="swal2-input" value="${proveedor.direccion}" required>
-                    </div>
-                </form>
-            `,
-            focusConfirm: false,
-            showCancelButton: true,
-            confirmButtonText: 'Guardar',
-            cancelButtonText: 'Cancelar',
-            preConfirm: () => {
-                const email = document.getElementById('email').value;
-                if (!validateEmail(email)) {
-                    Swal.showValidationMessage('Por favor, ingrese un correo electrónico válido');
-                    return false;
-                }
-                return {
-                    nombre: document.getElementById('nombre').value,
-                    email: email,
-                    telefono: document.getElementById('telefono').value,
-                    direccion: document.getElementById('direccion').value
-                }
-            }
-        });
-
-        if (formValues) {
-            try {
-                const formData = new FormData();
-                formData.append('action', 'update');
-                formData.append('id', proveedor.id);
-                Object.entries(formValues).forEach(([key, value]) => {
-                    formData.append(key, value);
-                });
-
-                const response = await fetch('', {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                });
-
-                const data = await response.json();
-                
-                if (data.status) {
-                    showNotification('success', data.message);
-                    setTimeout(() => location.reload(), 1500);
-                } else {
-                    showError('Error', data.message);
-                }
-            } catch (error) {
-                showError('Error', 'Ocurrió un error al actualizar el proveedor');
-            }
+        // Llenar el formulario con los datos del proveedor
+        document.getElementById('modalTitle').textContent = 'Editar Proveedor';
+        const form = document.getElementById('proveedorForm');
+        
+        // Cambiar la acción del formulario
+        form.querySelector('[name="action"]').value = 'update';
+        
+        // Añadir el ID del proveedor
+        if (!form.querySelector('[name="id"]')) {
+            const idInput = document.createElement('input');
+            idInput.type = 'hidden';
+            idInput.name = 'id';
+            form.appendChild(idInput);
         }
+        form.querySelector('[name="id"]').value = proveedor.id;
+
+        // Llenar los campos
+        form.querySelector('[name="tipo_identificacion"]').value = proveedor.tipo_identificacion;
+        form.querySelector('[name="identificacion"]').value = proveedor.identificacion;
+        form.querySelector('[name="dv"]').value = proveedor.dv || '';
+        form.querySelector('[name="tipo_persona"]').value = proveedor.tipo_persona;
+        form.querySelector('[name="responsabilidad_tributaria"]').value = proveedor.responsabilidad_tributaria;
+        form.querySelector('[name="nombre"]').value = proveedor.nombre;
+        form.querySelector('[name="email"]').value = proveedor.email;
+        form.querySelector('[name="telefono"]').value = proveedor.telefono;
+        form.querySelector('[name="direccion"]').value = proveedor.direccion;
+        form.querySelector('[name="municipio_departamento"]').value = proveedor.municipio_departamento;
+
+        // Mostrar el modal
+        showAddProveedorForm();
+
+        // Actualizar la visibilidad de los campos según el tipo de persona
+        togglePersonaFields(proveedor.tipo_persona);
     }
 
     // Función para eliminar proveedor
@@ -794,6 +811,26 @@ $proveedores = getUserProveedores($user_id);
             }
         });
     });
+
+    function togglePersonaFields(tipo) {
+        const personaNatural = document.querySelector('.persona-natural');
+        const personaJuridica = document.querySelector('.persona-juridica');
+        const nombreInput = document.querySelector('[name="nombre"]');
+        
+        if (tipo === 'natural') {
+            personaNatural?.classList.remove('hidden');
+            personaJuridica?.classList.add('hidden');
+            nombreInput.required = false;
+            document.querySelector('[name="primer_nombre"]')?.setAttribute('required', 'required');
+            document.querySelector('[name="apellidos"]')?.setAttribute('required', 'required');
+        } else {
+            personaNatural?.classList.add('hidden');
+            personaJuridica?.classList.remove('hidden');
+            nombreInput.required = true;
+            document.querySelector('[name="primer_nombre"]')?.removeAttribute('required');
+            document.querySelector('[name="apellidos"]')?.removeAttribute('required');
+        }
+    }
     </script>
     <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
     <script>
