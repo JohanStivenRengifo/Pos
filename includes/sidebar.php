@@ -195,7 +195,7 @@ function getNotificationCount($module) {
 
         <!-- Enlaces rápidos -->
         <div class="mt-auto px-3 py-4 border-t border-gray-200">
-            <a href="/ayuda.php" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-all duration-200 group">
+            <a href="/contacto.php" class="flex items-center px-4 py-2.5 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-all duration-200 group">
                 <i class="fas fa-question-circle w-5 h-5 mr-3 group-hover:scale-110 transition-transform duration-200"></i>
                 <span>Centro de Ayuda</span>
             </a>

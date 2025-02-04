@@ -46,7 +46,11 @@ function safe_text($text) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<<<<<<< HEAD
     <title>Remisión - <?= safe_text($venta['numero_factura']) ?></title>
+=======
+    <title>Remisión - Venta #<?= safe_text($venta['numero_factura']) ?> | VendEasy</title>
+>>>>>>> 23cb190e08b26fb210dc84b8c9f768514ce9ded0
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @page { 

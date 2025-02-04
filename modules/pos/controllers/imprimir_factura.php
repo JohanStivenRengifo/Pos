@@ -62,11 +62,11 @@ try {
         LEFT JOIN empresas e ON e.estado = 1 AND e.es_principal = 1
         WHERE v.id = ?
     ");
-    
+
     if (!$stmt) {
         throw new Exception('Error preparando la consulta: ' . $pdo->errorInfo()[2]);
     }
-    
+
     $stmt->execute([$_GET['id']]);
     $venta = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -94,7 +94,7 @@ try {
         ");
         $stmtEmpresa->execute();
         $empresa = $stmtEmpresa->fetch(PDO::FETCH_ASSOC);
-        
+
         if ($empresa) {
             $venta['empresa_nombre'] = $empresa['nombre_empresa'];
             $venta['empresa_nit'] = $empresa['nit'];
@@ -109,7 +109,7 @@ try {
     }
 
     // Construir la resolución DIAN
-    $venta['resolucion_facturacion'] = !empty($venta['numero_inicial']) && !empty($venta['numero_final']) 
+    $venta['resolucion_facturacion'] = !empty($venta['numero_inicial']) && !empty($venta['numero_final'])
         ? 'Resolución DIAN No. ' . $venta['numero_inicial'] . ' al ' . $venta['numero_final']
         : '';
 
@@ -118,7 +118,7 @@ try {
         try {
             $alegra = new AlegraIntegration();
             $alegraResponse = $alegra->getInvoiceDetails($venta['alegra_id']);
-            
+
             error_log('Respuesta de Alegra para factura ' . $venta['alegra_id'] . ': ' . print_r($alegraResponse, true));
 
             if ($alegraResponse['success']) {
@@ -141,17 +141,17 @@ try {
                 // Verificar que tenemos una URL válida del PDF
                 if (!empty($alegraResponse['data']['pdf_url'])) {
                     $pdfUrl = $alegraResponse['data']['pdf_url'];
-                    
+
                     // Verificar si la URL es válida
                     if (filter_var($pdfUrl, FILTER_VALIDATE_URL)) {
                         // Limpiar cualquier salida previa
                         while (ob_get_level()) {
                             ob_end_clean();
                         }
-                        
+
                         // Intentar obtener el PDF directamente
                         $pdfContent = file_get_contents($pdfUrl);
-                        
+
                         if ($pdfContent !== false) {
                             header('Content-Type: application/pdf');
                             header('Content-Length: ' . strlen($pdfContent));
@@ -166,13 +166,12 @@ try {
                         }
                     }
                 }
-                
+
                 throw new Exception('URL del PDF no válida o no disponible');
             }
-            
-            throw new Exception('No se pudo obtener el PDF de Alegra: ' . 
-                              ($alegraResponse['error'] ?? 'Error desconocido'));
-            
+
+            throw new Exception('No se pudo obtener el PDF de Alegra: ' .
+                ($alegraResponse['error'] ?? 'Error desconocido'));
         } catch (Exception $e) {
             error_log('Error en Alegra Integration: ' . $e->getMessage());
             // Si hay un error, mostrar un mensaje más amigable al usuario
@@ -198,7 +197,7 @@ try {
     while (ob_get_level()) {
         ob_end_clean();
     }
-    
+
     // Establecer headers para PDF
     header('Content-Type: application/pdf');
     header('Cache-Control: private, max-age=0, must-revalidate');
@@ -208,63 +207,64 @@ try {
     try {
         $pdf = new FPDF();
         $pdf->AddPage();
-        
+
         // Configuración de márgenes y colores
         $pdf->SetMargins(15, 15, 15);
         $pdf->SetFillColor(240, 240, 240);
         $pdf->SetDrawColor(200, 200, 200);
-        
+
         // Logo y Encabezado de la empresa
         $pdf->SetFont('Arial', 'B', 16);
         $pdf->Cell(0, 10, mb_convert_encoding($venta['empresa_nombre'] ?? '', 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
-        
+
         // Tipo de documento y número
         $pdf->SetFont('Arial', 'B', 12);
         if ($venta['numeracion'] === 'electronica') {
             $pdf->Cell(0, 8, 'FACTURA ELECTRÓNICA DE VENTA', 0, 1, 'C');
             $pdf->Cell(0, 8, 'No. ' . ($venta['prefijo_factura'] ?? '') . $venta['numero_factura'], 0, 1, 'C');
         } else {
-            $pdf->Cell(0, 8, 'FACTURA DE VENTA No. ' . ($venta['prefijo_factura'] ?? '') . $venta['numero_factura'], 0, 1, 'C');
+            $pdf->Cell(0, 8, 'FACTURA DE VENTA No. ' . $venta['numero_factura'], 0, 1, 'C');
         }
-        
+
         // Información de la empresa en dos columnas
         $pdf->SetFont('Arial', '', 9);
         $leftColumn = 'NIT: ' . ($venta['empresa_nit'] ?? '') . "\n";
         $leftColumn .= 'Dir: ' . ($venta['empresa_direccion'] ?? '') . "\n";
         $leftColumn .= 'Tel: ' . ($venta['empresa_telefono'] ?? '') . "\n";
         $leftColumn .= 'Email: ' . ($venta['empresa_email'] ?? '');
-        
+
         $rightColumn = 'Fecha: ' . date('d/m/Y', strtotime($venta['fecha'])) . "\n";
         $rightColumn .= 'Régimen: ' . ($venta['regimen_fiscal'] ?? 'No responsable de IVA') . "\n";
         if (!empty($venta['resolucion_facturacion'])) {
             $rightColumn .= $venta['resolucion_facturacion'];
         }
-        
+
         // Posición inicial
         $y = $pdf->GetY();
         $pdf->SetXY(15, $y);
-        
+
         // Columna izquierda
         $pdf->MultiCell(95, 5, mb_convert_encoding($leftColumn, 'ISO-8859-1', 'UTF-8'), 0, 'L');
-        
+
         // Columna derecha
         $pdf->SetXY(110, $y);
         $pdf->MultiCell(85, 5, mb_convert_encoding($rightColumn, 'ISO-8859-1', 'UTF-8'), 0, 'R');
-        
+
         // Información del cliente
         $pdf->Ln(5);
         $pdf->SetFillColor(240, 240, 240);
         $pdf->SetFont('Arial', 'B', 10);
-        $pdf->Cell(0, 7, 'INFORMACIÓN DEL CLIENTE', 1, 1, 'L', true);
+        $pdf->Cell(0, 7, mb_convert_encoding('INFORMACIÓN DEL CLIENTE', 'ISO-8859-1', 'UTF-8'), 1, 1, 'L', true);
         $pdf->SetFont('Arial', '', 9);
-        
+
+
         $nombreCliente = trim(($venta['primer_nombre'] ?? '') . ' ' . ($venta['segundo_nombre'] ?? '') . ' ' . ($venta['apellidos'] ?? ''));
         $pdf->Cell(97, 6, 'Nombre: ' . mb_convert_encoding($nombreCliente, 'ISO-8859-1', 'UTF-8'), 'LR', 0);
         $pdf->Cell(83, 6, 'ID: ' . ($venta['identificacion'] ?? ''), 'LR', 1);
         $pdf->Cell(97, 6, 'Dir: ' . mb_convert_encoding($venta['direccion'] ?? '', 'ISO-8859-1', 'UTF-8'), 'LR', 0);
         $pdf->Cell(83, 6, 'Tel: ' . ($venta['telefono'] ?? ''), 'LR', 1);
         $pdf->Cell(180, 6, 'Email: ' . ($venta['email'] ?? ''), 'LRB', 1);
-        
+
         // Detalles de la venta
         $pdf->Ln(5);
         $pdf->SetFillColor(240, 240, 240);
@@ -274,7 +274,7 @@ try {
         $pdf->Cell(25, 7, ' CANT.', 1, 0, 'C', true);
         $pdf->Cell(35, 7, ' PRECIO', 1, 0, 'R', true);
         $pdf->Cell(40, 7, ' TOTAL', 1, 1, 'R', true);
-        
+
         // Contenido de la tabla
         $pdf->SetFont('Arial', '', 9);
         foreach ($detalles as $detalle) {
@@ -283,7 +283,7 @@ try {
             $pdf->Cell(35, 6, '$' . number_format($detalle['precio_unitario'], 0, ',', '.'), 1, 0, 'R');
             $pdf->Cell(40, 6, '$' . number_format($detalle['cantidad'] * $detalle['precio_unitario'], 0, ',', '.'), 1, 1, 'R');
         }
-        
+
         // Totales con estilo
         $pdf->SetFont('Arial', 'B', 9);
         $pdf->Cell(140, 7, 'SUBTOTAL:', 1, 0, 'R', true);
@@ -293,7 +293,7 @@ try {
         $pdf->SetFont('Arial', 'B', 11);
         $pdf->Cell(140, 8, 'TOTAL A PAGAR:', 1, 0, 'R', true);
         $pdf->Cell(40, 8, '$' . number_format($venta['total'], 0, ',', '.'), 1, 1, 'R');
-        
+
         // Después de los totales, agregar CUFE y QR si es factura electrónica
         if ($venta['numeracion'] === 'electronica' && !empty($venta['cufe'])) {
             $pdf->Ln(10);
@@ -301,14 +301,14 @@ try {
             $pdf->Cell(0, 5, 'CUFE:', 0, 1, 'L');
             $pdf->SetFont('Arial', '', 7);
             $pdf->MultiCell(0, 4, $venta['cufe'], 0, 'L');
-            
+
             // Si hay código QR
             if (!empty($venta['qr_code'])) {
                 // Generar imagen QR
                 $qrImage = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $venta['qr_code']));
                 $tmpfile = tempnam(sys_get_temp_dir(), 'qr_');
                 file_put_contents($tmpfile, $qrImage);
-                
+
                 // Posicionar y mostrar QR
                 $pdf->Image($tmpfile, 15, $pdf->GetY() + 5, 30);
                 unlink($tmpfile);
@@ -320,12 +320,12 @@ try {
         $pdf->SetFont('Arial', '', 8);
         $pdf->MultiCell(0, 4, mb_convert_encoding(
             "GRACIAS POR SU COMPRA\n" .
-            "Esta factura se asimila en todos sus efectos a una letra de cambio según el artículo 774 del Código de Comercio\n" .
-            "Autorización de numeración de facturación " . ($venta['resolucion_facturacion'] ?? '') . "\n" .
-            "Proveedor tecnológico: Soluciones Alegra S.A.S - Software: Alegra - NIT 900.559.088-2",
-            'ISO-8859-1', 'UTF-8'
+                "Esta factura se asimila en todos sus efectos a una letra de cambio según el artículo 774 del Código de Comercio\n" .
+                "Autorización de numeración de facturación " . ($venta['resolucion_facturacion'] ?? ''),
+            'ISO-8859-1',
+            'UTF-8'
         ), 0, 'C');
-        
+
         // Al final, antes de Output
         while (ob_get_level()) {
             ob_end_clean();
@@ -336,7 +336,6 @@ try {
         error_log('Error generando PDF: ' . $e->getMessage());
         throw new Exception('Error generando el PDF: ' . $e->getMessage());
     }
-
 } catch (Exception $e) {
     error_log('Error en imprimir_factura.php: ' . $e->getMessage());
     // Limpiar cualquier salida parcial
@@ -345,4 +344,4 @@ try {
     }
     header('HTTP/1.1 500 Internal Server Error');
     echo "Error: " . $e->getMessage();
-} 
+}
