@@ -14,13 +14,14 @@ try {
                c.primer_nombre, c.segundo_nombre, c.apellidos, 
                c.identificacion, c.direccion, c.telefono,
                e.nombre_empresa, e.nit, e.direccion as empresa_direccion,
-               e.telefono as empresa_telefono, e.logo, e.ciudad
+               e.telefono as empresa_telefono, e.logo, e.correo_contacto as empresa_email,
+               e.regimen_fiscal
         FROM ventas v
         LEFT JOIN clientes c ON v.cliente_id = c.id
-        LEFT JOIN empresas e ON e.id = v.empresa_id
-        WHERE v.id = ? AND v.user_id = ?
+        LEFT JOIN empresas e ON e.estado = 1 AND e.es_principal = 1
+        WHERE v.id = ?
     ");
-    $stmt->execute([$_GET['id'], $_SESSION['user_id']]);
+    $stmt->execute([$_GET['id']]);
     $venta = $stmt->fetch(PDO::FETCH_ASSOC);
 
     // Obtener detalles
@@ -46,11 +47,7 @@ function safe_text($text) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<<<<<<< HEAD
-    <title>Remisión - <?= safe_text($venta['numero_factura']) ?></title>
-=======
     <title>Remisión - Venta #<?= safe_text($venta['numero_factura']) ?> | VendEasy</title>
->>>>>>> 23cb190e08b26fb210dc84b8c9f768514ce9ded0
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @page { 
@@ -90,19 +87,22 @@ function safe_text($text) {
             <h1 class="text-xl font-bold text-gray-800"><?= safe_text($venta['nombre_empresa']) ?></h1>
             <p class="text-sm text-gray-600">NIT: <?= safe_text($venta['nit']) ?></p>
             <p class="text-sm text-gray-600"><?= safe_text($venta['empresa_direccion']) ?></p>
-            <p class="text-sm text-gray-600"><?= safe_text($venta['empresa_telefono']) ?></p>
-            <h2 class="text-lg font-bold mt-3 text-gray-800">ORDEN DE DESPACHO</h2>
-            <p class="text-md font-semibold text-gray-700">Remisión N° <?= safe_text($venta['numero_factura']) ?></p>
+            <p class="text-sm text-gray-600">Tel: <?= safe_text($venta['empresa_telefono']) ?></p>
+            <p class="text-sm text-gray-600">Email: <?= safe_text($venta['empresa_email']) ?></p>
+            <p class="text-sm text-gray-600">Régimen: <?= safe_text($venta['regimen_fiscal'] ?? 'No responsable de IVA') ?></p>
+            
+            <h2 class="text-lg font-bold mt-3 text-gray-800">REMISIÓN DE VENTA</h2>
+            <p class="text-md font-semibold text-gray-700">No. <?= safe_text($venta['numero_factura']) ?></p>
+            <p class="text-sm text-gray-600">Fecha: <?= date('d/m/Y H:i', strtotime($venta['fecha'])) ?></p>
         </div>
 
-        <!-- Info cliente y despacho -->
-        <div class="grid grid-cols-1 gap-4 mb-4 text-sm">
+        <!-- Info cliente -->
+        <div class="mb-4 text-sm">
             <div class="border rounded-lg p-3">
-                <h3 class="font-bold mb-2 text-gray-700">Información de Despacho:</h3>
+                <h3 class="font-bold mb-2 text-gray-700 bg-gray-100 p-2">INFORMACIÓN DEL CLIENTE</h3>
                 <div class="grid grid-cols-2 gap-2">
-                    <p><span class="font-semibold">Fecha:</span> <?= date('d/m/Y H:i', strtotime($venta['fecha'])) ?></p>
-                    <p><span class="font-semibold">Cliente:</span> <?= safe_text(trim($venta['primer_nombre'] . ' ' . $venta['segundo_nombre'] . ' ' . $venta['apellidos'])) ?></p>
-                    <p><span class="font-semibold">Identificación:</span> <?= safe_text($venta['identificacion']) ?></p>
+                    <p><span class="font-semibold">Nombre:</span> <?= safe_text(trim($venta['primer_nombre'] . ' ' . $venta['segundo_nombre'] . ' ' . $venta['apellidos'])) ?></p>
+                    <p><span class="font-semibold">ID:</span> <?= safe_text($venta['identificacion']) ?></p>
                     <p><span class="font-semibold">Teléfono:</span> <?= safe_text($venta['telefono']) ?></p>
                     <p class="col-span-2"><span class="font-semibold">Dirección:</span> <?= safe_text($venta['direccion']) ?></p>
                 </div>
@@ -110,58 +110,65 @@ function safe_text($text) {
         </div>
 
         <!-- Tabla de productos -->
-        <table class="w-full mb-4 text-sm">
-            <thead class="bg-gray-200">
-                <tr>
-                    <th class="py-2 px-2 text-left">Ubicación</th>
-                    <th class="py-2 px-2 text-left">Producto</th>
-                    <th class="py-2 px-2 text-center w-16">Cant.</th>
-                    <th class="py-2 px-2 text-center w-20">Desp.</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($detalles as $detalle): ?>
-                    <tr class="table-row-alt border-b">
-                        <td class="py-2 px-2 text-gray-600"><?= safe_text($detalle['ubicacion'] ?: '-') ?></td>
-                        <td class="py-2 px-2">
-                            <div class="font-semibold"><?= safe_text($detalle['nombre']) ?></div>
-                            <div class="text-xs text-gray-500"><?= safe_text($detalle['codigo_barras']) ?></div>
-                        </td>
-                        <td class="py-2 px-2 text-center"><?= $detalle['cantidad'] ?></td>
-                        <td class="py-2 px-2">
-                            <div class="border rounded w-5 h-5 mx-auto"></div>
-                        </td>
+        <div class="mb-4">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-100">
+                        <th class="py-2 px-2 text-left border">Producto</th>
+                        <th class="py-2 px-2 text-center border w-16">Cant.</th>
+                        <th class="py-2 px-2 text-right border w-24">Precio</th>
+                        <th class="py-2 px-2 text-right border w-24">Total</th>
                     </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    <?php foreach ($detalles as $detalle): ?>
+                        <tr class="border">
+                            <td class="py-2 px-2 border">
+                                <div class="font-semibold"><?= safe_text($detalle['nombre']) ?></div>
+                                <div class="text-xs text-gray-500"><?= safe_text($detalle['codigo_barras']) ?></div>
+                            </td>
+                            <td class="py-2 px-2 text-center border"><?= $detalle['cantidad'] ?></td>
+                            <td class="py-2 px-2 text-right border">$<?= number_format($detalle['precio_unitario'], 0, ',', '.') ?></td>
+                            <td class="py-2 px-2 text-right border">$<?= number_format($detalle['cantidad'] * $detalle['precio_unitario'], 0, ',', '.') ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+                <tfoot>
+                    <tr class="bg-gray-100">
+                        <td colspan="3" class="py-2 px-2 text-right border font-bold">SUBTOTAL:</td>
+                        <td class="py-2 px-2 text-right border">$<?= number_format($venta['total'] + $venta['descuento'], 0, ',', '.') ?></td>
+                    </tr>
+                    <tr class="bg-gray-100">
+                        <td colspan="3" class="py-2 px-2 text-right border font-bold">DESCUENTO:</td>
+                        <td class="py-2 px-2 text-right border">$<?= number_format($venta['descuento'], 0, ',', '.') ?></td>
+                    </tr>
+                    <tr class="bg-gray-100">
+                        <td colspan="3" class="py-2 px-2 text-right border font-bold">TOTAL:</td>
+                        <td class="py-2 px-2 text-right border font-bold">$<?= number_format($venta['total'], 0, ',', '.') ?></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
 
         <!-- Firmas -->
-        <div class="grid grid-cols-3 gap-4 mt-8 text-sm">
+        <div class="grid grid-cols-2 gap-4 mt-8 text-sm">
             <div class="text-center">
                 <div class="border-t pt-1">
-                    <p class="font-semibold">Entregado por</p>
-                    <p class="text-xs text-gray-500">Nombre y firma</p>
+                    <p class="font-semibold">Firma del vendedor</p>
                 </div>
             </div>
             <div class="text-center">
                 <div class="border-t pt-1">
-                    <p class="font-semibold">Verificado por</p>
-                    <p class="text-xs text-gray-500">Nombre y firma</p>
-                </div>
-            </div>
-            <div class="text-center">
-                <div class="border-t pt-1">
-                    <p class="font-semibold">Recibido por</p>
-                    <p class="text-xs text-gray-500">Nombre y firma</p>
+                    <p class="font-semibold">Firma del cliente</p>
+                    <p class="text-xs text-gray-500"><?= safe_text(trim($venta['primer_nombre'] . ' ' . $venta['segundo_nombre'] . ' ' . $venta['apellidos'])) ?></p>
+                    <p class="text-xs text-gray-500"><?= safe_text($venta['identificacion']) ?></p>
                 </div>
             </div>
         </div>
 
-        <!-- Observaciones -->
-        <div class="mt-4">
-            <p class="font-semibold text-sm mb-1">Observaciones:</p>
-            <div class="border rounded p-2 min-h-[60px] text-sm"></div>
+        <!-- Pie de página -->
+        <div class="text-center mt-8 text-sm text-gray-600">
+            <p>GRACIAS POR SU COMPRA</p>
         </div>
     </div>
 
