@@ -81,27 +81,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
 function getUserVentas($user_id, $limit, $offset) {
     global $pdo;
     try {
+        // Modificar la consulta para simplificarla y asegurar que obtiene los resultados correctos
         $query = "SELECT 
                     v.*, 
                     c.nombre AS cliente_nombre,
-                    v.fecha AS fecha_creacion,
-                    COALESCE(v.fecha_vencimiento, v.fecha) as fecha_vencimiento,
-                    v.total,
-                    COALESCE(
-                        (SELECT SUM(vd.cantidad * vd.precio_unitario) 
-                         FROM venta_detalles vd 
-                         WHERE vd.venta_id = v.id), 0
-                    ) as total_calculado,
-                    CASE 
-                        WHEN v.anulada = 1 THEN 'Anulada'
-                        WHEN v.estado_factura = 'pagada' THEN 'Cobrada'
-                        WHEN v.estado_factura = 'pendiente' THEN 'Por Cobrar'
-                        ELSE 'Pendiente'
-                    END AS estado,
-                    CASE 
-                        WHEN v.estado_factura IS NULL THEN 'Por emitir'
-                        ELSE v.estado_factura 
-                    END AS estado_dian,
                     COALESCE(v.saldo_pendiente, v.total) as saldo_pendiente
                   FROM ventas v 
                   LEFT JOIN clientes c ON v.cliente_id = c.id 
@@ -110,11 +93,20 @@ function getUserVentas($user_id, $limit, $offset) {
                   LIMIT :limit OFFSET :offset";
                   
         $stmt = $pdo->prepare($query);
-        $stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
-        $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
-        $stmt->bindParam(':offset', $offset, PDO::PARAM_INT);
+        
+        // Vincular parámetros de manera explícita
+        $stmt->bindValue(':user_id', $user_id, PDO::PARAM_INT);
+        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+        
         $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Agregar log para debugging
+        error_log("Query ejecutada para user_id: $user_id, limit: $limit, offset: $offset");
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        error_log("Número de resultados encontrados: " . count($results));
+        
+        return $results;
     } catch (PDOException $e) {
         error_log("Error en getUserVentas: " . $e->getMessage());
         return [];
@@ -191,19 +183,42 @@ function getTotalAnuladas($user_id) {
     }
 }
 
-// Obtener datos necesarios
+// Obtener datos necesarios con validación
 $limit = 10;
-$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
 $offset = ($page - 1) * $limit;
+
+// Agregar logs para debugging
+error_log("Consultando ventas para user_id: $user_id");
+error_log("Página actual: $page, Límite: $limit, Offset: $offset");
 
 $ventas = getUserVentas($user_id, $limit, $offset);
 $total_ventas = countUserVentas($user_id);
 $total_pages = ceil($total_ventas / $limit);
 
+// Agregar validación de resultados
+if (empty($ventas)) {
+    error_log("No se encontraron ventas para el usuario $user_id");
+}
+
 // Agregar estas líneas después de obtener $total_pages
 $total_ventas_monto = getTotalVentasMonto($user_id);
 $ventas_dia = getVentasDia($user_id);
 $total_anuladas = getTotalAnuladas($user_id);
+
+// Agregar al inicio del archivo, después de require_once '../../config/db.php';
+try {
+    $test_query = $pdo->query("SELECT COUNT(*) FROM ventas");
+    $total = $test_query->fetchColumn();
+    error_log("Total de ventas en la base de datos: $total");
+    
+    $test_query = $pdo->prepare("SELECT COUNT(*) FROM ventas WHERE user_id = ?");
+    $test_query->execute([$user_id]);
+    $total_user = $test_query->fetchColumn();
+    error_log("Total de ventas para user_id $user_id: $total_user");
+} catch (PDOException $e) {
+    error_log("Error en consulta de prueba: " . $e->getMessage());
+}
 ?>
 
 <!DOCTYPE html>
@@ -301,73 +316,83 @@ $total_anuladas = getTotalAnuladas($user_id);
 
             <!-- Tabla de Ventas -->
             <div class="bg-white rounded-lg shadow overflow-hidden">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Número</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Creación</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vencimiento</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Por cobrar</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado DIAN</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        <?php foreach ($ventas as $venta): ?>
-                        <tr class="hover:bg-gray-50 venta-row" data-estado="<?= $venta['estado'] ?>">
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?= htmlspecialchars($venta['numero_factura']) ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?= htmlspecialchars($venta['cliente_nombre'] ?? 'Consumidor Final') ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?= date('d/m/Y', strtotime($venta['fecha_creacion'])) ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?= date('d/m/Y', strtotime($venta['fecha_vencimiento'])) ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$ <?= number_format($venta['total'], 0, ',', '.') ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$ <?= number_format($venta['saldo_pendiente'], 0, ',', '.') ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?= htmlspecialchars($venta['estado_dian']) ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                    <?php
-                                    switch($venta['estado']) {
-                                        case 'Anulada':
-                                            echo 'bg-red-100 text-red-800';
-                                            break;
-                                        case 'Cobrada':
-                                            echo 'bg-green-100 text-green-800';
-                                            break;
-                                        case 'Por Cobrar':
-                                            echo 'bg-yellow-100 text-yellow-800';
-                                            break;
-                                        case 'Pendiente':
-                                            echo 'bg-gray-100 text-gray-800';
-                                            break;
-                                    }
-                                    ?>">
-                                    <?= $venta['estado'] ?>
-                                </span>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                <div class="flex space-x-2">
-                                    <button onclick="imprimirVenta(<?= $venta['id'] ?>)" 
-                                            class="text-blue-600 hover:text-blue-900">
-                                        <i class="fas fa-print"></i>
-                                    </button>
-                                    <button onclick="editarVenta(<?= $venta['id'] ?>)" 
-                                            class="text-green-600 hover:text-green-900">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <?php if ($venta['estado'] !== 'Anulada'): ?>
-                                    <button onclick="confirmarAnulacion(<?= $venta['id'] ?>)" 
-                                            class="text-red-600 hover:text-red-900">
-                                        <i class="fas fa-trash-alt"></i>
-                                    </button>
-                                    <?php endif; ?>
-                                </div>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+                <?php if (empty($ventas)): ?>
+                    <div class="p-4 text-center text-gray-500">
+                        No se encontraron ventas registradas.
+                    </div>
+                <?php else: ?>
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Número</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Creación</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vencimiento</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Por cobrar</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado DIAN</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <?php foreach ($ventas as $venta): ?>
+                                <tr class="hover:bg-gray-50 venta-row" data-estado="<?= htmlspecialchars($venta['estado'] ?? '') ?>">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <?= htmlspecialchars($venta['numero_factura'] ?? 'N/A') ?>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <?= htmlspecialchars($venta['cliente_nombre'] ?? 'Consumidor Final') ?>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?= date('d/m/Y', strtotime($venta['fecha_creacion'])) ?></td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?= date('d/m/Y', strtotime($venta['fecha_vencimiento'])) ?></td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$ <?= number_format($venta['total'], 0, ',', '.') ?></td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$ <?= number_format($venta['saldo_pendiente'], 0, ',', '.') ?></td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?= htmlspecialchars($venta['estado_dian']) ?></td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                            <?php
+                                            switch($venta['estado']) {
+                                                case 'Anulada':
+                                                    echo 'bg-red-100 text-red-800';
+                                                    break;
+                                                case 'Cobrada':
+                                                    echo 'bg-green-100 text-green-800';
+                                                    break;
+                                                case 'Por Cobrar':
+                                                    echo 'bg-yellow-100 text-yellow-800';
+                                                    break;
+                                                case 'Pendiente':
+                                                    echo 'bg-gray-100 text-gray-800';
+                                                    break;
+                                            }
+                                            ?>">
+                                            <?= $venta['estado'] ?>
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <div class="flex space-x-2">
+                                            <button onclick="imprimirVenta(<?= $venta['id'] ?>)" 
+                                                    class="text-blue-600 hover:text-blue-900">
+                                                <i class="fas fa-print"></i>
+                                            </button>
+                                            <button onclick="editarVenta(<?= $venta['id'] ?>)" 
+                                                    class="text-green-600 hover:text-green-900">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <?php if ($venta['estado'] !== 'Anulada'): ?>
+                                            <button onclick="confirmarAnulacion(<?= $venta['id'] ?>)" 
+                                                    class="text-red-600 hover:text-red-900">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </button>
+                                            <?php endif; ?>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                <?php endif; ?>
             </div>
 
             <!-- Paginación -->
