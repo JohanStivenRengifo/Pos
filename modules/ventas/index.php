@@ -81,11 +81,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
 function getUserVentas($user_id, $limit, $offset) {
     global $pdo;
     try {
-        $query = "SELECT v.*, c.nombre AS cliente_nombre 
+        $query = "SELECT 
+                    v.*, 
+                    c.nombre AS cliente_nombre,
+                    v.fecha AS fecha_creacion,
+                    v.fecha_vencimiento,
+                    v.total,
+                    v.saldo_pendiente,
+                    CASE 
+                        WHEN v.anulada = 1 THEN 'Anulada'
+                        WHEN v.saldo_pendiente = 0 THEN 'Cobrada'
+                        WHEN v.saldo_pendiente = v.total THEN 'Pendiente'
+                        WHEN v.saldo_pendiente > 0 THEN 'Por Cobrar'
+                    END AS estado,
+                    CASE 
+                        WHEN v.estado_dian IS NULL THEN 'Por emitir'
+                        ELSE v.estado_dian 
+                    END AS estado_dian
                   FROM ventas v 
                   LEFT JOIN clientes c ON v.cliente_id = c.id 
                   WHERE v.user_id = :user_id 
-                  ORDER BY v.fecha DESC, v.anulada ASC 
+                  ORDER BY v.fecha DESC
                   LIMIT :limit OFFSET :offset";
         $stmt = $pdo->prepare($query);
         $stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
@@ -280,27 +296,46 @@ $total_anuladas = getTotalAnuladas($user_id);
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Número</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cliente</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Creación</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vencimiento</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">N° Factura</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Por cobrar</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado DIAN</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
                         <?php foreach ($ventas as $venta): ?>
-                        <tr class="hover:bg-gray-50 venta-row" data-estado="<?= $venta['anulada'] ? 'anulada' : 'activa' ?>">
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?= htmlspecialchars($venta['id']) ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?= date('d/m/Y H:i', strtotime($venta['fecha'])) ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?= htmlspecialchars($venta['cliente_nombre'] ?? 'N/A') ?></td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$<?= number_format($venta['total'], 2) ?></td>
+                        <tr class="hover:bg-gray-50 venta-row" data-estado="<?= $venta['estado'] ?>">
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?= htmlspecialchars($venta['numero_factura']) ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?= htmlspecialchars($venta['cliente_nombre'] ?? 'Consumidor Final') ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?= date('d/m/Y', strtotime($venta['fecha_creacion'])) ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?= date('d/m/Y', strtotime($venta['fecha_vencimiento'])) ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$ <?= number_format($venta['total'], 0, ',', '.') ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$ <?= number_format($venta['saldo_pendiente'], 0, ',', '.') ?></td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?= htmlspecialchars($venta['estado_dian']) ?></td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                    <?= $venta['anulada'] ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800' ?>">
-                                    <?= $venta['anulada'] ? 'Anulada' : 'Activa' ?>
+                                    <?php
+                                    switch($venta['estado']) {
+                                        case 'Anulada':
+                                            echo 'bg-red-100 text-red-800';
+                                            break;
+                                        case 'Cobrada':
+                                            echo 'bg-green-100 text-green-800';
+                                            break;
+                                        case 'Por Cobrar':
+                                            echo 'bg-yellow-100 text-yellow-800';
+                                            break;
+                                        case 'Pendiente':
+                                            echo 'bg-gray-100 text-gray-800';
+                                            break;
+                                    }
+                                    ?>">
+                                    <?= $venta['estado'] ?>
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -313,7 +348,7 @@ $total_anuladas = getTotalAnuladas($user_id);
                                             class="text-green-600 hover:text-green-900">
                                         <i class="fas fa-edit"></i>
                                     </button>
-                                    <?php if (!$venta['anulada']): ?>
+                                    <?php if ($venta['estado'] !== 'Anulada'): ?>
                                     <button onclick="confirmarAnulacion(<?= $venta['id'] ?>)" 
                                             class="text-red-600 hover:text-red-900">
                                         <i class="fas fa-trash-alt"></i>
@@ -372,12 +407,12 @@ $total_anuladas = getTotalAnuladas($user_id);
             const dateTo = fechaHasta.value ? new Date(fechaHasta.value + 'T23:59:59') : null;
 
             ventasRows.forEach(row => {
-                const cliente = row.querySelector('td:nth-child(3)').textContent.toLowerCase();
-                const factura = row.querySelector('td:nth-child(5)').textContent.toLowerCase();
+                const cliente = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
+                const factura = row.querySelector('td:nth-child(1)').textContent.toLowerCase();
                 const estado = row.dataset.estado;
                 
                 // Obtener y parsear la fecha de la venta
-                const fechaStr = row.querySelector('td:nth-child(2)').textContent;
+                const fechaStr = row.querySelector('td:nth-child(3)').textContent;
                 const fechaVenta = parseLocalDate(fechaStr);
 
                 const matchesSearch = cliente.includes(searchTerm) || factura.includes(searchTerm);

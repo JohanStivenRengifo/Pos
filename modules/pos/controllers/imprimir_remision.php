@@ -14,10 +14,10 @@ try {
                c.primer_nombre, c.segundo_nombre, c.apellidos, 
                c.identificacion, c.direccion, c.telefono,
                e.nombre_empresa, e.nit, e.direccion as empresa_direccion,
-               e.telefono as empresa_telefono, e.logo
+               e.telefono as empresa_telefono, e.logo, e.ciudad
         FROM ventas v
         LEFT JOIN clientes c ON v.cliente_id = c.id
-        LEFT JOIN empresas e ON e.usuario_id = v.user_id
+        LEFT JOIN empresas e ON e.id = v.empresa_id
         WHERE v.id = ? AND v.user_id = ?
     ");
     $stmt->execute([$_GET['id'], $_SESSION['user_id']]);
@@ -46,64 +46,86 @@ function safe_text($text) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Remisión - Venta #<?= safe_text($venta['numero_factura']) ?></title>
+    <title>Remisión - <?= safe_text($venta['numero_factura']) ?></title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @page { size: letter; margin: 1.5cm; }
+        @page { 
+            size: 5.5in 8.5in; /* Tamaño media carta */
+            margin: 0.5cm;
+        }
         @media print {
             .no-print { display: none !important; }
-            body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+            body { 
+                print-color-adjust: exact; 
+                -webkit-print-color-adjust: exact;
+                padding: 0;
+                margin: 0;
+            }
+            .page-container {
+                padding: 10px !important;
+                margin: 0 !important;
+                box-shadow: none !important;
+            }
         }
-        .page-container { max-width: 21cm; }
+        .page-container { 
+            width: 5.5in;
+            min-height: 8.5in;
+        }
+        .table-row-alt:nth-child(even) {
+            background-color: #f9fafb;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
-    <div class="page-container mx-auto bg-white shadow-lg my-8 p-8">
-        <!-- Encabezado -->
-        <div class="text-center border-b pb-4 mb-6">
-            <h1 class="text-2xl font-bold text-gray-800 mb-2">ORDEN DE DESPACHO</h1>
-            <p class="text-lg text-gray-600">Remisión N° <?= safe_text($venta['numero_factura']) ?></p>
+    <div class="page-container mx-auto bg-white shadow-lg my-4 p-4">
+        <!-- Encabezado con logo -->
+        <div class="text-center border-b pb-3 mb-4">
+            <?php if (!empty($venta['logo'])): ?>
+                <img src="<?= safe_text($venta['logo']) ?>" alt="Logo" class="mx-auto mb-2 h-16">
+            <?php endif; ?>
+            <h1 class="text-xl font-bold text-gray-800"><?= safe_text($venta['nombre_empresa']) ?></h1>
+            <p class="text-sm text-gray-600">NIT: <?= safe_text($venta['nit']) ?></p>
+            <p class="text-sm text-gray-600"><?= safe_text($venta['empresa_direccion']) ?></p>
+            <p class="text-sm text-gray-600"><?= safe_text($venta['empresa_telefono']) ?></p>
+            <h2 class="text-lg font-bold mt-3 text-gray-800">ORDEN DE DESPACHO</h2>
+            <p class="text-md font-semibold text-gray-700">Remisión N° <?= safe_text($venta['numero_factura']) ?></p>
         </div>
 
-        <!-- Info empresa y cliente -->
-        <div class="grid grid-cols-2 gap-8 mb-8">
-            <div>
-                <h3 class="font-bold mb-2">Información de Despacho:</h3>
-                <p class="text-sm">Fecha: <?= date('d/m/Y H:i', strtotime($venta['fecha'])) ?></p>
-                <p class="text-sm">Cliente: <?= safe_text(trim($venta['primer_nombre'] . ' ' . $venta['segundo_nombre'] . ' ' . $venta['apellidos'])) ?></p>
-                <p class="text-sm">Dirección: <?= safe_text($venta['direccion']) ?></p>
-                <p class="text-sm">Teléfono: <?= safe_text($venta['telefono']) ?></p>
-            </div>
-            <div>
-                <h3 class="font-bold mb-2">Información de la Empresa:</h3>
-                <p class="text-sm"><?= safe_text($venta['nombre_empresa']) ?></p>
-                <p class="text-sm">NIT: <?= safe_text($venta['nit']) ?></p>
-                <p class="text-sm">Tel: <?= safe_text($venta['empresa_telefono']) ?></p>
+        <!-- Info cliente y despacho -->
+        <div class="grid grid-cols-1 gap-4 mb-4 text-sm">
+            <div class="border rounded-lg p-3">
+                <h3 class="font-bold mb-2 text-gray-700">Información de Despacho:</h3>
+                <div class="grid grid-cols-2 gap-2">
+                    <p><span class="font-semibold">Fecha:</span> <?= date('d/m/Y H:i', strtotime($venta['fecha'])) ?></p>
+                    <p><span class="font-semibold">Cliente:</span> <?= safe_text(trim($venta['primer_nombre'] . ' ' . $venta['segundo_nombre'] . ' ' . $venta['apellidos'])) ?></p>
+                    <p><span class="font-semibold">Identificación:</span> <?= safe_text($venta['identificacion']) ?></p>
+                    <p><span class="font-semibold">Teléfono:</span> <?= safe_text($venta['telefono']) ?></p>
+                    <p class="col-span-2"><span class="font-semibold">Dirección:</span> <?= safe_text($venta['direccion']) ?></p>
+                </div>
             </div>
         </div>
 
         <!-- Tabla de productos -->
-        <table class="w-full mb-8">
-            <thead class="bg-gray-100">
+        <table class="w-full mb-4 text-sm">
+            <thead class="bg-gray-200">
                 <tr>
-                    <th class="py-2 px-4 text-left w-24">Ubicación</th>
-                    <th class="py-2 px-4 text-left">Producto</th>
-                    <th class="py-2 px-4 text-center">Cantidad</th>
-                    <th class="py-2 px-4 text-center">Despachado</th>
+                    <th class="py-2 px-2 text-left">Ubicación</th>
+                    <th class="py-2 px-2 text-left">Producto</th>
+                    <th class="py-2 px-2 text-center w-16">Cant.</th>
+                    <th class="py-2 px-2 text-center w-20">Desp.</th>
                 </tr>
             </thead>
-            <tbody class="divide-y">
+            <tbody>
                 <?php foreach ($detalles as $detalle): ?>
-                    <tr>
-                        <td class="py-2 px-4 text-sm text-gray-600"><?= safe_text($detalle['ubicacion'] ?: 'Sin ubicación') ?></td>
-                        <td class="py-2 px-4">
-                            <?= safe_text($detalle['nombre']) ?>
-                            <br>
-                            <span class="text-sm text-gray-500"><?= safe_text($detalle['codigo_barras']) ?></span>
+                    <tr class="table-row-alt border-b">
+                        <td class="py-2 px-2 text-gray-600"><?= safe_text($detalle['ubicacion'] ?: '-') ?></td>
+                        <td class="py-2 px-2">
+                            <div class="font-semibold"><?= safe_text($detalle['nombre']) ?></div>
+                            <div class="text-xs text-gray-500"><?= safe_text($detalle['codigo_barras']) ?></div>
                         </td>
-                        <td class="py-2 px-4 text-center"><?= $detalle['cantidad'] ?></td>
-                        <td class="py-2 px-4 text-center">
-                            <div class="border rounded w-6 h-6 mx-auto"></div>
+                        <td class="py-2 px-2 text-center"><?= $detalle['cantidad'] ?></td>
+                        <td class="py-2 px-2">
+                            <div class="border rounded w-5 h-5 mx-auto"></div>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -111,22 +133,31 @@ function safe_text($text) {
         </table>
 
         <!-- Firmas -->
-        <div class="grid grid-cols-3 gap-8 mt-12">
+        <div class="grid grid-cols-3 gap-4 mt-8 text-sm">
             <div class="text-center">
-                <div class="border-t border-gray-400 pt-2">Entregado por</div>
+                <div class="border-t pt-1">
+                    <p class="font-semibold">Entregado por</p>
+                    <p class="text-xs text-gray-500">Nombre y firma</p>
+                </div>
             </div>
             <div class="text-center">
-                <div class="border-t border-gray-400 pt-2">Verificado por</div>
+                <div class="border-t pt-1">
+                    <p class="font-semibold">Verificado por</p>
+                    <p class="text-xs text-gray-500">Nombre y firma</p>
+                </div>
             </div>
             <div class="text-center">
-                <div class="border-t border-gray-400 pt-2">Recibido por</div>
+                <div class="border-t pt-1">
+                    <p class="font-semibold">Recibido por</p>
+                    <p class="text-xs text-gray-500">Nombre y firma</p>
+                </div>
             </div>
         </div>
 
         <!-- Observaciones -->
-        <div class="mt-8 border-t pt-4">
-            <p class="font-bold mb-2">Observaciones:</p>
-            <div class="border rounded-lg p-4 min-h-[100px]"></div>
+        <div class="mt-4">
+            <p class="font-semibold text-sm mb-1">Observaciones:</p>
+            <div class="border rounded p-2 min-h-[60px] text-sm"></div>
         </div>
     </div>
 

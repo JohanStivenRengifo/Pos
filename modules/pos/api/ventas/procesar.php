@@ -33,21 +33,32 @@ try {
     // Iniciar transacción
     $pdo->beginTransaction();
 
-    // Si es factura electrónica, procesar con Alegra
-    if ($data['tipo_documento'] === 'factura' && $data['numeracion'] === 'electronica') {
-        $alegra = new AlegraIntegration();
-        $alegraResponse = $alegra->createInvoice($data);
+    // Determinar el estado de la factura y estado DIAN
+    $estado_factura = 'NO EMITIDA';
+    $estado_dian = 'No Electrónica';
+    
+    if ($data['tipo_documento'] === 'factura') {
+        if ($data['numeracion'] === 'electronica') {
+            $estado_dian = 'Por Emitir';
+            // Si es factura electrónica, procesar con Alegra
+            $alegra = new AlegraIntegration();
+            $alegraResponse = $alegra->createInvoice($data);
 
-        if (!$alegraResponse['success']) {
-            throw new Exception('Error al crear factura electrónica: ' . $alegraResponse['error']);
+            if (!$alegraResponse['success']) {
+                throw new Exception('Error al crear factura electrónica: ' . $alegraResponse['error']);
+            }
+
+            // Actualizar estados después de procesar con Alegra
+            $estado_factura = 'EMITIDA';
+            $estado_dian = 'Aprobada';
+
+            // Guardar referencia de Alegra y datos de facturación electrónica
+            $data['alegra_id'] = $alegraResponse['data']['id'];
+            $data['cufe'] = $alegraResponse['data']['cufe'];
+            $data['qr_code'] = $alegraResponse['data']['qr_code'];
+            $data['pdf_url'] = $alegraResponse['data']['pdf_url'];
+            $data['xml_url'] = $alegraResponse['data']['xml_url'];
         }
-
-        // Guardar referencia de Alegra y datos de facturación electrónica
-        $data['alegra_id'] = $alegraResponse['data']['id'];
-        $data['cufe'] = $alegraResponse['data']['cufe'];
-        $data['qr_code'] = $alegraResponse['data']['qr_code'];
-        $data['pdf_url'] = $alegraResponse['data']['pdf_url'];
-        $data['xml_url'] = $alegraResponse['data']['xml_url'];
     }
 
     // Obtener el último número de factura
@@ -76,40 +87,53 @@ try {
         $subtotal += floatval($item['precio']) * intval($item['cantidad']);
     }
     
-    $descuento = ($subtotal * floatval($data['descuento'])) / 100;
+    $descuento = isset($data['descuento']) ? ($subtotal * floatval($data['descuento'])) / 100 : 0;
     $total = $subtotal - $descuento;
 
-    // Insertar venta
+    // Insertar venta con todos los campos necesarios
     $stmt = $pdo->prepare("
         INSERT INTO ventas (
             user_id, 
             cliente_id,
             tipo_documento,
             numeracion,
+            numeracion_tipo,
             total,
+            subtotal,
             descuento,
             metodo_pago,
             numero_factura,
             alegra_id,
             turno_id,
+            estado_factura,
+            estado_dian,
+            estado,
             cufe,
             qr_code,
             pdf_url,
-            xml_url
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            xml_url,
+            fecha
+        ) VALUES (
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW()
+        )
     ");
 
     $stmt->execute([
-        $data['user_id'],
+        $_SESSION['user_id'],  // Aseguramos que se guarde el user_id de la sesión
         $data['cliente_id'],
         $data['tipo_documento'],
         $data['numeracion'],
+        $data['numeracion'] === 'electronica' ? 'electronica' : 'principal',
         $total,
+        $subtotal,
         $descuento,
         $data['metodo_pago'],
         $numero_factura,
         $data['alegra_id'] ?? null,
         $_SESSION['turno_actual'],
+        $estado_factura,
+        $estado_dian,
+        'completada',
         $data['cufe'] ?? null,
         $data['qr_code'] ?? null,
         $data['pdf_url'] ?? null,
@@ -156,7 +180,9 @@ try {
         'success' => true,
         'message' => 'Venta procesada correctamente',
         'venta_id' => $venta_id,
-        'alegra_id' => $data['alegra_id'] ?? null
+        'alegra_id' => $data['alegra_id'] ?? null,
+        'estado_factura' => $estado_factura,
+        'estado_dian' => $estado_dian
     ]);
 
 } catch (Exception $e) {
