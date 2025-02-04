@@ -91,6 +91,7 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Detalles - <?php echo htmlspecialchars($tipo); ?></title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="shortcut icon" href="./favicon/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -156,19 +157,28 @@ try {
 
                 <!-- Información General Mejorada -->
                 <div class="bg-white shadow-lg rounded-lg p-6 mb-6 detail-card">
-                    <div class="flex items-center mb-6">
-                        <div class="p-3 rounded-full bg-blue-100 mr-4">
-                            <i class="fas fa-file-alt text-blue-600 text-2xl"></i>
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-blue-100 mr-4">
+                                <i class="fas fa-file-alt text-blue-600 text-2xl"></i>
+                            </div>
+                            <div>
+                                <h2 class="text-2xl font-bold text-gray-800">
+                                    <?php echo htmlspecialchars($tipo); ?> #<?php echo htmlspecialchars($documento['numero_factura'] ?? $documento['id']); ?>
+                                </h2>
+                                <p class="text-gray-600">
+                                    Emitido el <?php echo date('d/m/Y', strtotime($documento['fecha'] ?? $documento['fecha_inicio'])); ?>
+                                </p>
+                            </div>
                         </div>
-                        <div>
-                            <h2 class="text-2xl font-bold text-gray-800">
-                                <?php echo htmlspecialchars($tipo); ?> #<?php echo htmlspecialchars($documento['numero_factura'] ?? $documento['id']); ?>
-                            </h2>
-                            <p class="text-gray-600">
-                                Emitido el <?php echo date('d/m/Y', strtotime($documento['fecha'] ?? $documento['fecha_inicio'])); ?>
-                            </p>
-                        </div>
-                        <div class="ml-auto">
+                        <div class="flex items-center space-x-4">
+                            <?php if ($tipo === 'Venta' && $documento['estado'] !== 'Anulada'): ?>
+                                <a href="generar_pdf.php?tipo=<?php echo urlencode($tipo); ?>&id=<?php echo $documento['id']; ?>" 
+                                   class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors duration-300 group">
+                                    <i class="fas fa-print mr-2 group-hover:animate-bounce"></i>
+                                    Reimprimir Factura
+                                </a>
+                            <?php endif; ?>
                             <span class="px-3 py-1 text-sm font-semibold rounded-full
                                 <?php echo $documento['estado'] === 'Anulada' ? 'bg-red-100 text-red-800' : 
                                 ($documento['estado'] === 'Pendiente' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'); ?>">
@@ -177,62 +187,81 @@ try {
                         </div>
                     </div>
 
-                    <!-- Grid de información -->
+                    <!-- Grid de información mejorado -->
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         <!-- Cliente -->
-                        <div class="p-4 bg-gray-50 rounded-lg">
-                            <h3 class="font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-user mr-2 text-blue-500"></i>Información del Cliente
+                        <div class="p-6 bg-gray-50 rounded-lg hover:shadow-md transition-shadow duration-300">
+                            <h3 class="font-semibold text-gray-700 mb-3 flex items-center">
+                                <i class="fas fa-user mr-2 text-blue-500"></i>
+                                <span>Información del Cliente</span>
                             </h3>
-                            <p class="text-sm text-gray-600">
-                                <?php echo htmlspecialchars($documento['primer_nombre'] . ' ' . $documento['segundo_nombre'] . ' ' . $documento['apellidos']); ?>
-                            </p>
-                            <p class="text-sm text-gray-600">
-                                <span class="font-medium">ID:</span> <?php echo htmlspecialchars($documento['identificacion']); ?>
-                            </p>
+                            <div class="space-y-2">
+                                <p class="text-sm text-gray-600 flex items-center">
+                                    <span class="w-24 font-medium">Nombre:</span>
+                                    <span><?php echo htmlspecialchars($documento['primer_nombre'] . ' ' . $documento['segundo_nombre'] . ' ' . $documento['apellidos']); ?></span>
+                                </p>
+                                <p class="text-sm text-gray-600 flex items-center">
+                                    <span class="w-24 font-medium">ID:</span>
+                                    <span><?php echo htmlspecialchars($documento['identificacion']); ?></span>
+                                </p>
+                            </div>
                         </div>
 
                         <!-- Detalles del Documento -->
-                        <div class="p-4 bg-gray-50 rounded-lg">
-                            <h3 class="font-semibold text-gray-700 mb-2">
-                                <i class="fas fa-file-invoice mr-2 text-blue-500"></i>Detalles del Documento
+                        <div class="p-6 bg-gray-50 rounded-lg hover:shadow-md transition-shadow duration-300">
+                            <h3 class="font-semibold text-gray-700 mb-3 flex items-center">
+                                <i class="fas fa-file-invoice mr-2 text-blue-500"></i>
+                                <span>Detalles del Documento</span>
                             </h3>
-                            <p class="text-sm text-gray-600">
-                                <span class="font-medium">Total:</span> 
-                                $<?php echo number_format($documento['total'] ?? $documento['monto_total'], 2, ',', '.'); ?>
-                            </p>
-                            <?php if ($tipo === 'Venta'): ?>
-                                <p class="text-sm text-gray-600">
-                                    <span class="font-medium">Método de Pago:</span> 
-                                    <?php echo htmlspecialchars($documento['metodo_pago']); ?>
+                            <div class="space-y-2">
+                                <p class="text-sm text-gray-600 flex items-center">
+                                    <span class="w-24 font-medium">Total:</span>
+                                    <span class="text-lg font-semibold text-blue-600">
+                                        $<?php echo number_format($documento['total'] ?? $documento['monto_total'], 2, ',', '.'); ?>
+                                    </span>
                                 </p>
-                            <?php endif; ?>
+                                <?php if ($tipo === 'Venta'): ?>
+                                    <p class="text-sm text-gray-600 flex items-center">
+                                        <span class="w-24 font-medium">Método:</span>
+                                        <span class="px-2 py-1 bg-gray-100 rounded-full text-xs">
+                                            <?php echo htmlspecialchars($documento['metodo_pago']); ?>
+                                        </span>
+                                    </p>
+                                <?php endif; ?>
+                            </div>
                         </div>
 
                         <?php if ($tipo === 'Crédito'): ?>
                             <!-- Información del Crédito -->
-                            <div class="p-4 bg-gray-50 rounded-lg">
-                                <h3 class="font-semibold text-gray-700 mb-2">
-                                    <i class="fas fa-credit-card mr-2 text-blue-500"></i>Detalles del Crédito
+                            <div class="p-6 bg-gray-50 rounded-lg hover:shadow-md transition-shadow duration-300">
+                                <h3 class="font-semibold text-gray-700 mb-3 flex items-center">
+                                    <i class="fas fa-credit-card mr-2 text-blue-500"></i>
+                                    <span>Detalles del Crédito</span>
                                 </h3>
-                                <p class="text-sm text-gray-600">
-                                    <span class="font-medium">Plazo:</span> 
-                                    <?php echo htmlspecialchars($documento['plazo']); ?> meses
-                                </p>
-                                <p class="text-sm text-gray-600">
-                                    <span class="font-medium">Cuota Mensual:</span> 
-                                    $<?php echo number_format($documento['valor_cuota'], 2, ',', '.'); ?>
-                                </p>
+                                <div class="space-y-2">
+                                    <p class="text-sm text-gray-600 flex items-center">
+                                        <span class="w-24 font-medium">Plazo:</span>
+                                        <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
+                                            <?php echo htmlspecialchars($documento['plazo']); ?> meses
+                                        </span>
+                                    </p>
+                                    <p class="text-sm text-gray-600 flex items-center">
+                                        <span class="w-24 font-medium">Cuota:</span>
+                                        <span class="text-lg font-semibold text-blue-600">
+                                            $<?php echo number_format($documento['valor_cuota'], 2, ',', '.'); ?>
+                                        </span>
+                                    </p>
+                                </div>
                             </div>
                         <?php endif; ?>
                     </div>
                 </div>
 
-                <!-- Detalles -->
+                <!-- Detalles mejorados -->
                 <div class="bg-white shadow-lg rounded-lg overflow-hidden">
-                    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
                         <h3 class="text-lg font-semibold text-gray-800 flex items-center">
-                            <i class="fas fa-list-ul mr-2"></i>
+                            <i class="fas fa-list-ul mr-2 text-blue-500"></i>
                             <?php
                             switch($tipo) {
                                 case 'Venta':
@@ -247,6 +276,14 @@ try {
                             }
                             ?>
                         </h3>
+                        <?php if ($tipo !== 'Crédito'): ?>
+                            <div class="text-sm text-gray-600">
+                                <span class="font-medium">Total Items:</span>
+                                <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full ml-2">
+                                    <?php echo count($detalles); ?>
+                                </span>
+                            </div>
+                        <?php endif; ?>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200">
