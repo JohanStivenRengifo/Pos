@@ -81,11 +81,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
 function getUserVentas($user_id, $limit, $offset) {
     global $pdo;
     try {
-        // Modificar la consulta para simplificarla y asegurar que obtiene los resultados correctos
+        // Modificar la consulta para incluir todos los campos necesarios
         $query = "SELECT 
                     v.*, 
                     c.nombre AS cliente_nombre,
-                    COALESCE(v.saldo_pendiente, v.total) as saldo_pendiente
+                    CASE 
+                        WHEN v.anulada = 1 THEN 'Anulada'
+                        WHEN v.estado_factura = 'pagada' THEN 'Cobrada'
+                        WHEN v.estado_factura = 'pendiente' THEN 'Por Cobrar'
+                        ELSE 'Pendiente'
+                    END AS estado,
+                    v.fecha as fecha_creacion,
+                    COALESCE(v.fecha, v.fecha) as fecha_vencimiento,
+                    COALESCE(v.estado_factura, 'Por emitir') as estado_dian
                   FROM ventas v 
                   LEFT JOIN clientes c ON v.cliente_id = c.id 
                   WHERE v.user_id = :user_id 
@@ -94,15 +102,15 @@ function getUserVentas($user_id, $limit, $offset) {
                   
         $stmt = $pdo->prepare($query);
         
-        // Vincular parámetros de manera explícita
+        // Vincular parámetros
         $stmt->bindValue(':user_id', $user_id, PDO::PARAM_INT);
         $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
         $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
         
         $stmt->execute();
         
-        // Agregar log para debugging
-        error_log("Query ejecutada para user_id: $user_id, limit: $limit, offset: $offset");
+        // Debug
+        error_log("Query ejecutada para user_id: $user_id");
         $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
         error_log("Número de resultados encontrados: " . count($results));
         
@@ -117,10 +125,15 @@ function getUserVentas($user_id, $limit, $offset) {
 function countUserVentas($user_id) {
     global $pdo;
     try {
-        $query = "SELECT COUNT(*) FROM ventas WHERE user_id = ?";
+        $query = "SELECT COUNT(*) FROM ventas WHERE user_id = :user_id";
         $stmt = $pdo->prepare($query);
-        $stmt->execute([$user_id]);
-        return $stmt->fetchColumn();
+        $stmt->bindValue(':user_id', $user_id, PDO::PARAM_INT);
+        $stmt->execute();
+        
+        $count = $stmt->fetchColumn();
+        error_log("Total de ventas encontradas para user_id $user_id: $count");
+        
+        return $count;
     } catch (PDOException $e) {
         error_log("Error en countUserVentas: " . $e->getMessage());
         return 0;
@@ -183,23 +196,20 @@ function getTotalAnuladas($user_id) {
     }
 }
 
+// Antes de obtener las ventas, agregar debug
+error_log("Usuario actual: " . $user_id);
+
 // Obtener datos necesarios con validación
 $limit = 10;
 $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
 $offset = ($page - 1) * $limit;
 
-// Agregar logs para debugging
-error_log("Consultando ventas para user_id: $user_id");
-error_log("Página actual: $page, Límite: $limit, Offset: $offset");
-
 $ventas = getUserVentas($user_id, $limit, $offset);
 $total_ventas = countUserVentas($user_id);
 $total_pages = ceil($total_ventas / $limit);
 
-// Agregar validación de resultados
-if (empty($ventas)) {
-    error_log("No se encontraron ventas para el usuario $user_id");
-}
+// Debug de resultados
+error_log("Ventas obtenidas: " . print_r($ventas, true));
 
 // Agregar estas líneas después de obtener $total_pages
 $total_ventas_monto = getTotalVentasMonto($user_id);
