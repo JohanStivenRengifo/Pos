@@ -92,6 +92,18 @@ try {
     <title>Detalles - <?php echo htmlspecialchars($tipo); ?></title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .detail-card {
+            transition: all 0.3s ease;
+        }
+        .detail-card:hover {
+            transform: translateY(-2px);
+        }
+    </style>
 </head>
 <body class="bg-gray-50">
     <div class="min-h-screen">
@@ -125,69 +137,94 @@ try {
                     </div>
                 </div>
             <?php else: ?>
-                <!-- Información General -->
-                <div class="bg-white shadow-lg rounded-lg p-6 mb-6 border-l-4 border-blue-500">
-                    <div class="flex items-center mb-4">
-                        <i class="fas fa-info-circle text-2xl text-blue-500 mr-3"></i>
-                        <h2 class="text-xl font-semibold text-gray-800">Información General</h2>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="space-y-3">
+                <!-- Breadcrumbs -->
+                <nav class="flex mb-6" aria-label="Breadcrumb">
+                    <ol class="inline-flex items-center space-x-1 md:space-x-3">
+                        <li class="inline-flex items-center">
+                            <a href="index.php" class="text-gray-700 hover:text-blue-600">
+                                <i class="fas fa-home mr-2"></i>Inicio
+                            </a>
+                        </li>
+                        <li>
+                            <div class="flex items-center">
+                                <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+                                <span class="text-gray-500">Detalles de <?php echo htmlspecialchars($tipo); ?></span>
+                            </div>
+                        </li>
+                    </ol>
+                </nav>
+
+                <!-- Información General Mejorada -->
+                <div class="bg-white shadow-lg rounded-lg p-6 mb-6 detail-card">
+                    <div class="flex items-center mb-6">
+                        <div class="p-3 rounded-full bg-blue-100 mr-4">
+                            <i class="fas fa-file-alt text-blue-600 text-2xl"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-800">
+                                <?php echo htmlspecialchars($tipo); ?> #<?php echo htmlspecialchars($documento['numero_factura'] ?? $documento['id']); ?>
+                            </h2>
                             <p class="text-gray-600">
-                                <i class="fas fa-user mr-2"></i>
-                                <strong>Cliente:</strong> 
+                                Emitido el <?php echo date('d/m/Y', strtotime($documento['fecha'] ?? $documento['fecha_inicio'])); ?>
+                            </p>
+                        </div>
+                        <div class="ml-auto">
+                            <span class="px-3 py-1 text-sm font-semibold rounded-full
+                                <?php echo $documento['estado'] === 'Anulada' ? 'bg-red-100 text-red-800' : 
+                                ($documento['estado'] === 'Pendiente' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'); ?>">
+                                <?php echo htmlspecialchars($documento['estado']); ?>
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Grid de información -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- Cliente -->
+                        <div class="p-4 bg-gray-50 rounded-lg">
+                            <h3 class="font-semibold text-gray-700 mb-2">
+                                <i class="fas fa-user mr-2 text-blue-500"></i>Información del Cliente
+                            </h3>
+                            <p class="text-sm text-gray-600">
                                 <?php echo htmlspecialchars($documento['primer_nombre'] . ' ' . $documento['segundo_nombre'] . ' ' . $documento['apellidos']); ?>
                             </p>
-                            <p class="text-gray-600">
-                                <i class="fas fa-id-card mr-2"></i>
-                                <strong>Identificación:</strong> 
-                                <?php echo htmlspecialchars($documento['identificacion']); ?>
+                            <p class="text-sm text-gray-600">
+                                <span class="font-medium">ID:</span> <?php echo htmlspecialchars($documento['identificacion']); ?>
+                            </p>
+                        </div>
+
+                        <!-- Detalles del Documento -->
+                        <div class="p-4 bg-gray-50 rounded-lg">
+                            <h3 class="font-semibold text-gray-700 mb-2">
+                                <i class="fas fa-file-invoice mr-2 text-blue-500"></i>Detalles del Documento
+                            </h3>
+                            <p class="text-sm text-gray-600">
+                                <span class="font-medium">Total:</span> 
+                                $<?php echo number_format($documento['total'] ?? $documento['monto_total'], 2, ',', '.'); ?>
                             </p>
                             <?php if ($tipo === 'Venta'): ?>
-                                <p class="text-gray-600">
-                                    <i class="fas fa-receipt mr-2"></i>
-                                    <strong>Número de Factura:</strong> 
-                                    <?php echo htmlspecialchars($documento['numero_factura']); ?>
-                                </p>
-                                <p class="text-gray-600">
-                                    <i class="fas fa-money-bill-wave mr-2"></i>
-                                    <strong>Método de Pago:</strong> 
+                                <p class="text-sm text-gray-600">
+                                    <span class="font-medium">Método de Pago:</span> 
                                     <?php echo htmlspecialchars($documento['metodo_pago']); ?>
-                                </p>
-                            <?php elseif ($tipo === 'Crédito'): ?>
-                                <p class="text-gray-600">
-                                    <i class="fas fa-clock mr-2"></i>
-                                    <strong>Plazo:</strong> 
-                                    <?php echo htmlspecialchars($documento['plazo']); ?> meses
-                                </p>
-                                <p class="text-gray-600">
-                                    <i class="fas fa-money-check-alt mr-2"></i>
-                                    <strong>Cuota Mensual:</strong> 
-                                    $<?php echo number_format($documento['valor_cuota'], 2, ',', '.'); ?>
                                 </p>
                             <?php endif; ?>
                         </div>
-                        <div class="space-y-3">
-                            <p class="text-gray-600">
-                                <i class="fas fa-calendar mr-2"></i>
-                                <strong>Fecha:</strong> 
-                                <?php echo date('d/m/Y', strtotime($documento['fecha'] ?? $documento['fecha_inicio'])); ?>
-                            </p>
-                            <p class="text-gray-600">
-                                <i class="fas fa-dollar-sign mr-2"></i>
-                                <strong>Total:</strong> 
-                                $<?php echo number_format($documento['total'] ?? $documento['monto_total'], 2, ',', '.'); ?>
-                            </p>
-                            <p class="text-gray-600">
-                                <i class="fas fa-info-circle mr-2"></i>
-                                <strong>Estado:</strong> 
-                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                                    <?php echo $documento['estado'] === 'Anulada' ? 'bg-red-100 text-red-800' : 
-                                    ($documento['estado'] === 'Pendiente' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'); ?>">
-                                    <?php echo htmlspecialchars($documento['estado']); ?>
-                                </span>
-                            </p>
-                        </div>
+
+                        <?php if ($tipo === 'Crédito'): ?>
+                            <!-- Información del Crédito -->
+                            <div class="p-4 bg-gray-50 rounded-lg">
+                                <h3 class="font-semibold text-gray-700 mb-2">
+                                    <i class="fas fa-credit-card mr-2 text-blue-500"></i>Detalles del Crédito
+                                </h3>
+                                <p class="text-sm text-gray-600">
+                                    <span class="font-medium">Plazo:</span> 
+                                    <?php echo htmlspecialchars($documento['plazo']); ?> meses
+                                </p>
+                                <p class="text-sm text-gray-600">
+                                    <span class="font-medium">Cuota Mensual:</span> 
+                                    $<?php echo number_format($documento['valor_cuota'], 2, ',', '.'); ?>
+                                </p>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
 

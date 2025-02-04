@@ -81,6 +81,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <title>Portal de Clientes</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Agregamos fuente personalizada -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .stats-card {
+            transition: all 0.3s ease;
+        }
+        .stats-card:hover {
+            transform: translateY(-5px);
+        }
+    </style>
 </head>
 <body class="bg-gray-50">
     <div class="min-h-screen">
@@ -97,24 +110,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </nav>
 
         <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-            <!-- Hero Section -->
-            <div class="text-center mb-10">
-                <h2 class="text-3xl font-bold text-gray-800 mb-4">Consulta tus Documentos</h2>
-                <p class="text-gray-600">Ingresa tu número de identificación para ver tus facturas, cotizaciones y créditos</p>
+            <!-- Hero Section Mejorada -->
+            <div class="text-center mb-12 bg-gradient-to-r from-blue-600 to-blue-800 text-white py-12 rounded-lg shadow-xl">
+                <h2 class="text-4xl font-bold mb-4">Portal de Autogestión</h2>
+                <p class="text-xl opacity-90">Accede a toda tu información comercial en un solo lugar</p>
+                <div class="mt-8 flex justify-center space-x-4">
+                    <div class="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+                        <i class="fas fa-file-invoice text-3xl mb-2"></i>
+                        <p class="text-sm">Facturas</p>
+                    </div>
+                    <div class="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+                        <i class="fas fa-calculator text-3xl mb-2"></i>
+                        <p class="text-sm">Cotizaciones</p>
+                    </div>
+                    <div class="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+                        <i class="fas fa-credit-card text-3xl mb-2"></i>
+                        <p class="text-sm">Créditos</p>
+                    </div>
+                </div>
             </div>
 
-            <!-- Formulario de búsqueda -->
+            <!-- Formulario de búsqueda mejorado -->
             <div class="max-w-md mx-auto">
-                <form method="POST" class="bg-white shadow-xl rounded-lg p-8 mb-8 transform transition-all hover:scale-105">
+                <form method="POST" class="bg-white shadow-xl rounded-lg p-8 mb-8">
                     <div class="mb-6">
                         <label class="block text-gray-700 text-sm font-bold mb-3" for="cedula">
                             <i class="fas fa-id-card mr-2"></i>Número de Identificación
                         </label>
-                        <input class="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                               type="text" id="cedula" name="cedula" 
-                               value="<?php echo htmlspecialchars($cedula); ?>" 
-                               placeholder="Ingresa tu identificación"
-                               required>
+                        <div class="relative">
+                            <input class="shadow-sm appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 pl-10 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                   type="text" id="cedula" name="cedula" 
+                                   value="<?php echo htmlspecialchars($cedula); ?>" 
+                                   placeholder="Ingresa tu identificación"
+                                   required>
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <i class="fas fa-search text-gray-400"></i>
+                            </div>
+                        </div>
                     </div>
                     <button class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-colors duration-300 flex items-center justify-center"
                             type="submit">
@@ -138,6 +170,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php endif; ?>
 
             <?php if (!empty($resultados)): ?>
+                <!-- Resumen estadístico -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <?php
+                    $totalVentas = array_reduce($resultados, function($carry, $item) {
+                        return $carry + ($item['tipo'] === 'Venta' ? 1 : 0);
+                    }, 0);
+                    
+                    $totalCotizaciones = array_reduce($resultados, function($carry, $item) {
+                        return $carry + ($item['tipo'] === 'Cotización' ? 1 : 0);
+                    }, 0);
+                    
+                    $totalCreditos = array_reduce($resultados, function($carry, $item) {
+                        return $carry + ($item['tipo'] === 'Crédito' ? 1 : 0);
+                    }, 0);
+                    ?>
+                    
+                    <div class="stats-card bg-white p-6 rounded-lg shadow-lg border-l-4 border-green-500">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-green-100 mr-4">
+                                <i class="fas fa-file-invoice text-green-500 text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">Total Facturas</p>
+                                <p class="text-2xl font-bold text-gray-800"><?php echo $totalVentas; ?></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="stats-card bg-white p-6 rounded-lg shadow-lg border-l-4 border-blue-500">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-blue-100 mr-4">
+                                <i class="fas fa-calculator text-blue-500 text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">Cotizaciones</p>
+                                <p class="text-2xl font-bold text-gray-800"><?php echo $totalCotizaciones; ?></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="stats-card bg-white p-6 rounded-lg shadow-lg border-l-4 border-purple-500">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-purple-100 mr-4">
+                                <i class="fas fa-credit-card text-purple-500 text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">Créditos Activos</p>
+                                <p class="text-2xl font-bold text-gray-800"><?php echo $totalCreditos; ?></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="mt-8 max-w-7xl mx-auto">
                     <?php if (isset($cliente)): ?>
                         <div class="bg-white shadow-lg rounded-lg p-6 mb-6 border-l-4 border-blue-500">
