@@ -25,13 +25,73 @@ class ApiResponse {
 }
 
 // Modificar la función para devolver respuesta estructurada
-function addProveedor($user_id, $nombre, $email, $telefono, $direccion) {
+function addProveedor($user_id, $data) {
     global $pdo;
     try {
-        $query = "INSERT INTO proveedores (user_id, nombre, email, telefono, direccion) VALUES (?, ?, ?, ?, ?)";
+        // Preparar los datos según el tipo de persona
+        $nombre = null;
+        $primer_nombre = null;
+        $segundo_nombre = null;
+        $apellidos = null;
+
+        if ($data['tipo_persona'] === 'natural') {
+            $nombre = $data['primer_nombre'] . ' ' . $data['apellidos'];
+            $primer_nombre = $data['primer_nombre'];
+            $segundo_nombre = $data['segundo_nombre'];
+            $apellidos = $data['apellidos'];
+        } else {
+            $nombre = $data['nombre'];
+        }
+
+        $query = "INSERT INTO proveedores (
+            user_id, nombre, email, telefono, direccion, tipo_identificacion,
+            identificacion, dv, primer_nombre, segundo_nombre, apellidos,
+            municipio_departamento, codigo_postal, tipo_persona,
+            responsabilidad_tributaria, email2, telefono2, celular
+        ) VALUES (
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+        )";
+
         $stmt = $pdo->prepare($query);
-        $result = $stmt->execute([$user_id, $nombre, $email, $telefono, $direccion]);
-        
+        $result = $stmt->execute([
+            $user_id,
+            $nombre,
+            $data['email'],
+            $data['telefono'],
+            $data['direccion'],
+            $data['tipo_identificacion'],
+            $data['identificacion'],
+            $data['dv'],
+            $primer_nombre,
+            $segundo_nombre,
+            $apellidos,
+            $data['municipio_departamento'],
+            $data['codigo_postal'],
+            $data['tipo_persona'],
+            $data['responsabilidad_tributaria'],
+            $data['email2'],
+            $data['telefono2'],
+            $data['celular']
+        ]);
+
+        // Manejar la foto de perfil si se proporcionó
+        if ($result && isset($_FILES['foto_perfil']) && $_FILES['foto_perfil']['error'] === UPLOAD_ERR_OK) {
+            $proveedor_id = $pdo->lastInsertId();
+            $foto = $_FILES['foto_perfil'];
+            $extension = pathinfo($foto['name'], PATHINFO_EXTENSION);
+            $nuevo_nombre = "proveedor_{$proveedor_id}.{$extension}";
+            $ruta_destino = "../../uploads/proveedores/{$nuevo_nombre}";
+            
+            if (!is_dir("../../uploads/proveedores")) {
+                mkdir("../../uploads/proveedores", 0777, true);
+            }
+            
+            if (move_uploaded_file($foto['tmp_name'], $ruta_destino)) {
+                $stmt = $pdo->prepare("UPDATE proveedores SET foto_perfil = ? WHERE id = ?");
+                $stmt->execute([$nuevo_nombre, $proveedor_id]);
+            }
+        }
+
         if ($result) {
             return ['status' => true, 'message' => 'Proveedor agregado exitosamente'];
         }
@@ -91,7 +151,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
                 ApiResponse::send(false, 'Por favor, ingrese un correo electrónico válido.');
             }
 
-            $result = addProveedor($user_id, $nombre, $email, $telefono, $direccion);
+            $result = addProveedor($user_id, [
+                'nombre' => $nombre,
+                'email' => $email,
+                'telefono' => $telefono,
+                'direccion' => $direccion,
+                'tipo_identificacion' => $_POST['tipo_identificacion'],
+                'identificacion' => $_POST['identificacion'],
+                'dv' => $_POST['dv'],
+                'primer_nombre' => $_POST['primer_nombre'],
+                'segundo_nombre' => $_POST['segundo_nombre'],
+                'apellidos' => $_POST['apellidos'],
+                'municipio_departamento' => $_POST['municipio_departamento'],
+                'codigo_postal' => $_POST['codigo_postal'],
+                'tipo_persona' => $_POST['tipo_persona'],
+                'responsabilidad_tributaria' => $_POST['responsabilidad_tributaria'],
+                'email2' => $_POST['email2'],
+                'telefono2' => $_POST['telefono2'],
+                'celular' => $_POST['celular']
+            ]);
             ApiResponse::send($result['status'], $result['message']);
             break;
 
@@ -154,7 +232,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_proveedor'])) {
         $message = "Por favor, ingrese un correo electrónico válido.";
     } else {
         // Agregar proveedor a la base de datos
-        if (addProveedor($user_id, $nombre, $email, $telefono, $direccion)) {
+        if (addProveedor($user_id, [
+            'nombre' => $nombre,
+            'email' => $email,
+            'telefono' => $telefono,
+            'direccion' => $direccion,
+            'tipo_identificacion' => $_POST['tipo_identificacion'],
+            'identificacion' => $_POST['identificacion'],
+            'dv' => $_POST['dv'],
+            'primer_nombre' => $_POST['primer_nombre'],
+            'segundo_nombre' => $_POST['segundo_nombre'],
+            'apellidos' => $_POST['apellidos'],
+            'municipio_departamento' => $_POST['municipio_departamento'],
+            'codigo_postal' => $_POST['codigo_postal'],
+            'tipo_persona' => $_POST['tipo_persona'],
+            'responsabilidad_tributaria' => $_POST['responsabilidad_tributaria'],
+            'email2' => $_POST['email2'],
+            'telefono2' => $_POST['telefono2'],
+            'celular' => $_POST['celular']
+        ])) {
             $message = "Proveedor agregado exitosamente.";
         } else {
             $message = "Error al agregar el proveedor.";
@@ -199,44 +295,207 @@ $proveedores = getUserProveedores($user_id);
                     Nuevo Proveedor
                 </h2>
                 
-                <form method="POST" class="max-w-2xl mx-auto">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
-                                Nombre del Proveedor
-                            </label>
-                            <input type="text" name="nombre" required
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500">
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
-                                Correo Electrónico
-                            </label>
-                            <input type="email" name="email" required
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500">
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
-                                Teléfono
-                            </label>
-                            <input type="tel" name="telefono" required
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500">
-                        </div>
-
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
-                                Dirección
-                            </label>
-                            <input type="text" name="direccion" required
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500">
+                <form method="POST" class="max-w-2xl mx-auto" enctype="multipart/form-data">
+                    <!-- Foto de Perfil -->
+                    <div class="bg-gray-50 p-4 rounded-lg mb-6">
+                        <h4 class="text-lg font-medium text-gray-700 mb-4">
+                            <i class="fas fa-camera text-blue-500 mr-2"></i>
+                            Foto de Perfil
+                        </h4>
+                        <div class="flex items-center space-x-4">
+                            <div class="w-32 h-32 relative">
+                                <img id="preview-foto" src="/assets/img/default-avatar.png" 
+                                     class="w-full h-full object-cover rounded-full border-4 border-white shadow-lg">
+                                <label class="absolute bottom-0 right-0 bg-blue-500 text-white rounded-full p-2 cursor-pointer hover:bg-blue-600">
+                                    <i class="fas fa-upload"></i>
+                                    <input type="file" name="foto_perfil" class="hidden" accept="image/*" 
+                                           onchange="previewImage(this, 'preview-foto')">
+                                </label>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="mt-4 text-right">
+                    <!-- Información de Identificación -->
+                    <div class="bg-gray-50 p-4 rounded-lg mb-6">
+                        <h4 class="text-lg font-medium text-gray-700 mb-4">
+                            <i class="fas fa-id-card text-blue-500 mr-2"></i>
+                            Información de Identificación
+                        </h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Tipo de Identificación *
+                                </label>
+                                <select name="tipo_identificacion" required
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="NIT">NIT - Número de identificación tributaria</option>
+                                    <option value="CC">Cédula de Ciudadanía</option>
+                                    <option value="CE">Cédula de Extranjería</option>
+                                    <option value="PA">Pasaporte</option>
+                                </select>
+                            </div>
+                            <div class="grid grid-cols-3 gap-2">
+                                <div class="col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                                        Número de Identificación *
+                                    </label>
+                                    <input type="text" name="identificacion" required
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                                        DV
+                                    </label>
+                                    <input type="text" name="dv" maxlength="2"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Información Personal/Empresarial -->
+                    <div class="bg-gray-50 p-4 rounded-lg mb-6">
+                        <h4 class="text-lg font-medium text-gray-700 mb-4">
+                            <i class="fas fa-user text-blue-500 mr-2"></i>
+                            Información del Proveedor
+                        </h4>
+                        <div class="grid grid-cols-1 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Tipo de Persona *
+                                </label>
+                                <select name="tipo_persona" required onchange="togglePersonaFields(this.value)"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="juridica">Persona Jurídica</option>
+                                    <option value="natural">Persona Natural</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Responsabilidad Tributaria *
+                                </label>
+                                <select name="responsabilidad_tributaria" required
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="IVA">Responsable de IVA</option>
+                                    <option value="NO_IVA">No Responsable de IVA</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 persona-natural hidden">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Primer Nombre *
+                                </label>
+                                <input type="text" name="primer_nombre"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Segundo Nombre
+                                </label>
+                                <input type="text" name="segundo_nombre"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Apellidos *
+                                </label>
+                                <input type="text" name="apellidos"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                        </div>
+
+                        <div class="persona-juridica mt-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">
+                                Razón Social *
+                            </label>
+                            <input type="text" name="nombre" required
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                    </div>
+
+                    <!-- Ubicación -->
+                    <div class="bg-gray-50 p-4 rounded-lg mb-6">
+                        <h4 class="text-lg font-medium text-gray-700 mb-4">
+                            <i class="fas fa-map-marker-alt text-blue-500 mr-2"></i>
+                            Ubicación
+                        </h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Municipio / Departamento
+                                </label>
+                                <select name="municipio_departamento"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                                    <!-- Opciones de departamentos... -->
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Dirección
+                                </label>
+                                <input type="text" name="direccion"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Código Postal
+                                </label>
+                                <input type="text" name="codigo_postal"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Información de Contacto -->
+                    <div class="bg-gray-50 p-4 rounded-lg mb-6">
+                        <h4 class="text-lg font-medium text-gray-700 mb-4">
+                            <i class="fas fa-address-book text-blue-500 mr-2"></i>
+                            Información de Contacto
+                        </h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Correo Electrónico *
+                                </label>
+                                <input type="email" name="email" required placeholder="Ejemplo@email.com"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Correo Electrónico 2
+                                </label>
+                                <input type="email" name="email2" placeholder="Ejemplo@email.com"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Teléfono *
+                                </label>
+                                <input type="tel" name="telefono" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Teléfono 2
+                                </label>
+                                <input type="tel" name="telefono2"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Celular
+                                </label>
+                                <input type="tel" name="celular"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end space-x-4">
                         <button type="submit" name="add_proveedor"
-                            class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-md transition duration-200">
+                                class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-md transition duration-200">
                             <i class="fas fa-save mr-2"></i>
                             Guardar Proveedor
                         </button>
