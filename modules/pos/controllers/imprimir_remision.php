@@ -76,16 +76,16 @@ try {
         function TableHeader() {
             $this->SetFont('Arial', 'B', 9);
             $this->SetFillColor(240, 240, 240);
-            $this->Cell(60, 7, 'Ítem', 1, 0, 'L', true);
-            $this->Cell(30, 7, 'Precio', 1, 0, 'R', true);
+            $this->Cell(90, 7, 'Ítem', 1, 0, 'L', true);
+            $this->Cell(35, 7, 'Precio', 1, 0, 'R', true);
             $this->Cell(20, 7, 'Cant.', 1, 0, 'C', true);
-            $this->Cell(30, 7, 'Descuento', 1, 0, 'R', true);
-            $this->Cell(35, 7, 'Total', 1, 1, 'R', true);
+            $this->Cell(35, 7, 'Descuento', 1, 0, 'R', true);
+            $this->Cell(40, 7, 'Total', 1, 1, 'R', true);
         }
     }
 
-    // Crear nuevo PDF
-    $pdf = new RemisionPDF('P', 'mm', array(140, 215)); // Tamaño media carta
+    // Crear nuevo PDF - Cambiamos a tamaño carta
+    $pdf = new RemisionPDF();
     $pdf->AliasNbPages();
     $pdf->AddPage();
 
@@ -115,42 +115,42 @@ try {
         $precio_con_descuento = $detalle['precio_unitario'] - $detalle['descuento'];
         $total_item = $precio_con_descuento * $detalle['cantidad'];
 
-        $pdf->Cell(60, 6, mb_convert_encoding($detalle['nombre'], 'ISO-8859-1', 'UTF-8'), 1, 0, 'L');
-        $pdf->Cell(30, 6, '$' . number_format($detalle['precio_unitario'], 0, ',', '.'), 1, 0, 'R');
+        $pdf->Cell(90, 6, mb_convert_encoding($detalle['nombre'], 'ISO-8859-1', 'UTF-8'), 1, 0, 'L');
+        $pdf->Cell(35, 6, '$' . number_format($detalle['precio_unitario'], 0, ',', '.'), 1, 0, 'R');
         $pdf->Cell(20, 6, $detalle['cantidad'], 1, 0, 'C');
-        $pdf->Cell(30, 6, number_format($descuento_porcentaje, 2) . '%', 1, 0, 'R');
-        $pdf->Cell(35, 6, '$' . number_format($total_item, 0, ',', '.'), 1, 1, 'R');
+        $pdf->Cell(35, 6, number_format($descuento_porcentaje, 2) . '%', 1, 0, 'R');
+        $pdf->Cell(40, 6, '$' . number_format($total_item, 0, ',', '.'), 1, 1, 'R');
     }
 
-    // Totales
+    // Totales - Ajustamos los anchos
     $pdf->Ln(5);
     $pdf->SetFont('Arial', '', 10);
-    $pdf->Cell(110, 6, 'Subtotal:', 0, 0, 'R');
-    $pdf->Cell(35, 6, '$' . number_format($venta['total'] + $venta['descuento'], 0, ',', '.'), 0, 1, 'R');
+    $pdf->Cell(180, 6, 'Subtotal:', 0, 0, 'R');
+    $pdf->Cell(40, 6, '$' . number_format($venta['total'] + $venta['descuento'], 0, ',', '.'), 0, 1, 'R');
     
-    $pdf->Cell(110, 6, 'Descuento:', 0, 0, 'R');
-    $pdf->Cell(35, 6, '$' . number_format($venta['descuento'], 0, ',', '.'), 0, 1, 'R');
+    $pdf->Cell(180, 6, 'Descuento:', 0, 0, 'R');
+    $pdf->Cell(40, 6, '$' . number_format($venta['descuento'], 0, ',', '.'), 0, 1, 'R');
     
-    $pdf->Cell(110, 6, 'Subtotal con descuento:', 0, 0, 'R');
-    $pdf->Cell(35, 6, '$' . number_format($venta['total'], 0, ',', '.'), 0, 1, 'R');
+    $pdf->Cell(180, 6, 'Subtotal con descuento:', 0, 0, 'R');
+    $pdf->Cell(40, 6, '$' . number_format($venta['total'], 0, ',', '.'), 0, 1, 'R');
     
-    $pdf->Cell(110, 6, 'IVA (19.00%):', 0, 0, 'R');
-    $pdf->Cell(35, 6, '$' . number_format($venta['total'] * 0.19, 0, ',', '.'), 0, 1, 'R');
+    $pdf->Cell(180, 6, 'IVA (19.00%):', 0, 0, 'R');
+    $pdf->Cell(40, 6, '$' . number_format($venta['total'] * 0.19, 0, ',', '.'), 0, 1, 'R');
     
     $pdf->SetFont('Arial', 'B', 10);
-    $pdf->Cell(110, 6, 'TOTAL:', 0, 0, 'R');
-    $pdf->Cell(35, 6, '$' . number_format($venta['total'] * 1.19, 0, ',', '.'), 0, 1, 'R');
+    $pdf->Cell(180, 6, 'TOTAL:', 0, 0, 'R');
+    $pdf->Cell(40, 6, '$' . number_format($venta['total'] * 1.19, 0, ',', '.'), 0, 1, 'R');
 
-    // Espacios para firmas
+    // Espacios para firmas - Ajustamos para carta
     $pdf->Ln(20);
-    $pdf->Cell(65, 0, '', 'T', 0, 'C');
-    $pdf->Cell(10, 0, '', 0, 0);
-    $pdf->Cell(65, 0, '', 'T', 1, 'C');
+    $pdf->Cell(95, 0, '', 'T', 0, 'C');
+    $pdf->Cell(20, 0, '', 0, 0);
+    $pdf->Cell(95, 0, '', 'T', 1, 'C');
     
     $pdf->SetFont('Arial', '', 10);
-    $pdf->Cell(65, 5, 'ELABORADO POR', 0, 0, 'C');
-    $pdf->Cell(10, 5, '', 0, 0);
-    $pdf->Cell(65, 5, 'ACEPTADA, FIRMA Y/O SELLO Y FECHA', 0, 1, 'C');
+    $pdf->Cell(95, 5, 'ELABORADO POR', 0, 0, 'C');
+    $pdf->Cell(20, 5, '', 0, 0);
+    $pdf->Cell(95, 5, 'ACEPTADA, FIRMA Y/O SELLO Y FECHA', 0, 1, 'C');
 
     // Pie de página personalizado
     $pdf->Ln(10);
