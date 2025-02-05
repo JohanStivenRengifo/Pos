@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once '../../config/db.php';
+require_once '../../vendor/autoload.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ../../login.php');
@@ -58,170 +59,116 @@ try {
     $stmt->execute([$_GET['id']]);
     $detalles = $stmt->fetchAll();
 
+    // Crear clase personalizada de PDF
+    class CotizacionPDF extends FPDF {
+        function Header() {
+            global $empresa, $cotizacion;
+            
+            // Logo
+            if (!empty($empresa['logo']) && file_exists('../../' . $empresa['logo'])) {
+                $this->Image('../../' . $empresa['logo'], 10, 10, 30);
+            }
+            
+            // Título del documento
+            $this->SetFont('Arial', 'B', 16);
+            $this->Cell(0, 10, mb_convert_encoding('COTIZACIÓN N° ' . $cotizacion['numero'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
+            
+            // Información de la empresa
+            $this->SetFont('Arial', '', 10);
+            $this->Cell(0, 6, mb_convert_encoding($empresa['nombre_empresa'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
+            $this->Cell(0, 6, mb_convert_encoding('NIT: ' . $empresa['nit'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
+            $this->Cell(0, 6, mb_convert_encoding($empresa['direccion'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
+            
+            $this->Ln(5);
+        }
+
+        function Footer() {
+            $this->SetY(-15);
+            $this->SetFont('Arial', 'I', 8);
+            $this->Cell(0, 10, mb_convert_encoding('Página ' . $this->PageNo() . '/{nb}', 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
+        }
+
+        function InfoSection($title) {
+            $this->SetFont('Arial', 'B', 12);
+            $this->SetFillColor(230, 230, 230);
+            $this->Cell(0, 8, mb_convert_encoding($title, 'ISO-8859-1', 'UTF-8'), 0, 1, 'L', true);
+            $this->Ln(4);
+        }
+
+        function TableHeader() {
+            $this->SetFont('Arial', 'B', 9);
+            $this->SetFillColor(240, 240, 240);
+            $this->Cell(25, 7, 'Código', 1, 0, 'C', true);
+            $this->Cell(80, 7, 'Descripción', 1, 0, 'L', true);
+            $this->Cell(20, 7, 'Cant.', 1, 0, 'C', true);
+            $this->Cell(30, 7, 'Precio Unit.', 1, 0, 'R', true);
+            $this->Cell(35, 7, 'Subtotal', 1, 1, 'R', true);
+        }
+    }
+
+    // Crear nuevo PDF
+    $pdf = new CotizacionPDF();
+    $pdf->AliasNbPages();
+    $pdf->AddPage();
+
+    // Información del Cliente
+    $pdf->InfoSection('INFORMACIÓN DEL CLIENTE');
+    $pdf->SetFont('Arial', '', 10);
+    $pdf->Cell(0, 6, mb_convert_encoding('Cliente: ' . $cotizacion['cliente_nombre'], 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->Cell(0, 6, mb_convert_encoding($cotizacion['cliente_tipo_identificacion'] . ': ' . $cotizacion['cliente_identificacion'], 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->Cell(0, 6, mb_convert_encoding('Dirección: ' . $cotizacion['cliente_direccion'], 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->Cell(0, 6, mb_convert_encoding('Teléfono: ' . $cotizacion['cliente_telefono'], 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->Ln(5);
+
+    // Información de la Cotización
+    $pdf->InfoSection('DETALLES DE LA COTIZACIÓN');
+    $pdf->SetFont('Arial', '', 10);
+    $pdf->Cell(0, 6, 'Fecha de Emisión: ' . date('d/m/Y', strtotime($cotizacion['fecha'])), 0, 1);
+    $pdf->Cell(0, 6, 'Válida hasta: ' . date('d/m/Y', strtotime($cotizacion['fecha'] . ' + 30 days')), 0, 1);
+    $pdf->Cell(0, 6, 'Estado: ' . $cotizacion['estado'], 0, 1);
+    $pdf->Ln(5);
+
+    // Tabla de Productos
+    $pdf->TableHeader();
+    $pdf->SetFont('Arial', '', 9);
+    
+    foreach ($detalles as $detalle) {
+        $pdf->Cell(25, 6, $detalle['codigo_barras'], 1, 0, 'C');
+        $pdf->Cell(80, 6, mb_convert_encoding($detalle['descripcion'], 'ISO-8859-1', 'UTF-8'), 1);
+        $pdf->Cell(20, 6, $detalle['cantidad'], 1, 0, 'C');
+        $pdf->Cell(30, 6, '$' . number_format($detalle['precio_unitario'], 2, ',', '.'), 1, 0, 'R');
+        $pdf->Cell(35, 6, '$' . number_format($detalle['subtotal'], 2, ',', '.'), 1, 1, 'R');
+    }
+
+    // Total
+    $pdf->SetFont('Arial', 'B', 10);
+    $pdf->Cell(155, 8, 'Total:', 1, 0, 'R');
+    $pdf->Cell(35, 8, '$' . number_format($cotizacion['total'], 2, ',', '.'), 1, 1, 'R');
+
+    // Términos y Condiciones
+    $pdf->Ln(10);
+    $pdf->InfoSection('TÉRMINOS Y CONDICIONES');
+    $pdf->SetFont('Arial', '', 9);
+    $pdf->MultiCell(0, 5, mb_convert_encoding("• Esta cotización es válida hasta el " . date('d/m/Y', strtotime($cotizacion['fecha'] . ' + 30 days')) . ".\n• Los precios pueden variar sin previo aviso después de la fecha de vencimiento.\n• Los tiempos de entrega son estimados y comienzan a partir de la aprobación.\n• El pago debe realizarse según los términos acordados.\n• Los precios incluyen IVA cuando aplica.", 'ISO-8859-1', 'UTF-8'));
+
+    // Espacios para firmas
+    $pdf->Ln(20);
+    $pdf->Cell(95, 0, '', 'T', 0, 'C');
+    $pdf->Cell(10, 0, '', 0, 0);
+    $pdf->Cell(95, 0, '', 'T', 1, 'C');
+    
+    $pdf->SetFont('Arial', '', 10);
+    $pdf->Cell(95, 5, 'Firma del Vendedor', 0, 0, 'C');
+    $pdf->Cell(10, 5, '', 0, 0);
+    $pdf->Cell(95, 5, 'Firma del Cliente', 0, 1, 'C');
+
+    // Generar el PDF
+    $pdf->Output('I', 'cotizacion_' . $cotizacion['numero'] . '_' . date('Y-m-d') . '.pdf');
+    exit;
+
 } catch (Exception $e) {
-    $error_message = $e->getMessage();
-}
-?>
-
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Imprimir Cotización #<?= htmlspecialchars($cotizacion['numero'] ?? '') ?> | VendEasy</title>
-    <link rel="icon" href="../../favicon/favicon.ico" type="image/x-icon">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @media print {
-            body {
-                print-color-adjust: exact;
-                -webkit-print-color-adjust: exact;
-            }
-            .no-print {
-                display: none;
-            }
-            @page {
-                margin: 1cm;
-                size: letter;
-            }
-        }
-        .page-break {
-            page-break-after: always;
-        }
-    </style>
-</head>
-<body class="bg-white p-8 max-w-4xl mx-auto">
-    <?php if (!empty($error_message)): ?>
-        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
-            <strong class="font-bold">Error!</strong>
-            <span class="block sm:inline"><?= htmlspecialchars($error_message) ?></span>
-        </div>
-    <?php else: ?>
-        <!-- Botón de Imprimir -->
-        <div class="mb-6 no-print text-right">
-            <button onclick="window.print()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-                <i class="fas fa-print mr-2"></i>Imprimir
-            </button>
-        </div>
-
-        <!-- Encabezado -->
-        <div class="text-center mb-8">
-            <h1 class="text-3xl font-bold text-gray-800">COTIZACIÓN</h1>
-            <p class="text-xl text-gray-600 mt-2">#<?= htmlspecialchars($cotizacion['numero']) ?></p>
-        </div>
-
-        <!-- Información de la Empresa y Cliente -->
-        <div class="grid grid-cols-2 gap-8 mb-8">
-            <div class="border-r pr-8">
-                <h2 class="text-lg font-bold text-gray-800 mb-3 border-b pb-2">Información de la Empresa</h2>
-                <p class="font-semibold text-gray-800 text-lg mb-2"><?= htmlspecialchars($empresa['nombre_empresa']) ?></p>
-                <p class="text-gray-600 mb-1"><span class="font-medium">NIT:</span> <?= htmlspecialchars($empresa['nit']) ?></p>
-                <p class="text-gray-600 mb-1"><span class="font-medium">Régimen:</span> <?= htmlspecialchars($empresa['regimen_fiscal']) ?></p>
-                <p class="text-gray-600 mb-1"><span class="font-medium">Dirección:</span> <?= htmlspecialchars($empresa['direccion']) ?></p>
-                <p class="text-gray-600 mb-1"><span class="font-medium">Teléfono:</span> <?= htmlspecialchars($empresa['telefono']) ?></p>
-                <p class="text-gray-600"><span class="font-medium">Email:</span> <?= htmlspecialchars($empresa['correo_contacto']) ?></p>
-            </div>
-            <div class="pl-8">
-                <h2 class="text-lg font-bold text-gray-800 mb-3 border-b pb-2">Información del Cliente</h2>
-                <p class="font-semibold text-gray-800 text-lg mb-2"><?= htmlspecialchars($cotizacion['cliente_nombre']) ?></p>
-                <p class="text-gray-600 mb-1"><span class="font-medium"><?= htmlspecialchars($cotizacion['cliente_tipo_identificacion']) ?>:</span> <?= htmlspecialchars($cotizacion['cliente_identificacion']) ?></p>
-                <p class="text-gray-600 mb-1"><span class="font-medium">Email:</span> <?= htmlspecialchars($cotizacion['cliente_email']) ?></p>
-                <p class="text-gray-600 mb-1"><span class="font-medium">Teléfono:</span> <?= htmlspecialchars($cotizacion['cliente_telefono']) ?></p>
-                <p class="text-gray-600"><span class="font-medium">Dirección:</span> <?= htmlspecialchars($cotizacion['cliente_direccion']) ?></p>
-            </div>
-        </div>
-
-        <!-- Fecha y Estado -->
-        <div class="mb-6 bg-gray-50 p-4 rounded-lg">
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <p class="text-gray-700 mb-1">
-                        <span class="font-medium">Fecha de Emisión:</span> 
-                        <?= date('d/m/Y', strtotime($cotizacion['fecha'])) ?>
-                    </p>
-                    <p class="text-gray-700">
-                        <span class="font-medium">Fecha de Vencimiento:</span> 
-                        <?= date('d/m/Y', strtotime($cotizacion['fecha'] . ' + 30 days')) ?>
-                    </p>
-                </div>
-                <div class="text-right">
-                    <p class="text-gray-700">
-                        <span class="font-medium">Estado:</span> 
-                        <span class="inline-block px-3 py-1 rounded-full text-sm font-medium
-                            <?= $cotizacion['estado'] == 'Aprobada' ? 'bg-green-100 text-green-800' : 
-                               ($cotizacion['estado'] == 'Pendiente' ? 'bg-yellow-100 text-yellow-800' : 
-                               ($cotizacion['estado'] == 'Facturado' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800')) ?>">
-                            <?= $cotizacion['estado'] ?>
-                        </span>
-                    </p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Tabla de Productos -->
-        <table class="min-w-full divide-y divide-gray-200 mb-8">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</th>
-                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Precio Unit.</th>
-                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal</th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                <?php foreach ($detalles as $detalle): ?>
-                <tr class="text-sm">
-                    <td class="px-4 py-3 text-gray-600"><?= htmlspecialchars($detalle['codigo_barras']) ?></td>
-                    <td class="px-4 py-3 text-gray-800"><?= htmlspecialchars($detalle['descripcion']) ?></td>
-                    <td class="px-4 py-3 text-gray-600"><?= htmlspecialchars($detalle['cantidad']) ?></td>
-                    <td class="px-4 py-3 text-right text-gray-600">$<?= number_format($detalle['precio_unitario'], 2, ',', '.') ?></td>
-                    <td class="px-4 py-3 text-right text-gray-800">$<?= number_format($detalle['subtotal'], 2, ',', '.') ?></td>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-            <tfoot class="bg-gray-50">
-                <tr>
-                    <td colspan="4" class="px-4 py-3 text-right font-medium text-gray-700">Total:</td>
-                    <td class="px-4 py-3 text-right font-bold text-gray-800">$<?= number_format($cotizacion['total'], 2, ',', '.') ?></td>
-                </tr>
-            </tfoot>
-        </table>
-
-        <!-- Términos y Condiciones -->
-        <div class="mb-8 text-sm text-gray-600">
-            <h3 class="font-bold text-gray-800 mb-2">Términos y Condiciones</h3>
-            <ul class="list-disc list-inside space-y-1">
-                <li>Esta cotización es válida hasta el <?= date('d/m/Y', strtotime($cotizacion['fecha'] . ' + 30 days')) ?>.</li>
-                <li>Los precios pueden variar sin previo aviso después de la fecha de vencimiento.</li>
-                <li>Los tiempos de entrega son estimados y comienzan a partir de la aprobación de la cotización.</li>
-                <li>El pago debe realizarse según los términos acordados.</li>
-                <li>Los precios incluyen IVA cuando aplica.</li>
-            </ul>
-        </div>
-
-        <!-- Firmas -->
-        <div class="grid grid-cols-2 gap-8 mt-16">
-            <div class="text-center">
-                <div class="border-t border-gray-400 pt-2">
-                    <p class="font-medium text-gray-800">Firma del Vendedor</p>
-                </div>
-            </div>
-            <div class="text-center">
-                <div class="border-t border-gray-400 pt-2">
-                    <p class="font-medium text-gray-800">Firma del Cliente</p>
-                </div>
-            </div>
-        </div>
-    <?php endif; ?>
-
-    <script>
-        // Imprimir automáticamente al cargar la página
-        window.onload = function() {
-            setTimeout(function() {
-                window.print();
-            }, 500); // Pequeño retraso para asegurar que todo se cargue correctamente
-        };
-    </script>
-</body>
-</html> 
+    error_log('Error generando cotización: ' . $e->getMessage());
+    header('Content-Type: text/html; charset=UTF-8');
+    echo "<h1>Error al generar la cotización</h1>";
+    echo "<p>Lo sentimos, ha ocurrido un error al generar la cotización. Por favor, inténtelo de nuevo más tarde.</p>";
+} 
