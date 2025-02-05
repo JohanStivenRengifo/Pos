@@ -207,22 +207,46 @@ try {
         "• Régimen Fiscal: " . ($venta['regimen_fiscal'] ?? 'No responsable de IVA'),
         'ISO-8859-1', 'UTF-8'));
 
-    // Si es factura electrónica, agregar CUFE y QR
-    if ($venta['numeracion'] === 'electronica' && !empty($venta['cufe'])) {
-        $pdf->Ln(5);
-        $pdf->SetFont('Arial', 'B', 9);
-        $pdf->Cell(0, 6, 'CUFE:', 0, 1, 'L');
-        $pdf->SetFont('Arial', '', 8);
-            $pdf->MultiCell(0, 4, $venta['cufe'], 0, 'L');
-
-            if (!empty($venta['qr_code'])) {
-                $qrImage = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $venta['qr_code']));
-                $tmpfile = tempnam(sys_get_temp_dir(), 'qr_');
-                file_put_contents($tmpfile, $qrImage);
-                $pdf->Image($tmpfile, 15, $pdf->GetY() + 5, 30);
-                unlink($tmpfile);
+    // Si es factura electrónica, obtener datos de Alegra
+    if ($venta['numeracion'] === 'electronica' && !empty($venta['alegra_id'])) {
+        require_once 'alegra_integration.php';
+        $alegra = new AlegraIntegration();
+        $facturaAlegra = $alegra->getInvoiceDetails($venta['alegra_id']);
+        
+        if ($facturaAlegra['success']) {
+            $datosElectronicos = $facturaAlegra['data']['electronic'];
+            
+            $pdf->Ln(5);
+            $pdf->SetFont('Arial', 'B', 9);
+            $pdf->Cell(0, 6, 'Información Factura Electrónica:', 0, 1, 'L');
+            $pdf->SetFont('Arial', '', 8);
+            
+            // Agregar CUFE
+            if (!empty($datosElectronicos['cufe'])) {
+                $pdf->Cell(0, 6, 'CUFE:', 0, 1, 'L');
+                $pdf->MultiCell(0, 4, $datosElectronicos['cufe'], 0, 'L');
             }
+            
+            // Agregar código QR si existe
+            if (!empty($datosElectronicos['qr_code'])) {
+                try {
+                    $qrImage = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $datosElectronicos['qr_code']));
+                    $tmpfile = tempnam(sys_get_temp_dir(), 'qr_');
+                    file_put_contents($tmpfile, $qrImage);
+                    $pdf->Image($tmpfile, 15, $pdf->GetY() + 5, 30);
+                    unlink($tmpfile);
+                } catch (Exception $e) {
+                    error_log('Error al generar código QR: ' . $e->getMessage());
+                }
+            }
+            
+            // Agregar información adicional
+            $pdf->Ln(35); // Espacio después del QR
+            $pdf->Cell(0, 6, 'Validación DIAN: ' . date('Y-m-d H:i:s'), 0, 1, 'L');
+            $pdf->Cell(0, 6, 'Forma de pago: ' . ($facturaAlegra['data']['payment_form'] === 'CASH' ? 'Contado' : 'Crédito'), 0, 1, 'L');
+            $pdf->Cell(0, 6, 'Medio de pago: ' . ($facturaAlegra['data']['payment_method'] === 'CASH' ? 'Efectivo' : 'Otro'), 0, 1, 'L');
         }
+    }
 
     // Espacios para firmas
     $pdf->Ln(20);
