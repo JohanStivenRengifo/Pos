@@ -254,7 +254,7 @@ class InventoryManager
         try {
             $this->pdo->beginTransaction();
 
-            // Primero verificar si hay productos con ventas asociadas
+            // Obtener productos con ventas asociadas
             $query = "SELECT DISTINCT i.id, i.nombre, i.codigo_barras 
                      FROM inventario i
                      INNER JOIN venta_detalles vd ON i.id = vd.producto_id 
@@ -262,10 +262,6 @@ class InventoryManager
             $stmt = $this->pdo->prepare($query);
             $stmt->execute([$this->user_id]);
             $productos_con_ventas = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-            if (!empty($productos_con_ventas)) {
-                throw new Exception("No se pueden eliminar productos con ventas asociadas", 1);
-            }
 
             // Obtener IDs de productos sin ventas
             $query = "SELECT i.id 
@@ -277,46 +273,46 @@ class InventoryManager
             $productos_eliminables = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
             if (empty($productos_eliminables)) {
-                throw new Exception("No hay productos que se puedan eliminar", 2);
+                throw new Exception("No hay productos que se puedan eliminar. Todos los productos tienen ventas asociadas.", 2);
             }
 
             // Eliminar imágenes físicas de productos sin ventas
-            $query = "SELECT ruta 
-                     FROM imagenes_producto 
-                     WHERE producto_id IN (" . implode(',', $productos_eliminables) . ")";
-            $stmt = $this->pdo->prepare($query);
-            $stmt->execute();
-            $imagenes = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            if (!empty($productos_eliminables)) {
+                $query = "SELECT ruta 
+                         FROM imagenes_producto 
+                         WHERE producto_id IN (" . implode(',', $productos_eliminables) . ")";
+                $stmt = $this->pdo->prepare($query);
+                $stmt->execute();
+                $imagenes = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
-            foreach ($imagenes as $ruta) {
-                $ruta_completa = __DIR__ . '/../../' . $ruta;
-                if (file_exists($ruta_completa)) {
-                    unlink($ruta_completa);
+                foreach ($imagenes as $ruta) {
+                    $ruta_completa = __DIR__ . '/../../' . $ruta;
+                    if (file_exists($ruta_completa)) {
+                        unlink($ruta_completa);
+                    }
                 }
+
+                // Eliminar productos sin ventas
+                $query = "DELETE FROM inventario 
+                         WHERE id IN (" . implode(',', $productos_eliminables) . ") 
+                         AND user_id = ?";
+                $stmt = $this->pdo->prepare($query);
+                $stmt->execute([$this->user_id]);
             }
 
-            // Eliminar productos sin ventas
-            $query = "DELETE FROM inventario 
-                     WHERE id IN (" . implode(',', $productos_eliminables) . ") 
-                     AND user_id = ?";
-            $stmt = $this->pdo->prepare($query);
-            $stmt->execute([$this->user_id]);
-
             $this->pdo->commit();
+            $mensaje = empty($productos_con_ventas) 
+                ? 'Inventario vaciado exitosamente' 
+                : 'Se eliminaron los productos sin ventas asociadas';
+
             return [
                 'success' => true,
-                'message' => 'Inventario vaciado exitosamente',
-                'productos_eliminados' => count($productos_eliminables)
+                'message' => $mensaje,
+                'productos_eliminados' => count($productos_eliminables),
+                'productos_con_ventas' => $productos_con_ventas
             ];
         } catch (Exception $e) {
             $this->pdo->rollBack();
-            if ($e->getCode() == 1) {
-                return [
-                    'success' => false,
-                    'message' => $e->getMessage(),
-                    'productos_con_ventas' => $productos_con_ventas
-                ];
-            }
             return [
                 'success' => false,
                 'message' => $e->getMessage()
@@ -1063,49 +1059,54 @@ try {
                 },
                 success: function(response) {
                     if (response.status) {
-                        Swal.fire({
-                            icon: 'success',
-                            title: '¡Inventario vaciado!',
-                            text: `Se eliminaron ${response.data.productos_eliminados} productos correctamente.`,
-                            showConfirmButton: false,
-                            timer: 1500,
-                            customClass: {
-                                popup: 'rounded-lg'
-                            }
-                        }).then(() => {
-                            location.reload();
-                        });
-                    } else {
-                        if (response.data && response.data.productos_con_ventas) {
+                        let mensaje = `Se eliminaron ${response.data.productos_eliminados} productos correctamente.`;
+                        
+                        if (response.data.productos_con_ventas && response.data.productos_con_ventas.length > 0) {
                             let productosHtml = response.data.productos_con_ventas.map(p => 
                                 `<li>${p.nombre} (${p.codigo_barras})</li>`
                             ).join('');
                             
                             Swal.fire({
-                                icon: 'error',
-                                title: 'No se puede vaciar el inventario',
+                                icon: 'info',
+                                title: 'Inventario parcialmente vaciado',
                                 html: `
-                                    <p>Los siguientes productos tienen ventas asociadas y no pueden ser eliminados:</p>
+                                    <p>${mensaje}</p>
+                                    <p class="mt-4">Los siguientes productos tienen ventas asociadas y se mantuvieron en el inventario:</p>
                                     <ul class="text-left mt-4 list-disc pl-5">
                                         ${productosHtml}
                                     </ul>
-                                    <p class="mt-4">Debes mantener el historial de ventas por motivos contables.</p>
+                                    <p class="mt-4">Estos productos se mantienen para preservar el historial de ventas.</p>
                                 `,
                                 customClass: {
                                     popup: 'rounded-lg',
                                     htmlContainer: 'text-sm'
                                 }
+                            }).then(() => {
+                                location.reload();
                             });
                         } else {
                             Swal.fire({
-                                icon: 'error',
-                                title: 'Error',
-                                text: response.message || 'Hubo un problema al vaciar el inventario',
+                                icon: 'success',
+                                title: '¡Inventario vaciado!',
+                                text: mensaje,
+                                showConfirmButton: false,
+                                timer: 1500,
                                 customClass: {
                                     popup: 'rounded-lg'
                                 }
+                            }).then(() => {
+                                location.reload();
                             });
                         }
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: response.message || 'Hubo un problema al vaciar el inventario',
+                            customClass: {
+                                popup: 'rounded-lg'
+                            }
+                        });
                     }
                 },
                 error: function() {
