@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once '../../config/db.php';
+require_once '../../vendor/autoload.php';
 
 // Verificar si el usuario está logueado
 if (!isset($_SESSION['user_id'])) {
@@ -12,91 +13,30 @@ if (!isset($_SESSION['user_id'])) {
 if (ob_get_level()) ob_end_clean();
 
 try {
-    // Verificar y cargar FPDF
-    if (!class_exists('FPDF')) {
-        require_once '../../vendor/fpdf/fpdf.php';
-    }
-
-    // Crear clase personalizada de PDF
-    class StockReportPDF extends FPDF {
-        protected $empresa;
-
-        function __construct($empresa) {
-            parent::__construct();
-            $this->empresa = $empresa;
-        }
-
-        function Header() {
-            $this->SetMargins(15, 15, 15);
-            
-            // Logo
-            if (!empty($this->empresa['logo']) && file_exists('../../' . $this->empresa['logo'])) {
-                $this->Image('../../' . $this->empresa['logo'], 15, 15, 30);
-                $this->Ln(35);
-            }
-            
-            // Título del reporte
-            $this->SetFont('Arial', 'B', 16);
-            $this->SetTextColor(0, 51, 102);
-            $this->Cell(0, 10, 'REPORTE DE STOCK BAJO Y AGOTADO', 0, 1, 'C');
-            
-            // Información de la empresa
-            $this->SetFont('Arial', '', 11);
-            $this->SetTextColor(0);
-            $this->Cell(0, 6, $this->empresa['nombre_empresa'], 0, 1, 'C');
-            $this->Cell(0, 6, 'NIT: ' . $this->empresa['nit'], 0, 1, 'C');
-            $this->Cell(0, 6, $this->empresa['direccion'], 0, 1, 'C');
-            $this->Cell(0, 6, 'Fecha: ' . date('d/m/Y H:i'), 0, 1, 'C');
-            $this->Ln(5);
-        }
-
-        function Footer() {
-            $this->SetY(-15);
-            $this->SetFont('Arial', 'I', 8);
-            $this->SetTextColor(128);
-            $this->Cell(0, 10, 'Pagina ' . $this->PageNo() . '/{nb}', 0, 0, 'C');
-        }
-
-        function ChapterTitle($title) {
-            $this->SetFont('Arial', 'B', 12);
-            $this->SetFillColor(0, 51, 102);
-            $this->SetTextColor(255);
-            $this->Cell(0, 8, $title, 1, 1, 'L', true);
-            $this->SetTextColor(0);
-            $this->Ln(4);
-        }
-
-        function TableHeader() {
-            $this->SetFont('Arial', 'B', 9);
-            $this->SetFillColor(240, 240, 240);
-            $this->SetTextColor(0, 51, 102);
-            
-            $this->Cell(30, 7, 'Codigo', 1, 0, 'C', true);
-            $this->Cell(55, 7, 'Producto', 1, 0, 'L', true);
-            $this->Cell(15, 7, 'Stock', 1, 0, 'C', true);
-            $this->Cell(20, 7, 'Minimo', 1, 0, 'C', true);
-            $this->Cell(20, 7, 'Faltante', 1, 0, 'C', true);
-            $this->Cell(25, 7, 'Costo U.', 1, 0, 'R', true);
-            $this->Cell(25, 7, 'Inversion', 1, 1, 'R', true);
-            $this->SetTextColor(0);
-        }
-    }
-
     // Obtener información de la empresa
-    $stmt = $pdo->prepare("SELECT * FROM empresas WHERE estado = 1 AND es_principal = 1 LIMIT 1");
+    $stmt = $pdo->prepare("
+        SELECT * FROM empresas 
+        WHERE estado = 1 AND es_principal = 1 
+        LIMIT 1
+    ");
     $stmt->execute();
     $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    // Consulta para obtener productos
+    // Consulta para obtener productos con stock bajo o agotado
     $stmt = $pdo->prepare("
         SELECT 
-            i.*, 
+            i.*,
             c.nombre as categoria_nombre,
             d.nombre as departamento_nombre,
             COALESCE(b.nombre, 'Sin asignar') as bodega,
             (i.stock * i.precio_costo) as valor_costo_total,
             (i.stock_minimo - i.stock) as cantidad_faltante,
-            ((i.stock_minimo - i.stock) * i.precio_costo) as costo_reposicion
+            ((i.stock_minimo - i.stock) * i.precio_costo) as costo_reposicion,
+            CASE 
+                WHEN i.stock = 0 THEN 'Agotado'
+                WHEN i.stock <= i.stock_minimo THEN 'Bajo'
+                ELSE 'Normal'
+            END as estado_stock
         FROM inventario i
         LEFT JOIN categorias c ON i.categoria_id = c.id
         LEFT JOIN departamentos d ON i.departamento_id = d.id
@@ -125,35 +65,74 @@ try {
         }
     }
 
+    // Verificar y cargar FPDF
+    if (!class_exists('FPDF')) {
+        require_once '../../vendor/fpdf/fpdf.php';
+    }
+
+    // Crear clase personalizada de PDF
+    class StockReportPDF extends FPDF {
+        function Header() {
+            global $empresa;
+            
+            // Logo
+            if (!empty($empresa['logo']) && file_exists('../../' . $empresa['logo'])) {
+                $this->Image('../../' . $empresa['logo'], 10, 10, 30);
+            }
+            
+            // Título del reporte
+            $this->SetFont('Arial', 'B', 16);
+            $this->Cell(0, 10, mb_convert_encoding('REPORTE DE STOCK BAJO Y AGOTADO', 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
+            
+            // Información de la empresa
+            $this->SetFont('Arial', '', 10);
+            $this->Cell(0, 6, mb_convert_encoding($empresa['nombre_empresa'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
+            $this->Cell(0, 6, mb_convert_encoding('NIT: ' . $empresa['nit'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
+            $this->Cell(0, 6, mb_convert_encoding($empresa['direccion'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
+            $this->Cell(0, 6, 'Fecha de generación: ' . date('d/m/Y H:i'), 0, 1, 'C');
+            
+            $this->Ln(5);
+        }
+
+        function Footer() {
+            $this->SetY(-15);
+            $this->SetFont('Arial', 'I', 8);
+            $this->Cell(0, 10, mb_convert_encoding('Página ' . $this->PageNo() . '/{nb}', 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
+        }
+
+        function ChapterTitle($title) {
+            $this->SetFont('Arial', 'B', 12);
+            $this->SetFillColor(230, 230, 230);
+            $this->Cell(0, 8, mb_convert_encoding($title, 'ISO-8859-1', 'UTF-8'), 0, 1, 'L', true);
+            $this->Ln(4);
+        }
+
+        function TableHeader() {
+            $this->SetFont('Arial', 'B', 9);
+            $this->SetFillColor(240, 240, 240);
+            $this->Cell(25, 7, 'Código', 1, 0, 'C', true);
+            $this->Cell(60, 7, 'Producto', 1, 0, 'L', true);
+            $this->Cell(20, 7, 'Stock', 1, 0, 'C', true);
+            $this->Cell(20, 7, mb_convert_encoding('Mínimo', 'ISO-8859-1', 'UTF-8'), 1, 0, 'C', true);
+            $this->Cell(25, 7, 'Faltante', 1, 0, 'C', true);
+            $this->Cell(25, 7, 'Costo U.', 1, 0, 'R', true);
+            $this->Cell(25, 7, mb_convert_encoding('Inversión', 'ISO-8859-1', 'UTF-8'), 1, 1, 'R', true);
+        }
+    }
+
     // Crear nuevo PDF
-    $pdf = new StockReportPDF($empresa);
+    $pdf = new StockReportPDF();
     $pdf->AliasNbPages();
     $pdf->AddPage();
 
     // Resumen ejecutivo
     $pdf->ChapterTitle('RESUMEN EJECUTIVO');
     $pdf->SetFont('Arial', '', 10);
-    $pdf->SetFillColor(248, 249, 250);
-    
-    // Tabla de resumen
-    $pdf->SetFont('Arial', 'B', 10);
-    $pdf->Cell(100, 8, 'Indicador', 1, 0, 'L', true);
-    $pdf->Cell(90, 8, 'Valor', 1, 1, 'C', true);
-    
-    $pdf->SetFont('Arial', '', 10);
-    $pdf->Cell(100, 7, 'Total productos con stock critico', 1, 0, 'L');
-    $pdf->Cell(90, 7, $total_productos, 1, 1, 'C');
-    
-    $pdf->Cell(100, 7, 'Productos agotados', 1, 0, 'L');
-    $pdf->Cell(90, 7, $productos_agotados, 1, 1, 'C');
-    
-    $pdf->Cell(100, 7, 'Productos bajo stock minimo', 1, 0, 'L');
-    $pdf->Cell(90, 7, $productos_bajo_stock, 1, 1, 'C');
-    
-    $pdf->Cell(100, 7, 'Inversion necesaria', 1, 0, 'L');
-    $pdf->Cell(90, 7, '$' . number_format($total_costo_reposicion, 2, ',', '.'), 1, 1, 'C');
-    
-    $pdf->Ln(10);
+    $pdf->Cell(0, 6, mb_convert_encoding('Total de productos con stock crítico: ' . $total_productos, 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->Cell(0, 6, mb_convert_encoding('Productos agotados: ' . $productos_agotados, 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->Cell(0, 6, mb_convert_encoding('Productos bajo stock mínimo: ' . $productos_bajo_stock, 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->Cell(0, 6, mb_convert_encoding('Inversión necesaria para reposición: $' . number_format($total_costo_reposicion, 2, ',', '.'), 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->Ln(5);
 
     // Productos Agotados
     if ($productos_agotados > 0) {
@@ -163,40 +142,54 @@ try {
         $pdf->SetFont('Arial', '', 8);
         foreach ($productos as $producto) {
             if ($producto['stock'] == 0) {
-                $pdf->Cell(30, 6, $producto['codigo_barras'], 1, 0, 'C');
-                $pdf->Cell(55, 6, $producto['nombre'], 1);
+                $pdf->Cell(25, 6, $producto['codigo_barras'], 1, 0, 'C');
+                $pdf->Cell(60, 6, mb_convert_encoding($producto['nombre'], 'ISO-8859-1', 'UTF-8'), 1);
                 $pdf->SetTextColor(255, 0, 0);
-                $pdf->Cell(15, 6, $producto['stock'], 1, 0, 'C');
+                $pdf->Cell(20, 6, $producto['stock'], 1, 0, 'C');
                 $pdf->SetTextColor(0);
                 $pdf->Cell(20, 6, $producto['stock_minimo'], 1, 0, 'C');
-                $pdf->Cell(20, 6, $producto['cantidad_faltante'], 1, 0, 'C');
+                $pdf->Cell(25, 6, $producto['cantidad_faltante'], 1, 0, 'C');
                 $pdf->Cell(25, 6, '$' . number_format($producto['precio_costo'], 2, ',', '.'), 1, 0, 'R');
                 $pdf->Cell(25, 6, '$' . number_format($producto['costo_reposicion'], 2, ',', '.'), 1, 1, 'R');
             }
         }
-        $pdf->Ln(10);
+        $pdf->Ln(5);
     }
 
     // Productos Bajo Stock
     if ($productos_bajo_stock > 0) {
-        $pdf->ChapterTitle('PRODUCTOS BAJO STOCK MINIMO');
+        $pdf->ChapterTitle('PRODUCTOS BAJO STOCK MÍNIMO');
         $pdf->TableHeader();
         
         $pdf->SetFont('Arial', '', 8);
         foreach ($productos as $producto) {
             if ($producto['stock'] > 0 && $producto['stock'] <= $producto['stock_minimo']) {
-                $pdf->Cell(30, 6, $producto['codigo_barras'], 1, 0, 'C');
-                $pdf->Cell(55, 6, $producto['nombre'], 1);
+                $pdf->Cell(25, 6, $producto['codigo_barras'], 1, 0, 'C');
+                $pdf->Cell(60, 6, mb_convert_encoding($producto['nombre'], 'ISO-8859-1', 'UTF-8'), 1);
                 $pdf->SetTextColor(255, 128, 0);
-                $pdf->Cell(15, 6, $producto['stock'], 1, 0, 'C');
+                $pdf->Cell(20, 6, $producto['stock'], 1, 0, 'C');
                 $pdf->SetTextColor(0);
                 $pdf->Cell(20, 6, $producto['stock_minimo'], 1, 0, 'C');
-                $pdf->Cell(20, 6, $producto['cantidad_faltante'], 1, 0, 'C');
+                $pdf->Cell(25, 6, $producto['cantidad_faltante'], 1, 0, 'C');
                 $pdf->Cell(25, 6, '$' . number_format($producto['precio_costo'], 2, ',', '.'), 1, 0, 'R');
                 $pdf->Cell(25, 6, '$' . number_format($producto['costo_reposicion'], 2, ',', '.'), 1, 1, 'R');
             }
         }
     }
+
+    // Recomendaciones
+    $pdf->AddPage();
+    $pdf->ChapterTitle('RECOMENDACIONES DE ACCIÓN');
+    $pdf->SetFont('Arial', '', 10);
+    $pdf->MultiCell(0, 6, mb_convert_encoding(
+        "1. Priorizar la reposición de productos agotados para evitar pérdidas de ventas.\n\n" .
+        "2. Revisar los productos con stock bajo y programar su reabastecimiento.\n\n" .
+        "3. Considerar ajustar los niveles de stock mínimo según la demanda actual.\n\n" .
+        "4. Contactar a los proveedores para coordinar las órdenes de compra necesarias.\n\n" .
+        "5. Evaluar la posibilidad de realizar compras por volumen para obtener mejores precios.",
+        'ISO-8859-1',
+        'UTF-8'
+    ));
 
     // Generar el PDF
     $pdf->Output('I', 'reporte_stock_bajo_' . date('Y-m-d') . '.pdf');
