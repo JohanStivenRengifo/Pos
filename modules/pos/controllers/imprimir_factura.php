@@ -196,16 +196,6 @@ try {
     $pdf->Cell(25, 6, 'TOTAL:', 0, 0, 'R');
     $pdf->Cell(25, 6, '$' . number_format($venta['total'] * 1.19, 0, ',', '.'), 0, 1, 'R');
 
-    // Información legal y resolución DIAN
-    $pdf->Ln(10);
-    $pdf->SetFont('Arial', 'B', 9);
-    $pdf->Cell(0, 6, 'Información Legal:', 0, 1, 'L');
-    $pdf->SetFont('Arial', '', 9);
-    $pdf->MultiCell(0, 5, mb_convert_encoding(
-        "• Esta factura se asimila en todos sus efectos a una letra de cambio según Art. 774 del Código de Comercio.\n" .
-        "• Resolución DIAN: " . ($venta['numero_inicial'] ?? '') . " al " . ($venta['numero_final'] ?? '') . "\n" .
-        "• Régimen Fiscal: " . ($venta['regimen_fiscal'] ?? 'No responsable de IVA'),
-        'ISO-8859-1', 'UTF-8'));
 
     // Si es factura electrónica, obtener datos de Alegra
     if ($venta['numeracion'] === 'electronica' && !empty($venta['alegra_id'])) {
