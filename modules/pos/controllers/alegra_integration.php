@@ -455,8 +455,6 @@ class AlegraIntegration
                 'numberTemplate' => [
                     'id' => $numberTemplate['data']['id']
                 ],
-                'paymentForm' => 'CASH',
-                'paymentMethod' => 'CASH',
                 'seller' => [
                     'id' => $seller['data']['id']
                 ],
@@ -465,11 +463,25 @@ class AlegraIntegration
                     'code' => 'COP'
                 ],
                 'operationType' => 'STANDARD',
-                'documentType' => 'NATIONAL'
+                'documentType' => 'NATIONAL',
+                'status' => 'open',
+                'paymentMethod' => 'CASH', // Método de pago en efectivo
+                'termsConditions' => 'Términos y condiciones de venta',
+                'observations' => 'Factura de venta electrónica',
+                'payments' => [
+                    [
+                        'date' => date('Y-m-d'),
+                        'amount' => array_reduce($items, function($carry, $item) {
+                            return $carry + ($item['price'] * $item['quantity']);
+                        }, 0),
+                        'paymentMethod' => 'cash',
+                        'account' => [
+                            'id' => $this->getDefaultAccount()
+                        ]
+                    ]
+                ]
             ];
 
-            // Removemos el campo payments ya que lo manejaremos después de crear la factura
-            
             error_log('Payload de factura: ' . json_encode($invoicePayload));
 
             // 4. Crear la factura con manejo mejorado de errores
