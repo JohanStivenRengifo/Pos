@@ -161,7 +161,7 @@ try {
                         <div class="flex items-center">
                             <div class="p-3 rounded-full bg-blue-100 mr-4">
                                 <i class="fas fa-file-alt text-blue-600 text-2xl"></i>
-                            </div>
+                    </div>
                             <div>
                                 <h2 class="text-2xl font-bold text-gray-800">
                                     <?php echo htmlspecialchars($tipo); ?> #<?php echo htmlspecialchars($documento['numero_factura'] ?? $documento['id']); ?>
@@ -226,8 +226,8 @@ try {
                                         <span class="px-2 py-1 bg-gray-100 rounded-full text-xs">
                                             <?php echo htmlspecialchars($documento['metodo_pago']); ?>
                                         </span>
-                                    </p>
-                                <?php endif; ?>
+                                </p>
+                            <?php endif; ?>
                             </div>
                         </div>
 
@@ -249,9 +249,9 @@ try {
                                         <span class="w-24 font-medium">Cuota:</span>
                                         <span class="text-lg font-semibold text-blue-600">
                                             $<?php echo number_format($documento['valor_cuota'], 2, ',', '.'); ?>
-                                        </span>
-                                    </p>
-                                </div>
+                                </span>
+                            </p>
+                        </div>
                             </div>
                         <?php endif; ?>
                     </div>

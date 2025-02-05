@@ -254,14 +254,38 @@ class InventoryManager
         try {
             $this->pdo->beginTransaction();
 
-            // Primero eliminar las imágenes físicas
-            $stmt = $this->pdo->prepare("
-                SELECT ip.ruta 
-                FROM imagenes_producto ip
-                JOIN inventario i ON ip.producto_id = i.id
-                WHERE i.user_id = ?
-            ");
+            // Primero verificar si hay productos con ventas asociadas
+            $query = "SELECT DISTINCT i.id, i.nombre, i.codigo_barras 
+                     FROM inventario i
+                     INNER JOIN venta_detalles vd ON i.id = vd.producto_id 
+                     WHERE i.user_id = ?";
+            $stmt = $this->pdo->prepare($query);
             $stmt->execute([$this->user_id]);
+            $productos_con_ventas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            if (!empty($productos_con_ventas)) {
+                throw new Exception("No se pueden eliminar productos con ventas asociadas", 1);
+            }
+
+            // Obtener IDs de productos sin ventas
+            $query = "SELECT i.id 
+                     FROM inventario i 
+                     LEFT JOIN venta_detalles vd ON i.id = vd.producto_id 
+                     WHERE i.user_id = ? AND vd.id IS NULL";
+            $stmt = $this->pdo->prepare($query);
+            $stmt->execute([$this->user_id]);
+            $productos_eliminables = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+            if (empty($productos_eliminables)) {
+                throw new Exception("No hay productos que se puedan eliminar", 2);
+            }
+
+            // Eliminar imágenes físicas de productos sin ventas
+            $query = "SELECT ruta 
+                     FROM imagenes_producto 
+                     WHERE producto_id IN (" . implode(',', $productos_eliminables) . ")";
+            $stmt = $this->pdo->prepare($query);
+            $stmt->execute();
             $imagenes = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
             foreach ($imagenes as $ruta) {
@@ -271,63 +295,32 @@ class InventoryManager
                 }
             }
 
-            // Obtener IDs de productos del usuario
-            $stmt = $this->pdo->prepare("SELECT id FROM inventario WHERE user_id = ?");
-            $stmt->execute([$this->user_id]);
-            $producto_ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
-
-            if (!empty($producto_ids)) {
-                // Convertir array de IDs a string para usar en IN clause
-                $ids_string = implode(',', $producto_ids);
-
-                // Verificar qué tablas existen antes de intentar eliminar
-                $tablas_relacionadas = [];
-                $posibles_tablas = [
-                    'cotizacion_detalles',
-                    'venta_detalles',
-                    'inventario_bodegas',
-                    'imagenes_producto',
-                    'producto_proveedores',
-                    'producto_categorias',
-                    'ajuste_inventario_detalles'
-                ];
-
-                foreach ($posibles_tablas as $tabla) {
-                    $stmt = $this->pdo->prepare("
-                        SELECT COUNT(*) 
-                        FROM information_schema.TABLES 
-                        WHERE TABLE_SCHEMA = DATABASE() 
-                        AND TABLE_NAME = ?
-                    ");
-                    $stmt->execute([$tabla]);
-                    if ($stmt->fetchColumn() > 0) {
-                        $tablas_relacionadas[] = $tabla;
-                    }
-                }
-
-                // Eliminar registros solo de las tablas que existen
-                foreach ($tablas_relacionadas as $tabla) {
-                    try {
-                        $stmt = $this->pdo->prepare("DELETE FROM {$tabla} WHERE producto_id IN ({$ids_string})");
-                        $stmt->execute();
-                    } catch (Exception $e) {
-                        error_log("Error al eliminar registros de la tabla {$tabla}: " . $e->getMessage());
-                        // Continuar con la siguiente tabla si hay error
-                        continue;
-                    }
-                }
-            }
-
-            // Finalmente eliminar los productos
-            $stmt = $this->pdo->prepare("DELETE FROM inventario WHERE user_id = ?");
+            // Eliminar productos sin ventas
+            $query = "DELETE FROM inventario 
+                     WHERE id IN (" . implode(',', $productos_eliminables) . ") 
+                     AND user_id = ?";
+            $stmt = $this->pdo->prepare($query);
             $stmt->execute([$this->user_id]);
 
             $this->pdo->commit();
-            return true;
+            return [
+                'success' => true,
+                'message' => 'Inventario vaciado exitosamente',
+                'productos_eliminados' => count($productos_eliminables)
+            ];
         } catch (Exception $e) {
             $this->pdo->rollBack();
-            error_log("Error al vaciar inventario: " . $e->getMessage());
-            throw new Exception('Error al vaciar el inventario: ' . $e->getMessage());
+            if ($e->getCode() == 1) {
+                return [
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                    'productos_con_ventas' => $productos_con_ventas
+                ];
+            }
+            return [
+                'success' => false,
+                'message' => $e->getMessage()
+            ];
         }
     }
 
@@ -398,8 +391,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
                 break;
 
             case 'vaciar_inventario':
-                $inventory_manager->vaciarInventario();
-                ApiResponse::send(true, 'Inventario vaciado exitosamente');
+                $result = $inventory_manager->vaciarInventario();
+                if ($result['success']) {
+                    ApiResponse::send(true, $result['message'], [
+                        'productos_eliminados' => $result['productos_eliminados']
+                    ]);
+                } else {
+                    ApiResponse::send(false, $result['message'], [
+                        'productos_con_ventas' => $result['productos_con_ventas'] ?? null
+                    ]);
+                }
                 break;
 
             default:
@@ -1065,7 +1066,7 @@ try {
                         Swal.fire({
                             icon: 'success',
                             title: '¡Inventario vaciado!',
-                            text: 'Todos los productos han sido eliminados correctamente.',
+                            text: `Se eliminaron ${response.data.productos_eliminados} productos correctamente.`,
                             showConfirmButton: false,
                             timer: 1500,
                             customClass: {
@@ -1075,14 +1076,36 @@ try {
                             location.reload();
                         });
                     } else {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Error',
-                            text: response.message || 'Hubo un problema al vaciar el inventario',
-                            customClass: {
-                                popup: 'rounded-lg'
-                            }
-                        });
+                        if (response.data && response.data.productos_con_ventas) {
+                            let productosHtml = response.data.productos_con_ventas.map(p => 
+                                `<li>${p.nombre} (${p.codigo_barras})</li>`
+                            ).join('');
+                            
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'No se puede vaciar el inventario',
+                                html: `
+                                    <p>Los siguientes productos tienen ventas asociadas y no pueden ser eliminados:</p>
+                                    <ul class="text-left mt-4 list-disc pl-5">
+                                        ${productosHtml}
+                                    </ul>
+                                    <p class="mt-4">Debes mantener el historial de ventas por motivos contables.</p>
+                                `,
+                                customClass: {
+                                    popup: 'rounded-lg',
+                                    htmlContainer: 'text-sm'
+                                }
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: response.message || 'Hubo un problema al vaciar el inventario',
+                                customClass: {
+                                    popup: 'rounded-lg'
+                                }
+                            });
+                        }
                     }
                 },
                 error: function() {
