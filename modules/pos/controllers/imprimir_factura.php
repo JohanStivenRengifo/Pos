@@ -119,11 +119,11 @@ try {
         function TableHeader() {
             $this->SetFont('Arial', 'B', 9);
             $this->SetFillColor(240, 240, 240);
-            $this->Cell(25, 7, 'Código', 1, 0, 'C', true);
-            $this->Cell(95, 7, 'Descripción', 1, 0, 'L', true);
-            $this->Cell(25, 7, 'Cantidad', 1, 0, 'C', true);
-            $this->Cell(35, 7, 'Valor Unit.', 1, 0, 'R', true);
-            $this->Cell(40, 7, 'Valor Total', 1, 1, 'R', true);
+            $this->Cell(15, 7, 'Cód.', 1, 0, 'C', true);
+            $this->Cell(105, 7, 'Descripción', 1, 0, 'L', true);
+            $this->Cell(20, 7, 'Cant.', 1, 0, 'C', true);
+            $this->Cell(30, 7, 'V. Unit.', 1, 0, 'R', true);
+            $this->Cell(30, 7, 'Total', 1, 1, 'R', true);
         }
 
         function SetDocumentMargins() {
@@ -150,7 +150,7 @@ try {
     $pdf->Cell(95, 6, mb_convert_encoding('Fecha: ' . date('d/m/Y', strtotime($venta['fecha'])), 'ISO-8859-1', 'UTF-8'), 0, 1);
     $pdf->Cell(0, 6, mb_convert_encoding('Dirección: ' . $venta['direccion'], 'ISO-8859-1', 'UTF-8'), 0, 1);
     $pdf->Cell(0, 6, mb_convert_encoding('Email: ' . $venta['email'], 'ISO-8859-1', 'UTF-8'), 0, 1);
-    $pdf->Ln(5);
+        $pdf->Ln(5);
 
     // Detalle de productos
     $pdf->InfoSection('DETALLE DE PRODUCTOS');
@@ -165,11 +165,11 @@ try {
         $total_item = $detalle['cantidad'] * $detalle['precio_unitario'];
         $subtotal += $total_item;
 
-        $pdf->Cell(25, 6, $detalle['codigo_barras'], 1, 0, 'C');
-        $pdf->Cell(95, 6, mb_convert_encoding($detalle['nombre'], 'ISO-8859-1', 'UTF-8'), 1, 0, 'L');
-        $pdf->Cell(25, 6, $detalle['cantidad'], 1, 0, 'C');
-        $pdf->Cell(35, 6, '$' . number_format($detalle['precio_unitario'], 0, ',', '.'), 1, 0, 'R');
-        $pdf->Cell(40, 6, '$' . number_format($total_item, 0, ',', '.'), 1, 1, 'R');
+        $pdf->Cell(15, 6, substr($detalle['codigo_barras'], -4), 1, 0, 'C');
+        $pdf->Cell(105, 6, mb_convert_encoding($detalle['nombre'], 'ISO-8859-1', 'UTF-8'), 1, 0, 'L');
+        $pdf->Cell(20, 6, $detalle['cantidad'], 1, 0, 'C');
+        $pdf->Cell(30, 6, '$' . number_format($detalle['precio_unitario'], 0, ',', '.'), 1, 0, 'R');
+        $pdf->Cell(30, 6, '$' . number_format($total_item, 0, ',', '.'), 1, 1, 'R');
     }
 
     // Totales
@@ -178,23 +178,23 @@ try {
     
     // Alinear totales a la derecha con ancho fijo
     $pdf->Cell(140, 6, '', 0, 0);
-    $pdf->Cell(40, 6, 'Subtotal:', 0, 0, 'R');
-    $pdf->Cell(40, 6, '$' . number_format($subtotal, 0, ',', '.'), 0, 1, 'R');
+    $pdf->Cell(30, 6, 'Subtotal:', 0, 0, 'R');
+    $pdf->Cell(30, 6, '$' . number_format($subtotal, 0, ',', '.'), 0, 1, 'R');
     
     if ($venta['descuento'] > 0) {
         $pdf->Cell(140, 6, '', 0, 0);
-        $pdf->Cell(40, 6, 'Descuento:', 0, 0, 'R');
-        $pdf->Cell(40, 6, '$' . number_format($venta['descuento'], 0, ',', '.'), 0, 1, 'R');
+        $pdf->Cell(30, 6, 'Descuento:', 0, 0, 'R');
+        $pdf->Cell(30, 6, '$' . number_format($venta['descuento'], 0, ',', '.'), 0, 1, 'R');
     }
     
     $pdf->Cell(140, 6, '', 0, 0);
-    $pdf->Cell(40, 6, 'IVA (19%):', 0, 0, 'R');
-    $pdf->Cell(40, 6, '$' . number_format($venta['total'] * 0.19, 0, ',', '.'), 0, 1, 'R');
+    $pdf->Cell(30, 6, 'IVA (19%):', 0, 0, 'R');
+    $pdf->Cell(30, 6, '$' . number_format($venta['total'] * 0.19, 0, ',', '.'), 0, 1, 'R');
     
     $pdf->SetFont('Arial', 'B', 10);
     $pdf->Cell(140, 6, '', 0, 0);
-    $pdf->Cell(40, 6, 'TOTAL:', 0, 0, 'R');
-    $pdf->Cell(40, 6, '$' . number_format($venta['total'] * 1.19, 0, ',', '.'), 0, 1, 'R');
+    $pdf->Cell(30, 6, 'TOTAL:', 0, 0, 'R');
+    $pdf->Cell(30, 6, '$' . number_format($venta['total'] * 1.19, 0, ',', '.'), 0, 1, 'R');
 
     // Información legal y resolución DIAN
     $pdf->Ln(10);
@@ -213,16 +213,16 @@ try {
         $pdf->SetFont('Arial', 'B', 9);
         $pdf->Cell(0, 6, 'CUFE:', 0, 1, 'L');
         $pdf->SetFont('Arial', '', 8);
-        $pdf->MultiCell(0, 4, $venta['cufe'], 0, 'L');
+            $pdf->MultiCell(0, 4, $venta['cufe'], 0, 'L');
 
-        if (!empty($venta['qr_code'])) {
-            $qrImage = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $venta['qr_code']));
-            $tmpfile = tempnam(sys_get_temp_dir(), 'qr_');
-            file_put_contents($tmpfile, $qrImage);
-            $pdf->Image($tmpfile, 15, $pdf->GetY() + 5, 30);
-            unlink($tmpfile);
+            if (!empty($venta['qr_code'])) {
+                $qrImage = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $venta['qr_code']));
+                $tmpfile = tempnam(sys_get_temp_dir(), 'qr_');
+                file_put_contents($tmpfile, $qrImage);
+                $pdf->Image($tmpfile, 15, $pdf->GetY() + 5, 30);
+                unlink($tmpfile);
+            }
         }
-    }
 
     // Espacios para firmas
     $pdf->Ln(20);
@@ -234,6 +234,11 @@ try {
     $pdf->Cell(95, 5, 'VENDEDOR', 0, 0, 'C');
     $pdf->Cell(20, 5, '', 0, 0);
     $pdf->Cell(95, 5, 'CLIENTE', 0, 1, 'C');
+    
+    $pdf->SetFont('Arial', '', 8);
+    $pdf->Cell(95, 5, mb_convert_encoding($venta['nombre_empresa'], 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
+    $pdf->Cell(20, 5, '', 0, 0);
+    $pdf->Cell(95, 5, mb_convert_encoding($nombre_cliente, 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
 
     // Pie de página personalizado
     $pdf->Ln(10);
