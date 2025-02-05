@@ -465,7 +465,8 @@ class AlegraIntegration
                 'operationType' => 'STANDARD',
                 'documentType' => 'NATIONAL',
                 'status' => 'open',
-                'paymentMethod' => 'CASH', // Método de pago en efectivo
+                'paymentMethod' => 'CASH',
+                'paymentForm' => 'CASH',
                 'termsConditions' => 'Términos y condiciones de venta',
                 'observations' => 'Factura de venta electrónica',
                 'payments' => [
