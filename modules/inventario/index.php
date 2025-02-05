@@ -254,29 +254,31 @@ class InventoryManager
         try {
             $this->pdo->beginTransaction();
 
-            // Obtener productos con ventas asociadas
+            // Obtener productos con referencias (ventas o cotizaciones)
             $query = "SELECT DISTINCT i.id, i.nombre, i.codigo_barras 
                      FROM inventario i
-                     INNER JOIN venta_detalles vd ON i.id = vd.producto_id 
-                     WHERE i.user_id = ?";
+                     LEFT JOIN venta_detalles vd ON i.id = vd.producto_id 
+                     LEFT JOIN cotizacion_detalles cd ON i.id = cd.producto_id
+                     WHERE i.user_id = ? AND (vd.id IS NOT NULL OR cd.id IS NOT NULL)";
             $stmt = $this->pdo->prepare($query);
             $stmt->execute([$this->user_id]);
-            $productos_con_ventas = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $productos_con_referencias = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            // Obtener IDs de productos sin ventas
+            // Obtener IDs de productos sin referencias
             $query = "SELECT i.id 
                      FROM inventario i 
                      LEFT JOIN venta_detalles vd ON i.id = vd.producto_id 
-                     WHERE i.user_id = ? AND vd.id IS NULL";
+                     LEFT JOIN cotizacion_detalles cd ON i.id = cd.producto_id
+                     WHERE i.user_id = ? AND vd.id IS NULL AND cd.id IS NULL";
             $stmt = $this->pdo->prepare($query);
             $stmt->execute([$this->user_id]);
             $productos_eliminables = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
             if (empty($productos_eliminables)) {
-                throw new Exception("No hay productos que se puedan eliminar. Todos los productos tienen ventas asociadas.", 2);
+                throw new Exception("No hay productos que se puedan eliminar. Todos los productos tienen ventas o cotizaciones asociadas.", 2);
             }
 
-            // Eliminar imágenes físicas de productos sin ventas
+            // Eliminar imágenes físicas de productos sin referencias
             if (!empty($productos_eliminables)) {
                 $query = "SELECT ruta 
                          FROM imagenes_producto 
@@ -292,7 +294,7 @@ class InventoryManager
                     }
                 }
 
-                // Eliminar productos sin ventas
+                // Eliminar productos sin referencias
                 $query = "DELETE FROM inventario 
                          WHERE id IN (" . implode(',', $productos_eliminables) . ") 
                          AND user_id = ?";
@@ -301,15 +303,15 @@ class InventoryManager
             }
 
             $this->pdo->commit();
-            $mensaje = empty($productos_con_ventas) 
+            $mensaje = empty($productos_con_referencias) 
                 ? 'Inventario vaciado exitosamente' 
-                : 'Se eliminaron los productos sin ventas asociadas';
+                : 'Se eliminaron los productos sin ventas ni cotizaciones asociadas';
 
             return [
                 'success' => true,
                 'message' => $mensaje,
                 'productos_eliminados' => count($productos_eliminables),
-                'productos_con_ventas' => $productos_con_ventas
+                'productos_con_referencias' => $productos_con_referencias
             ];
         } catch (Exception $e) {
             $this->pdo->rollBack();
@@ -394,7 +396,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_SERVER['HTTP_X_REQUESTED_WI
                     ]);
                 } else {
                     ApiResponse::send(false, $result['message'], [
-                        'productos_con_ventas' => $result['productos_con_ventas'] ?? null
+                        'productos_con_referencias' => $result['productos_con_referencias'] ?? null
                     ]);
                 }
                 break;
@@ -1061,8 +1063,8 @@ try {
                     if (response.status) {
                         let mensaje = `Se eliminaron ${response.data.productos_eliminados} productos correctamente.`;
                         
-                        if (response.data.productos_con_ventas && response.data.productos_con_ventas.length > 0) {
-                            let productosHtml = response.data.productos_con_ventas.map(p => 
+                        if (response.data.productos_con_referencias && response.data.productos_con_referencias.length > 0) {
+                            let productosHtml = response.data.productos_con_referencias.map(p => 
                                 `<li>${p.nombre} (${p.codigo_barras})</li>`
                             ).join('');
                             
@@ -1071,11 +1073,11 @@ try {
                                 title: 'Inventario parcialmente vaciado',
                                 html: `
                                     <p>${mensaje}</p>
-                                    <p class="mt-4">Los siguientes productos tienen ventas asociadas y se mantuvieron en el inventario:</p>
+                                    <p class="mt-4">Los siguientes productos tienen ventas o cotizaciones asociadas y se mantuvieron en el inventario:</p>
                                     <ul class="text-left mt-4 list-disc pl-5">
                                         ${productosHtml}
                                     </ul>
-                                    <p class="mt-4">Estos productos se mantienen para preservar el historial de ventas.</p>
+                                    <p class="mt-4">Estos productos se mantienen para preservar el historial de ventas y cotizaciones.</p>
                                 `,
                                 customClass: {
                                     popup: 'rounded-lg',
