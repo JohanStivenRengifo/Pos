@@ -455,8 +455,17 @@ class AlegraIntegration
                 'numberTemplate' => [
                     'id' => $numberTemplate['data']['id']
                 ],
-                'paymentForm' => 'CASH',
-                'paymentMethod' => 'CASH',
+                'paymentForm' => [
+                    'paymentMethod' => [
+                        'code' => 1,  // 1 = Instrumento no definido
+                        'name' => 'Efectivo'
+                    ],
+                    'paymentMeans' => [
+                        'code' => 10,  // 10 = Efectivo
+                        'name' => 'Efectivo'
+                    ],
+                    'dueDate' => date('Y-m-d')
+                ],
                 'seller' => [
                     'id' => $seller['data']['id']
                 ],
