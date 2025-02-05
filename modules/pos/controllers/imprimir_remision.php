@@ -77,10 +77,10 @@ try {
             $this->SetFont('Arial', 'B', 9);
             $this->SetFillColor(240, 240, 240);
             $this->Cell(15, 7, 'Cód.', 1, 0, 'C', true);
-            $this->Cell(105, 7, 'Descripción', 1, 0, 'L', true);
+            $this->Cell(85, 7, 'Descripción', 1, 0, 'L', true);
             $this->Cell(20, 7, 'Cant.', 1, 0, 'C', true);
-            $this->Cell(30, 7, 'V. Unit.', 1, 0, 'R', true);
-            $this->Cell(30, 7, 'Total', 1, 1, 'R', true);
+            $this->Cell(25, 7, 'V.Unit', 1, 0, 'R', true);
+            $this->Cell(25, 7, 'Total', 1, 1, 'R', true);
         }
 
         // Agregar función para márgenes
@@ -124,10 +124,10 @@ try {
         $subtotal += $total_item;
 
         $pdf->Cell(15, 6, substr($detalle['codigo_barras'], -4), 1, 0, 'C');
-        $pdf->Cell(105, 6, mb_convert_encoding($detalle['nombre'], 'ISO-8859-1', 'UTF-8'), 1, 0, 'L');
+        $pdf->Cell(85, 6, utf8_decode($detalle['nombre']), 1, 0, 'L');
         $pdf->Cell(20, 6, $detalle['cantidad'], 1, 0, 'C');
-        $pdf->Cell(30, 6, '$' . number_format($precio_final, 0, ',', '.'), 1, 0, 'R');
-        $pdf->Cell(30, 6, '$' . number_format($total_item, 0, ',', '.'), 1, 1, 'R');
+        $pdf->Cell(25, 6, '$' . number_format($precio_final, 0, ',', '.'), 1, 0, 'R');
+        $pdf->Cell(25, 6, '$' . number_format($total_item, 0, ',', '.'), 1, 1, 'R');
     }
 
     // Totales
@@ -135,24 +135,24 @@ try {
     $pdf->SetFont('Arial', '', 10);
     
     // Alinear totales a la derecha con ancho fijo
-    $pdf->Cell(140, 6, '', 0, 0);
-    $pdf->Cell(30, 6, 'Subtotal:', 0, 0, 'R');
-    $pdf->Cell(30, 6, '$' . number_format($subtotal, 0, ',', '.'), 0, 1, 'R');
+    $pdf->Cell(120, 6, '', 0, 0);
+    $pdf->Cell(25, 6, 'Subtotal:', 0, 0, 'R');
+    $pdf->Cell(25, 6, '$' . number_format($subtotal, 0, ',', '.'), 0, 1, 'R');
     
     if ($venta['descuento'] > 0) {
-        $pdf->Cell(140, 6, '', 0, 0);
-        $pdf->Cell(30, 6, 'Descuento:', 0, 0, 'R');
-        $pdf->Cell(30, 6, '$' . number_format($venta['descuento'], 0, ',', '.'), 0, 1, 'R');
+        $pdf->Cell(120, 6, '', 0, 0);
+        $pdf->Cell(25, 6, 'Descuento:', 0, 0, 'R');
+        $pdf->Cell(25, 6, '$' . number_format($venta['descuento'], 0, ',', '.'), 0, 1, 'R');
     }
     
-    $pdf->Cell(140, 6, '', 0, 0);
-    $pdf->Cell(30, 6, 'IVA (19%):', 0, 0, 'R');
-    $pdf->Cell(30, 6, '$' . number_format($venta['total'] * 0.19, 0, ',', '.'), 0, 1, 'R');
+    $pdf->Cell(120, 6, '', 0, 0);
+    $pdf->Cell(25, 6, 'IVA (19%):', 0, 0, 'R');
+    $pdf->Cell(25, 6, '$' . number_format($venta['total'] * 0.19, 0, ',', '.'), 0, 1, 'R');
     
     $pdf->SetFont('Arial', 'B', 10);
-    $pdf->Cell(140, 6, '', 0, 0);
-    $pdf->Cell(30, 6, 'TOTAL:', 0, 0, 'R');
-    $pdf->Cell(30, 6, '$' . number_format($venta['total'] * 1.19, 0, ',', '.'), 0, 1, 'R');
+    $pdf->Cell(120, 6, '', 0, 0);
+    $pdf->Cell(25, 6, 'TOTAL:', 0, 0, 'R');
+    $pdf->Cell(25, 6, '$' . number_format($venta['total'] * 1.19, 0, ',', '.'), 0, 1, 'R');
 
     // Observaciones
     $pdf->Ln(10);
