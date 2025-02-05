@@ -1,5 +1,6 @@
 <?php
 session_start();
+define('DEBUG', false); // Set to true for debugging
 require_once '../../config/db.php';
 require_once '../../vendor/autoload.php';
 
@@ -176,20 +177,6 @@ try {
             }
         }
     }
-
-    // Recomendaciones
-    $pdf->AddPage();
-    $pdf->ChapterTitle('RECOMENDACIONES DE ACCIÓN');
-    $pdf->SetFont('Arial', '', 10);
-    $pdf->MultiCell(0, 6, mb_convert_encoding(
-        "1. Priorizar la reposición de productos agotados para evitar pérdidas de ventas.\n\n" .
-        "2. Revisar los productos con stock bajo y programar su reabastecimiento.\n\n" .
-        "3. Considerar ajustar los niveles de stock mínimo según la demanda actual.\n\n" .
-        "4. Contactar a los proveedores para coordinar las órdenes de compra necesarias.\n\n" .
-        "5. Evaluar la posibilidad de realizar compras por volumen para obtener mejores precios.",
-        'ISO-8859-1',
-        'UTF-8'
-    ));
 
     // Generar el PDF
     $pdf->Output('I', 'reporte_stock_bajo_' . date('Y-m-d') . '.pdf');
