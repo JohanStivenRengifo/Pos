@@ -304,55 +304,52 @@ class AlegraIntegration
     public function getInvoiceDetails($invoiceId)
     {
         try {
-            // Intentar hasta 5 veces con un intervalo de 2 segundos
-            $maxIntentos = 5;
-            $intento = 0;
+            // Obtener los detalles completos de la factura
+            $response = $this->client->request('GET', "invoices/{$invoiceId}");
+            $result = json_decode($response->getBody()->getContents(), true);
 
-            while ($intento < $maxIntentos) {
-                // Obtener los detalles completos de la factura
-                $response = $this->client->request('GET', "invoices/{$invoiceId}");
-                $result = json_decode($response->getBody()->getContents(), true);
+            error_log('Respuesta de factura Alegra: ' . print_r($result, true));
 
-                error_log('Respuesta de factura Alegra (Intento ' . ($intento + 1) . '): ' . print_r($result, true));
-
-                // Verificar si la factura existe y está lista
-                if (!isset($result['id'])) {
-                    throw new Exception('No se pudo obtener la factura');
-                }
-
-                // Verificar si los datos electrónicos están disponibles
-                if (isset($result['electronic']) && 
-                    isset($result['electronic']['cufe']) && 
-                    isset($result['electronic']['qrCode'])) {
-                    
-                    return [
-                        'success' => true,
-                        'data' => [
-                            'status' => $result['status'],
-                            'total' => $result['total'],
-                            'date' => $result['date'],
-                            'number' => $result['numberTemplate']['number'],
-                            'prefix' => $result['numberTemplate']['prefix'] ?? '',
-                            'payment_method' => $result['paymentMethod'] ?? 'CASH',
-                            'payment_form' => $result['paymentForm'] ?? 'CASH',
-                            'electronic' => [
-                                'cufe' => $result['electronic']['cufe'],
-                                'qr_code' => $result['electronic']['qrCode'],
-                                'xml_url' => $result['electronic']['xmlURL'] ?? null,
-                                'validation_date' => $result['electronic']['validationDate'] ?? date('Y-m-d H:i:s')
-                            ]
-                        ]
-                    ];
-                }
-
-                // Si no están disponibles los datos electrónicos, esperar y reintentar
-                $intento++;
-                if ($intento < $maxIntentos) {
-                    sleep(2);
-                }
+            // Verificar si la factura existe y está lista
+            if (!isset($result['id'])) {
+                throw new Exception('No se pudo obtener la factura');
             }
 
-            throw new Exception('No se pudieron obtener los datos electrónicos después de ' . $maxIntentos . ' intentos');
+            // Extraer información relevante
+            $invoiceData = [
+                'status' => $result['status'],
+                'total' => $result['total'],
+                'date' => $result['date'],
+                'number' => $result['numberTemplate']['number'],
+                'prefix' => $result['numberTemplate']['prefix'] ?? '',
+                'payment_method' => $result['paymentMethod'],
+                'payment_form' => $result['paymentForm'],
+                'items' => $result['items'],
+                'client' => $result['client'],
+                'electronic' => [
+                    'cufe' => $result['electronic']['cufe'] ?? null,
+                    'qr_code' => $result['electronic']['qrCode'] ?? null,
+                    'xml_url' => $result['electronic']['xmlURL'] ?? null,
+                    'pdf_url' => null
+                ]
+            ];
+
+            // Intentar obtener el PDF
+            try {
+                $pdfResponse = $this->client->request('GET', "invoices/{$invoiceId}/pdf");
+                $pdfResult = json_decode($pdfResponse->getBody()->getContents(), true);
+                
+                if (!empty($pdfResult['downloadLink'])) {
+                    $invoiceData['electronic']['pdf_url'] = $pdfResult['downloadLink'];
+                }
+            } catch (\Exception $e) {
+                error_log('Error obteniendo PDF: ' . $e->getMessage());
+            }
+
+            return [
+                'success' => true,
+                'data' => $invoiceData
+            ];
         } catch (\Exception $e) {
             error_log('Error en getInvoiceDetails: ' . $e->getMessage());
             return [
