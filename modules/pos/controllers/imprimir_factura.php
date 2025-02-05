@@ -201,40 +201,76 @@ try {
     if ($venta['numeracion'] === 'electronica' && !empty($venta['alegra_id'])) {
         require_once 'alegra_integration.php';
         $alegra = new AlegraIntegration();
-        $facturaAlegra = $alegra->getInvoiceDetails($venta['alegra_id']);
+        
+        // Intentar obtener los datos varias veces si es necesario
+        $maxIntentos = 3;
+        $intento = 0;
+        $facturaAlegra = null;
+        
+        while ($intento < $maxIntentos) {
+            $facturaAlegra = $alegra->getInvoiceDetails($venta['alegra_id']);
+            if ($facturaAlegra['success'] && 
+                isset($facturaAlegra['data']['electronic']['cufe']) && 
+                isset($facturaAlegra['data']['electronic']['qr_code'])) {
+                break;
+            }
+            $intento++;
+            if ($intento < $maxIntentos) sleep(2);
+        }
         
         if ($facturaAlegra['success']) {
             $datosElectronicos = $facturaAlegra['data']['electronic'];
             
-            $pdf->Ln(5);
-            $pdf->SetFont('Arial', 'B', 9);
-            $pdf->Cell(0, 6, 'Información Factura Electrónica:', 0, 1, 'L');
-            $pdf->SetFont('Arial', '', 8);
+            // Información de Factura Electrónica
+            $pdf->Ln(10);
+            $pdf->SetFont('Arial', 'B', 10);
+            $pdf->Cell(0, 6, mb_convert_encoding('FACTURA ELECTRÓNICA DE VENTA', 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
             
             // Agregar CUFE
             if (!empty($datosElectronicos['cufe'])) {
-                $pdf->Cell(0, 6, 'CUFE:', 0, 1, 'L');
-                $pdf->MultiCell(0, 4, $datosElectronicos['cufe'], 0, 'L');
+                $pdf->SetFont('Arial', 'B', 8);
+                $pdf->Cell(30, 6, 'CUFE:', 0, 0);
+                $pdf->SetFont('Arial', '', 8);
+                $pdf->MultiCell(0, 6, mb_convert_encoding($datosElectronicos['cufe'], 'ISO-8859-1', 'UTF-8'), 0, 'L');
             }
             
-            // Agregar código QR si existe
+            // Agregar código QR
             if (!empty($datosElectronicos['qr_code'])) {
                 try {
-                    $qrImage = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $datosElectronicos['qr_code']));
+                    // Decodificar y limpiar la cadena base64
+                    $qrData = $datosElectronicos['qr_code'];
+                    if (strpos($qrData, 'data:image/') !== false) {
+                        $qrData = preg_replace('#^data:image/\w+;base64,#i', '', $qrData);
+                    }
+                    
+                    $qrImage = base64_decode($qrData);
+                    if ($qrImage === false) {
+                        throw new Exception('Error decodificando QR');
+                    }
+                    
+                    // Guardar temporalmente y mostrar
                     $tmpfile = tempnam(sys_get_temp_dir(), 'qr_');
-                    file_put_contents($tmpfile, $qrImage);
-                    $pdf->Image($tmpfile, 15, $pdf->GetY() + 5, 30);
+                    if (file_put_contents($tmpfile, $qrImage) === false) {
+                        throw new Exception('Error guardando QR');
+                    }
+                    
+                    // Posicionar el QR
+                    $currentY = $pdf->GetY();
+                    $pdf->Image($tmpfile, 15, $currentY + 5, 30);
                     unlink($tmpfile);
+                    
+                    // Espacio para el QR
+                    $pdf->Ln(40);
                 } catch (Exception $e) {
-                    error_log('Error al generar código QR: ' . $e->getMessage());
+                    error_log('Error procesando QR: ' . $e->getMessage());
                 }
             }
             
-            // Agregar información adicional
-            $pdf->Ln(35); // Espacio después del QR
-            $pdf->Cell(0, 6, 'Validación DIAN: ' . date('Y-m-d H:i:s'), 0, 1, 'L');
-            $pdf->Cell(0, 6, 'Forma de pago: ' . ($facturaAlegra['data']['payment_form'] === 'CASH' ? 'Contado' : 'Crédito'), 0, 1, 'L');
-            $pdf->Cell(0, 6, 'Medio de pago: ' . ($facturaAlegra['data']['payment_method'] === 'CASH' ? 'Efectivo' : 'Otro'), 0, 1, 'L');
+            // Información adicional
+            $pdf->SetFont('Arial', '', 8);
+            $pdf->Cell(0, 6, mb_convert_encoding('Validación DIAN: ' . $datosElectronicos['validation_date'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'L');
+            $pdf->Cell(0, 6, mb_convert_encoding('Forma de pago: ' . ($facturaAlegra['data']['payment_form'] === 'CASH' ? 'Contado' : 'Crédito'), 'ISO-8859-1', 'UTF-8'), 0, 1, 'L');
+            $pdf->Cell(0, 6, mb_convert_encoding('Medio de pago: ' . ($facturaAlegra['data']['payment_method'] === 'CASH' ? 'Efectivo' : 'Otro'), 'ISO-8859-1', 'UTF-8'), 0, 1, 'L');
         }
     }
 
