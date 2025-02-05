@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once '../../config/db.php';
+require_once '../../vendor/autoload.php';
 
 if (!isset($_SESSION['user_id'])) {
     header('Location: ../../login.php');
@@ -64,187 +65,120 @@ try {
     $pagos_realizados = array_filter($pagos, fn($p) => $p['estado'] === 'Pagado');
     $total_pagado = array_sum(array_column($pagos_realizados, 'monto'));
 
+    // Crear clase personalizada de PDF
+    class CreditoPDF extends FPDF {
+        function Header() {
+            global $empresa, $credito;
+            
+            // Logo
+            if (!empty($empresa['logo']) && file_exists('../../' . $empresa['logo'])) {
+                $this->Image('../../' . $empresa['logo'], 10, 10, 30);
+            }
+            
+            // Título del documento
+            $this->SetFont('Arial', 'B', 16);
+            $this->Cell(0, 10, mb_convert_encoding('ESTADO DE CUENTA', 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
+            $this->SetFont('Arial', '', 12);
+            $this->Cell(0, 6, mb_convert_encoding('Factura #' . $credito['numero_factura'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
+            
+            // Información de la empresa
+            $this->SetFont('Arial', '', 10);
+            $this->Cell(0, 6, mb_convert_encoding($empresa['nombre_empresa'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
+            $this->Cell(0, 6, mb_convert_encoding('NIT: ' . $empresa['nit'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
+            $this->Cell(0, 6, mb_convert_encoding($empresa['direccion'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
+            
+            $this->Ln(5);
+        }
+
+        function Footer() {
+            $this->SetY(-15);
+            $this->SetFont('Arial', 'I', 8);
+            $this->Cell(0, 10, mb_convert_encoding('Página ' . $this->PageNo() . '/{nb}', 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
+        }
+
+        function InfoSection($title) {
+            $this->SetFont('Arial', 'B', 12);
+            $this->SetFillColor(230, 230, 230);
+            $this->Cell(0, 8, mb_convert_encoding($title, 'ISO-8859-1', 'UTF-8'), 0, 1, 'L', true);
+            $this->Ln(4);
+        }
+
+        function TableHeader() {
+            $this->SetFont('Arial', 'B', 9);
+            $this->SetFillColor(240, 240, 240);
+            $this->Cell(15, 7, 'Cuota', 1, 0, 'C', true);
+            $this->Cell(25, 7, 'Vencimiento', 1, 0, 'C', true);
+            $this->Cell(30, 7, 'Capital', 1, 0, 'R', true);
+            $this->Cell(30, 7, 'Interés', 1, 0, 'R', true);
+            $this->Cell(30, 7, 'Total', 1, 0, 'R', true);
+            $this->Cell(25, 7, 'Estado', 1, 0, 'C', true);
+            $this->Cell(25, 7, 'Fecha Pago', 1, 1, 'C', true);
+        }
+    }
+
+    // Crear nuevo PDF
+    $pdf = new CreditoPDF();
+    $pdf->AliasNbPages();
+    $pdf->AddPage();
+
+    // Información del Cliente
+    $pdf->InfoSection('INFORMACIÓN DEL CLIENTE');
+    $pdf->SetFont('Arial', '', 10);
+    $pdf->Cell(0, 6, mb_convert_encoding('Cliente: ' . $credito['cliente_nombre'], 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->Cell(0, 6, mb_convert_encoding($credito['cliente_tipo_identificacion'] . ': ' . $credito['cliente_identificacion'], 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->Cell(0, 6, mb_convert_encoding('Dirección: ' . $credito['cliente_direccion'], 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->Cell(0, 6, mb_convert_encoding('Teléfono: ' . $credito['cliente_telefono'], 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->Ln(5);
+
+    // Resumen del Crédito
+    $pdf->InfoSection('RESUMEN DEL CRÉDITO');
+    $pdf->SetFont('Arial', '', 10);
+    $pdf->Cell(100, 6, 'Monto Total: $' . number_format($credito['monto_total'], 2, ',', '.'), 0, 0);
+    $pdf->Cell(90, 6, 'Total Pagado: $' . number_format($total_pagado, 2, ',', '.'), 0, 1);
+    $pdf->Cell(100, 6, 'Interés: ' . number_format($credito['interes'], 2) . '%', 0, 0);
+    $pdf->Cell(90, 6, 'Saldo Pendiente: $' . number_format($credito['saldo_pendiente'], 2, ',', '.'), 0, 1);
+    $pdf->Cell(100, 6, 'Plazo: ' . $credito['plazo'] . ' días', 0, 0);
+    $pdf->Cell(90, 6, 'Valor Cuota: $' . number_format($credito['valor_cuota'], 2, ',', '.'), 0, 1);
+    $pdf->Ln(5);
+
+    // Plan de Pagos
+    $pdf->InfoSection('PLAN DE PAGOS');
+    $pdf->TableHeader();
+    $pdf->SetFont('Arial', '', 9);
+    
+    foreach ($pagos as $pago) {
+        $pdf->Cell(15, 6, $pago['numero_cuota'] . '/' . $credito['cuotas'], 1, 0, 'C');
+        $pdf->Cell(25, 6, date('d/m/Y', strtotime($pago['fecha_vencimiento_cuota'])), 1, 0, 'C');
+        $pdf->Cell(30, 6, '$' . number_format($pago['capital_pagado'], 2, ',', '.'), 1, 0, 'R');
+        $pdf->Cell(30, 6, '$' . number_format($pago['interes_pagado'], 2, ',', '.'), 1, 0, 'R');
+        $pdf->Cell(30, 6, '$' . number_format($pago['monto'], 2, ',', '.'), 1, 0, 'R');
+        $pdf->Cell(25, 6, $pago['estado'], 1, 0, 'C');
+        $pdf->Cell(25, 6, $pago['fecha_pago'] ? date('d/m/Y', strtotime($pago['fecha_pago'])) : '-', 1, 1, 'C');
+    }
+
+    // Espacios para firmas
+    $pdf->Ln(20);
+    $pdf->Cell(95, 0, '', 'T', 0, 'C');
+    $pdf->Cell(10, 0, '', 0, 0);
+    $pdf->Cell(95, 0, '', 'T', 1, 'C');
+    
+    $pdf->SetFont('Arial', '', 10);
+    $pdf->Cell(95, 5, 'Firma del Cliente', 0, 0, 'C');
+    $pdf->Cell(10, 5, '', 0, 0);
+    $pdf->Cell(95, 5, 'Por la Empresa', 0, 1, 'C');
+    
+    $pdf->SetFont('Arial', '', 8);
+    $pdf->Cell(95, 5, mb_convert_encoding($credito['cliente_nombre'], 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
+    $pdf->Cell(10, 5, '', 0, 0);
+    $pdf->Cell(95, 5, mb_convert_encoding($empresa['nombre_empresa'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
+
+    // Generar el PDF
+    $pdf->Output('I', 'estado_cuenta_' . $credito['numero_factura'] . '_' . date('Y-m-d') . '.pdf');
+    exit;
+
 } catch (Exception $e) {
-    $error_message = $e->getMessage();
-}
-?>
-
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Imprimir Crédito #<?= htmlspecialchars($credito['numero_factura'] ?? '') ?> | VendEasy</title>
-    <link rel="icon" href="../../favicon/favicon.ico" type="image/x-icon">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @media print {
-            body {
-                print-color-adjust: exact;
-                -webkit-print-color-adjust: exact;
-            }
-            .no-print {
-                display: none;
-            }
-            @page {
-                margin: 1cm;
-                size: letter;
-            }
-        }
-        .page-break {
-            page-break-after: always;
-        }
-    </style>
-</head>
-<body class="bg-white p-8 max-w-4xl mx-auto">
-    <?php if (!empty($error_message)): ?>
-        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
-            <strong class="font-bold">Error!</strong>
-            <span class="block sm:inline"><?= htmlspecialchars($error_message) ?></span>
-        </div>
-    <?php else: ?>
-        <!-- Botón de Imprimir -->
-        <div class="mb-6 no-print text-right">
-            <button onclick="window.print()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-                <i class="fas fa-print mr-2"></i>Imprimir
-            </button>
-        </div>
-
-        <!-- Encabezado -->
-        <div class="text-center mb-8">
-            <h1 class="text-3xl font-bold text-gray-800">ESTADO DE CUENTA</h1>
-            <p class="text-xl text-gray-600 mt-2">Factura #<?= htmlspecialchars($credito['numero_factura']) ?></p>
-        </div>
-
-        <!-- Información de la Empresa y Cliente -->
-        <div class="grid grid-cols-2 gap-8 mb-8">
-            <div class="border-r pr-8">
-                <h2 class="text-base font-bold text-gray-800 mb-3 border-b pb-2">Información de la Empresa</h2>
-                <p class="font-semibold text-gray-800 text-sm mb-2"><?= htmlspecialchars($empresa['nombre_empresa']) ?></p>
-                <p class="text-xs text-gray-600 mb-1"><span class="font-medium">NIT:</span> <?= htmlspecialchars($empresa['nit']) ?></p>
-                <p class="text-xs text-gray-600 mb-1"><span class="font-medium">Régimen:</span> <?= htmlspecialchars($empresa['regimen_fiscal']) ?></p>
-                <p class="text-xs text-gray-600 mb-1"><span class="font-medium">Dirección:</span> <?= htmlspecialchars($empresa['direccion']) ?></p>
-                <p class="text-xs text-gray-600 mb-1"><span class="font-medium">Teléfono:</span> <?= htmlspecialchars($empresa['telefono']) ?></p>
-                <p class="text-xs text-gray-600"><span class="font-medium">Email:</span> <?= htmlspecialchars($empresa['correo_contacto']) ?></p>
-            </div>
-            <div class="pl-8">
-                <h2 class="text-base font-bold text-gray-800 mb-3 border-b pb-2">Información del Cliente</h2>
-                <p class="font-semibold text-gray-800 text-sm mb-2"><?= htmlspecialchars($credito['cliente_nombre']) ?></p>
-                <p class="text-xs text-gray-600 mb-1"><span class="font-medium"><?= htmlspecialchars($credito['cliente_tipo_identificacion']) ?>:</span> <?= htmlspecialchars($credito['cliente_identificacion']) ?></p>
-                <p class="text-xs text-gray-600 mb-1"><span class="font-medium">Email:</span> <?= htmlspecialchars($credito['cliente_email']) ?></p>
-                <p class="text-xs text-gray-600 mb-1"><span class="font-medium">Teléfono:</span> <?= htmlspecialchars($credito['cliente_telefono']) ?></p>
-                <p class="text-xs text-gray-600"><span class="font-medium">Dirección:</span> <?= htmlspecialchars($credito['cliente_direccion']) ?></p>
-            </div>
-        </div>
-
-        <!-- Detalles del Crédito -->
-        <div class="mb-6 bg-gray-50 p-4 rounded-lg">
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <p class="text-xs text-gray-700 mb-1">
-                        <span class="font-medium">Fecha de Inicio:</span> 
-                        <?= date('d/m/Y', strtotime($credito['fecha_inicio'])) ?>
-                    </p>
-                    <p class="text-xs text-gray-700">
-                        <span class="font-medium">Fecha de Vencimiento:</span> 
-                        <?= date('d/m/Y', strtotime($credito['fecha_vencimiento'])) ?>
-                    </p>
-                </div>
-                <div class="text-right">
-                    <p class="text-xs text-gray-700">
-                        <span class="font-medium">Estado:</span> 
-                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                            <?= $credito['estado'] === 'Al día' ? 'bg-green-100 text-green-800' : 
-                               ($credito['estado'] === 'Pendiente' ? 'bg-yellow-100 text-yellow-800' : 
-                               ($credito['estado'] === 'Atrasado' ? 'bg-orange-100 text-orange-800' : 
-                               ($credito['estado'] === 'Pagado' ? 'bg-blue-100 text-blue-800' : 
-                               'bg-red-100 text-red-800'))) ?>">
-                            <?= $credito['estado'] ?>
-                        </span>
-                    </p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Resumen del Crédito -->
-        <div class="mb-8">
-            <h3 class="text-base font-bold text-gray-800 mb-4">Resumen del Crédito</h3>
-            <div class="grid grid-cols-2 gap-4 text-xs">
-                <div>
-                    <p class="mb-2"><span class="font-medium">Monto Total:</span> $<?= number_format($credito['monto_total'], 2, ',', '.') ?></p>
-                    <p class="mb-2"><span class="font-medium">Interés:</span> <?= number_format($credito['interes'], 2) ?>%</p>
-                    <p class="mb-2"><span class="font-medium">Plazo:</span> <?= $credito['plazo'] ?> días</p>
-                </div>
-                <div>
-                    <p class="mb-2"><span class="font-medium">Total Pagado:</span> $<?= number_format($total_pagado, 2, ',', '.') ?></p>
-                    <p class="mb-2"><span class="font-medium">Saldo Pendiente:</span> $<?= number_format($credito['saldo_pendiente'], 2, ',', '.') ?></p>
-                    <p class="mb-2"><span class="font-medium">Valor Cuota:</span> $<?= number_format($credito['valor_cuota'], 2, ',', '.') ?></p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Plan de Pagos -->
-        <table class="min-w-full divide-y divide-gray-200 mb-8">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cuota</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vencimiento</th>
-                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Capital</th>
-                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Interés</th>
-                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha Pago</th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                <?php foreach ($pagos as $pago): ?>
-                <tr class="text-sm">
-                    <td class="px-4 py-3"><?= $pago['numero_cuota'] ?>/<?= $credito['cuotas'] ?></td>
-                    <td class="px-4 py-3"><?= date('d/m/Y', strtotime($pago['fecha_vencimiento_cuota'])) ?></td>
-                    <td class="px-4 py-3 text-right">$<?= number_format($pago['capital_pagado'], 2, ',', '.') ?></td>
-                    <td class="px-4 py-3 text-right">$<?= number_format($pago['interes_pagado'], 2, ',', '.') ?></td>
-                    <td class="px-4 py-3 text-right">$<?= number_format($pago['monto'], 2, ',', '.') ?></td>
-                    <td class="px-4 py-3 text-center">
-                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
-                            <?= $pago['estado'] === 'Pagado' ? 'bg-green-100 text-green-800' : 
-                               ($pago['estado'] === 'Pendiente' ? 'bg-yellow-100 text-yellow-800' : 
-                               'bg-red-100 text-red-800') ?>">
-                            <?= $pago['estado'] ?>
-                        </span>
-                    </td>
-                    <td class="px-4 py-3 text-center">
-                        <?= $pago['fecha_pago'] ? date('d/m/Y', strtotime($pago['fecha_pago'])) : '-' ?>
-                    </td>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-
-        <!-- Firmas -->
-        <div class="grid grid-cols-2 gap-8 mt-16">
-            <div class="text-center">
-                <div class="border-t border-gray-400 pt-2">
-                    <p class="font-medium text-sm text-gray-800">Firma del Cliente</p>
-                    <p class="text-xs text-gray-600"><?= htmlspecialchars($credito['cliente_nombre']) ?></p>
-                    <p class="text-xs text-gray-600"><?= htmlspecialchars($credito['cliente_identificacion']) ?></p>
-                </div>
-            </div>
-            <div class="text-center">
-                <div class="border-t border-gray-400 pt-2">
-                    <p class="font-medium text-sm text-gray-800">Por la Empresa</p>
-                    <p class="text-xs text-gray-600"><?= htmlspecialchars($empresa['nombre_empresa']) ?></p>
-                </div>
-            </div>
-        </div>
-    <?php endif; ?>
-
-    <script>
-        // Imprimir automáticamente al cargar la página
-        window.onload = function() {
-            setTimeout(function() {
-                window.print();
-            }, 500);
-        };
-    </script>
-</body>
-</html> 
+    error_log('Error generando estado de cuenta: ' . $e->getMessage());
+    header('Content-Type: text/html; charset=UTF-8');
+    echo "<h1>Error al generar el estado de cuenta</h1>";
+    echo "<p>Lo sentimos, ha ocurrido un error al generar el estado de cuenta. Por favor, inténtelo de nuevo más tarde.</p>";
+} 
