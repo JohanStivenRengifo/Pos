@@ -167,9 +167,9 @@ try {
 
     // Espacios para firmas
     $pdf->Ln(20);
-    $pdf->Cell(95, 0, '', 'T', 0, 'C');
-    $pdf->Cell(20, 0, '', 0, 0);
-    $pdf->Cell(95, 0, '', 'T', 1, 'C');
+    $pdf->Cell(80, 0, '', 'T', 0, 'C');
+    $pdf->Cell(19, 0, '', 0, 0);
+    $pdf->Cell(80, 0, '', 'T', 1, 'C');
     
     $pdf->SetFont('Arial', '', 10);
     $pdf->Cell(95, 5, 'ENTREGADO POR', 0, 0, 'C');
