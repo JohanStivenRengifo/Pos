@@ -455,39 +455,30 @@ class AlegraIntegration
                 'numberTemplate' => [
                     'id' => $numberTemplate['data']['id']
                 ],
+                'paymentForm' => [
+                    'paymentMethod' => [
+                        'code' => 1,  // 1 = Instrumento no definido
+                        'name' => 'Efectivo'
+                    ],
+                    'paymentMeans' => [
+                        'code' => 10,  // 10 = Efectivo
+                        'name' => 'Efectivo'
+                    ],
+                    'dueDate' => date('Y-m-d')
+                ],
                 'seller' => [
                     'id' => $seller['data']['id']
                 ],
                 'anotation' => 'Factura de venta',
                 'currency' => [
-                    'code' => 'COP',
-                    'exchangeRate' => 1
+                    'code' => 'COP'
                 ],
                 'operationType' => 'STANDARD',
-                'documentType' => 'NATIONAL',
-                'status' => 'open',
-                'paymentForm' => 'CASH',
-                'paymentMethod' => 'CASH',
-                'dueDate' => date('Y-m-d'),
-                'termsConditions' => 'Términos y condiciones de venta',
-                'observations' => 'Factura de venta electrónica',
-                'payments' => [
-                    [
-                        'date' => date('Y-m-d'),
-                        'amount' => array_reduce($items, function($carry, $item) {
-                            return $carry + ($item['price'] * $item['quantity']);
-                        }, 0),
-                        'paymentMethod' => 'cash',
-                        'account' => [
-                            'id' => $this->getDefaultAccount()
-                        ]
-                    ]
-                ],
-                'costCenter' => null,
-                'priceList' => 1,
-                'retentions' => []
+                'documentType' => 'NATIONAL'
             ];
 
+            // Removemos el campo payments ya que lo manejaremos después de crear la factura
+            
             error_log('Payload de factura: ' . json_encode($invoicePayload));
 
             // 4. Crear la factura con manejo mejorado de errores
