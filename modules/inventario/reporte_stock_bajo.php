@@ -9,293 +9,198 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-$user_id = $_SESSION['user_id'];
+// Antes de cualquier salida, limpiar el buffer
+if (ob_get_level()) ob_end_clean();
 
-// Obtener productos con stock bajo
-function obtenerProductosStockBajo($pdo, $user_id) {
-    $query = "
-            SELECT 
-                i.*, 
+try {
+    // Obtener información de la empresa
+    $stmt = $pdo->prepare("
+        SELECT * FROM empresas 
+        WHERE estado = 1 AND es_principal = 1 
+        LIMIT 1
+    ");
+    $stmt->execute();
+    $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    // Consulta para obtener productos con stock bajo o agotado
+    $stmt = $pdo->prepare("
+        SELECT 
+            i.*,
             c.nombre as categoria_nombre,
             d.nombre as departamento_nombre,
-            COALESCE(b.nombre, 'Sin asignar') as bodega_nombre,
-            (i.stock * i.precio_venta) as valor_total
-            FROM inventario i
-            LEFT JOIN categorias c ON i.categoria_id = c.id
-            LEFT JOIN departamentos d ON i.departamento_id = d.id
+            COALESCE(b.nombre, 'Sin asignar') as bodega,
+            (i.stock * i.precio_costo) as valor_costo_total,
+            (i.stock_minimo - i.stock) as cantidad_faltante,
+            ((i.stock_minimo - i.stock) * i.precio_costo) as costo_reposicion,
+            CASE 
+                WHEN i.stock = 0 THEN 'Agotado'
+                WHEN i.stock <= i.stock_minimo THEN 'Bajo'
+                ELSE 'Normal'
+            END as estado_stock
+        FROM inventario i
+        LEFT JOIN categorias c ON i.categoria_id = c.id
+        LEFT JOIN departamentos d ON i.departamento_id = d.id
         LEFT JOIN inventario_bodegas ib ON i.id = ib.producto_id
         LEFT JOIN bodegas b ON ib.bodega_id = b.id
-            WHERE i.user_id = ? AND i.stock <= i.stock_minimo
-        ORDER BY i.stock ASC";
+        WHERE i.user_id = :user_id 
+        AND (i.stock <= i.stock_minimo OR i.stock = 0)
+        ORDER BY i.stock ASC, i.nombre ASC
+    ");
     
-    $stmt = $pdo->prepare($query);
-    $stmt->execute([$user_id]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $stmt->execute([':user_id' => $_SESSION['user_id']]);
+    $productos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Calcular totales
+    $total_productos = count($productos);
+    $total_costo_reposicion = 0;
+    $productos_agotados = 0;
+    $productos_bajo_stock = 0;
+
+    foreach ($productos as $producto) {
+        $total_costo_reposicion += $producto['costo_reposicion'];
+        if ($producto['stock'] == 0) {
+            $productos_agotados++;
+        } else {
+            $productos_bajo_stock++;
+        }
     }
 
-$productos = obtenerProductosStockBajo($pdo, $user_id);
+    // Verificar y cargar FPDF
+    if (!class_exists('FPDF')) {
+        require_once '../../vendor/fpdf/fpdf.php';
+    }
 
-// Función para formatear moneda
-function formatoMoneda($monto) {
-    return '$' . number_format($monto, 2, ',', '.');
-}
+    // Crear clase personalizada de PDF
+    class StockReportPDF extends FPDF {
+        function Header() {
+            global $empresa;
+            
+            // Logo
+            if (!empty($empresa['logo']) && file_exists('../../' . $empresa['logo'])) {
+                $this->Image('../../' . $empresa['logo'], 10, 10, 30);
+            }
+            
+            // Título del reporte
+            $this->SetFont('Arial', 'B', 16);
+            $this->Cell(0, 10, mb_convert_encoding('REPORTE DE STOCK BAJO Y AGOTADO', 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
+            
+            // Información de la empresa
+            $this->SetFont('Arial', '', 10);
+            $this->Cell(0, 6, mb_convert_encoding($empresa['nombre_empresa'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
+            $this->Cell(0, 6, mb_convert_encoding('NIT: ' . $empresa['nit'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
+            $this->Cell(0, 6, mb_convert_encoding($empresa['direccion'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
+            $this->Cell(0, 6, 'Fecha de generación: ' . date('d/m/Y H:i'), 0, 1, 'C');
+            
+            $this->Ln(5);
+        }
 
-?>
+        function Footer() {
+            $this->SetY(-15);
+            $this->SetFont('Arial', 'I', 8);
+            $this->Cell(0, 10, mb_convert_encoding('Página ' . $this->PageNo() . '/{nb}', 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
+        }
 
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reporte de Stock Bajo | VendEasy</title>
-    <link rel="icon" type="image/png" href="/favicon/favicon.ico">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#1e40af',
-                        secondary: '#1e293b',
-                        accent: '#3b82f6'
-                    }
-                }
+        function ChapterTitle($title) {
+            $this->SetFont('Arial', 'B', 12);
+            $this->SetFillColor(230, 230, 230);
+            $this->Cell(0, 8, mb_convert_encoding($title, 'ISO-8859-1', 'UTF-8'), 0, 1, 'L', true);
+            $this->Ln(4);
+        }
+
+        function TableHeader() {
+            $this->SetFont('Arial', 'B', 9);
+            $this->SetFillColor(240, 240, 240);
+            $this->Cell(25, 7, 'Código', 1, 0, 'C', true);
+            $this->Cell(60, 7, 'Producto', 1, 0, 'L', true);
+            $this->Cell(20, 7, 'Stock', 1, 0, 'C', true);
+            $this->Cell(20, 7, mb_convert_encoding('Mínimo', 'ISO-8859-1', 'UTF-8'), 1, 0, 'C', true);
+            $this->Cell(25, 7, 'Faltante', 1, 0, 'C', true);
+            $this->Cell(25, 7, 'Costo U.', 1, 0, 'R', true);
+            $this->Cell(25, 7, mb_convert_encoding('Inversión', 'ISO-8859-1', 'UTF-8'), 1, 1, 'R', true);
+        }
+    }
+
+    // Crear nuevo PDF
+    $pdf = new StockReportPDF();
+    $pdf->AliasNbPages();
+    $pdf->AddPage();
+
+    // Resumen ejecutivo
+    $pdf->ChapterTitle('RESUMEN EJECUTIVO');
+    $pdf->SetFont('Arial', '', 10);
+    $pdf->Cell(0, 6, mb_convert_encoding('Total de productos con stock crítico: ' . $total_productos, 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->Cell(0, 6, mb_convert_encoding('Productos agotados: ' . $productos_agotados, 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->Cell(0, 6, mb_convert_encoding('Productos bajo stock mínimo: ' . $productos_bajo_stock, 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->Cell(0, 6, mb_convert_encoding('Inversión necesaria para reposición: $' . number_format($total_costo_reposicion, 2, ',', '.'), 'ISO-8859-1', 'UTF-8'), 0, 1);
+    $pdf->Ln(5);
+
+    // Productos Agotados
+    if ($productos_agotados > 0) {
+        $pdf->ChapterTitle('PRODUCTOS AGOTADOS');
+        $pdf->TableHeader();
+        
+        $pdf->SetFont('Arial', '', 8);
+        foreach ($productos as $producto) {
+            if ($producto['stock'] == 0) {
+                $pdf->Cell(25, 6, $producto['codigo_barras'], 1, 0, 'C');
+                $pdf->Cell(60, 6, mb_convert_encoding($producto['nombre'], 'ISO-8859-1', 'UTF-8'), 1);
+                $pdf->SetTextColor(255, 0, 0);
+                $pdf->Cell(20, 6, $producto['stock'], 1, 0, 'C');
+                $pdf->SetTextColor(0);
+                $pdf->Cell(20, 6, $producto['stock_minimo'], 1, 0, 'C');
+                $pdf->Cell(25, 6, $producto['cantidad_faltante'], 1, 0, 'C');
+                $pdf->Cell(25, 6, '$' . number_format($producto['precio_costo'], 2, ',', '.'), 1, 0, 'R');
+                $pdf->Cell(25, 6, '$' . number_format($producto['costo_reposicion'], 2, ',', '.'), 1, 1, 'R');
             }
         }
-    </script>
-</head>
-<body class="bg-gray-50">
-    <?php include '../../includes/header.php'; ?>
+        $pdf->Ln(5);
+    }
 
-    <div class="flex">
-        <?php include '../../includes/sidebar.php'; ?>
-
-        <main class="flex-1 p-6">
-            <div class="max-w-7xl mx-auto">
-                <!-- Encabezado del reporte -->
-                <div class="mb-8">
-                    <div class="flex justify-between items-center">
-                        <h1 class="text-3xl font-bold text-gray-900">Reporte de Stock Bajo</h1>
-                        <div class="flex space-x-3">
-                            <button onclick="exportarPDF()" class="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">
-                                <i class="fas fa-file-pdf mr-2"></i>
-                                Exportar PDF
-                            </button>
-                            <button onclick="exportarExcel()" class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
-                                <i class="fas fa-file-excel mr-2"></i>
-                                Exportar Excel
-                            </button>
-                        </div>
-                    </div>
-                    <p class="mt-2 text-gray-600">Productos que requieren reabastecimiento inmediato</p>
-                </div>
-
-                <!-- Resumen estadístico -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-red-500">
-                        <div class="flex items-center">
-                            <div class="p-3 rounded-full bg-red-100 mr-4">
-                                <i class="fas fa-exclamation-triangle text-red-500 text-xl"></i>
-                            </div>
-                            <div>
-                                <p class="text-sm text-gray-600">Total Productos</p>
-                                <p class="text-2xl font-bold text-gray-900"><?= count($productos) ?></p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-yellow-500">
-                        <div class="flex items-center">
-                            <div class="p-3 rounded-full bg-yellow-100 mr-4">
-                                <i class="fas fa-box text-yellow-500 text-xl"></i>
-                            </div>
-                            <div>
-                                <p class="text-sm text-gray-600">Stock Total</p>
-                                <p class="text-2xl font-bold text-gray-900">
-                                    <?= array_sum(array_column($productos, 'stock')) ?>
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-blue-500">
-                        <div class="flex items-center">
-                            <div class="p-3 rounded-full bg-blue-100 mr-4">
-                                <i class="fas fa-dollar-sign text-blue-500 text-xl"></i>
-                            </div>
-                            <div>
-                                <p class="text-sm text-gray-600">Valor Total</p>
-                                <p class="text-2xl font-bold text-gray-900">
-                                    <?= formatoMoneda(array_sum(array_column($productos, 'valor_total'))) ?>
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tabla de productos -->
-                <div class="bg-white rounded-xl shadow-md overflow-hidden">
-                    <div class="p-6 bg-gradient-to-r from-red-500 to-red-600">
-                        <h2 class="text-xl font-semibold text-white">Listado de Productos con Stock Bajo</h2>
-                        <p class="text-red-100 mt-1">
-                            Fecha del reporte: <?= date('d/m/Y H:i') ?>
-                        </p>
-                    </div>
-
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Producto
-                                    </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Código
-                                    </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Stock Actual
-                                    </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Stock Mínimo
-                                    </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Categoría
-                                    </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Bodega
-                                    </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Valor
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white divide-y divide-gray-200">
-                                <?php foreach ($productos as $producto): ?>
-                                    <tr class="hover:bg-gray-50">
-                                        <td class="px-6 py-4">
-                                            <div class="flex items-center">
-                                                <div class="text-sm font-medium text-gray-900">
-                                                    <?= htmlspecialchars($producto['nombre']) ?>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td class="px-6 py-4">
-                                            <div class="text-sm text-gray-500">
-                                                <?= htmlspecialchars($producto['codigo_barras']) ?>
-                                            </div>
-                                        </td>
-                                        <td class="px-6 py-4">
-                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full <?= $producto['stock'] === 0 ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800' ?>">
-                                                <?= $producto['stock'] ?>
-                                            </span>
-                                        </td>
-                                        <td class="px-6 py-4">
-                                            <div class="text-sm text-gray-500">
-                                                <?= $producto['stock_minimo'] ?>
-                                            </div>
-                                        </td>
-                                        <td class="px-6 py-4">
-                                            <div class="text-sm text-gray-500">
-                                                <?= htmlspecialchars($producto['categoria_nombre']) ?>
-                                            </div>
-                                        </td>
-                                        <td class="px-6 py-4">
-                                            <div class="text-sm text-gray-500">
-                                                <?= htmlspecialchars($producto['bodega_nombre']) ?>
-                                            </div>
-                                        </td>
-                                        <td class="px-6 py-4">
-                                            <div class="text-sm font-medium text-gray-900">
-                                                <?= formatoMoneda($producto['valor_total']) ?>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </main>
-    </div>
-
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-
-    <script>
-        function exportarExcel() {
-            // Crear una copia de la tabla sin las columnas de acciones
-            const tabla = document.querySelector('table').cloneNode(true);
-            
-            // Convertir la tabla HTML a una hoja de cálculo
-            const wb = XLSX.utils.table_to_book(tabla, {sheet: "Productos Stock Bajo"});
-            
-            // Guardar el archivo
-            XLSX.writeFile(wb, `reporte_stock_bajo_${new Date().toISOString().slice(0,10)}.xlsx`);
+    // Productos Bajo Stock
+    if ($productos_bajo_stock > 0) {
+        $pdf->ChapterTitle('PRODUCTOS BAJO STOCK MÍNIMO');
+        $pdf->TableHeader();
+        
+        $pdf->SetFont('Arial', '', 8);
+        foreach ($productos as $producto) {
+            if ($producto['stock'] > 0 && $producto['stock'] <= $producto['stock_minimo']) {
+                $pdf->Cell(25, 6, $producto['codigo_barras'], 1, 0, 'C');
+                $pdf->Cell(60, 6, mb_convert_encoding($producto['nombre'], 'ISO-8859-1', 'UTF-8'), 1);
+                $pdf->SetTextColor(255, 128, 0);
+                $pdf->Cell(20, 6, $producto['stock'], 1, 0, 'C');
+                $pdf->SetTextColor(0);
+                $pdf->Cell(20, 6, $producto['stock_minimo'], 1, 0, 'C');
+                $pdf->Cell(25, 6, $producto['cantidad_faltante'], 1, 0, 'C');
+                $pdf->Cell(25, 6, '$' . number_format($producto['precio_costo'], 2, ',', '.'), 1, 0, 'R');
+                $pdf->Cell(25, 6, '$' . number_format($producto['costo_reposicion'], 2, ',', '.'), 1, 1, 'R');
+            }
         }
+    }
 
-        function exportarPDF() {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF('l', 'mm', 'a4'); // 'l' para landscape
-            
-            // Obtener el contenedor principal del reporte
-            const element = document.querySelector('main');
+    // Recomendaciones
+    $pdf->AddPage();
+    $pdf->ChapterTitle('RECOMENDACIONES DE ACCIÓN');
+    $pdf->SetFont('Arial', '', 10);
+    $pdf->MultiCell(0, 6, mb_convert_encoding(
+        "1. Priorizar la reposición de productos agotados para evitar pérdidas de ventas.\n\n" .
+        "2. Revisar los productos con stock bajo y programar su reabastecimiento.\n\n" .
+        "3. Considerar ajustar los niveles de stock mínimo según la demanda actual.\n\n" .
+        "4. Contactar a los proveedores para coordinar las órdenes de compra necesarias.\n\n" .
+        "5. Evaluar la posibilidad de realizar compras por volumen para obtener mejores precios.",
+        'ISO-8859-1',
+        'UTF-8'
+    ));
 
-            Swal.fire({
-                title: 'Generando PDF',
-                text: 'Por favor espere...',
-                allowOutsideClick: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                    
-                    html2canvas(element, {
-                        scale: 2,
-                        useCORS: true,
-                        logging: false
-                    }).then(canvas => {
-                        const imgData = canvas.toDataURL('image/png');
-                        
-                        // Dimensiones de la página A4 apaisada
-                        const pageWidth = 297;
-                        const pageHeight = 210;
-                        
-                        // Calcular las dimensiones manteniendo la proporción
-                        const imgWidth = pageWidth - 20;
-                        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-                        
-                        // Agregar la imagen al PDF
-                        doc.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight);
-                        
-                        // Si el contenido es más largo que una página, agregar más páginas
-                        let heightLeft = imgHeight;
-                        let position = 10;
-                        
-                        while (heightLeft >= pageHeight) {
-                            position = heightLeft - pageHeight;
-                            doc.addPage();
-                            doc.addImage(imgData, 'PNG', 10, -position, imgWidth, imgHeight);
-                            heightLeft -= pageHeight;
-                        }
-                        
-                        // Guardar el PDF
-                        doc.save(`reporte_stock_bajo_${new Date().toISOString().slice(0,10)}.pdf`);
-                        
-                        Swal.close();
-                    }).catch(error => {
-                        console.error('Error al generar el PDF:', error);
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Error',
-                            text: 'Hubo un problema al generar el PDF'
-                        });
-                    });
-                }
-            });
-        }
-    </script>
-</body>
-</html>
+    // Generar el PDF
+    $pdf->Output('I', 'reporte_stock_bajo_' . date('Y-m-d') . '.pdf');
+    exit;
+
+} catch (Exception $e) {
+    error_log('Error generando reporte de stock bajo: ' . $e->getMessage());
+    header('Content-Type: text/html; charset=UTF-8');
+    echo "<h1>Error al generar el reporte</h1>";
+    echo "<p>Lo sentimos, ha ocurrido un error al generar el reporte. Por favor, inténtelo de nuevo más tarde.</p>";
+    if (defined('DEBUG') && DEBUG) {
+        echo "<p>Error: " . htmlspecialchars($e->getMessage()) . "</p>";
+    }
+}
