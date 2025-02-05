@@ -460,13 +460,15 @@ class AlegraIntegration
                 ],
                 'anotation' => 'Factura de venta',
                 'currency' => [
-                    'code' => 'COP'
+                    'code' => 'COP',
+                    'exchangeRate' => 1
                 ],
                 'operationType' => 'STANDARD',
                 'documentType' => 'NATIONAL',
                 'status' => 'open',
-                'paymentMethod' => 'CASH',
                 'paymentForm' => 'CASH',
+                'paymentMethod' => 'CASH',
+                'dueDate' => date('Y-m-d'),
                 'termsConditions' => 'Términos y condiciones de venta',
                 'observations' => 'Factura de venta electrónica',
                 'payments' => [
@@ -480,7 +482,10 @@ class AlegraIntegration
                             'id' => $this->getDefaultAccount()
                         ]
                     ]
-                ]
+                ],
+                'costCenter' => null,
+                'priceList' => 1,
+                'retentions' => []
             ];
 
             error_log('Payload de factura: ' . json_encode($invoicePayload));
