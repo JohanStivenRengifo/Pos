@@ -485,6 +485,19 @@ try {
                             <i class="fas fa-book mr-2"></i> Catálogo
                         </a>
                     </div>
+                    <div class="flex gap-3 ml-auto">
+                        <!-- Botón de exportar PDF -->
+                        <a href="exportar.php?formato=pdf" 
+                            class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 transition-all transform hover:scale-105 shadow-sm">
+                            <i class="fas fa-file-pdf mr-2"></i> Exportar PDF
+                        </a>
+                        <!-- Botón de vaciar inventario -->
+                        <button type="button"
+                            onclick="confirmarVaciarInventario()"
+                            class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 transition-all transform hover:scale-105 shadow-sm">
+                            <i class="fas fa-trash-alt mr-2"></i> Vaciar
+                        </button>
+                    </div>
                 </div>
 
                 <?php if (isset($_SESSION['message'])): ?>
