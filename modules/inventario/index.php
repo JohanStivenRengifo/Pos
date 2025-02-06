@@ -279,65 +279,79 @@ class InventoryManager
         try {
             $this->pdo->beginTransaction();
 
-            // Obtener productos con referencias (ventas o cotizaciones)
-            $query = "SELECT DISTINCT i.id, i.nombre, i.codigo_barras 
-                     FROM inventario i
-                     LEFT JOIN venta_detalles vd ON i.id = vd.producto_id 
-                     LEFT JOIN cotizacion_detalles cd ON i.id = cd.producto_id
-                     WHERE i.user_id = ? AND (vd.id IS NOT NULL OR cd.id IS NOT NULL)";
+            // 1. Obtener productos que se pueden eliminar (sin ventas ni cotizaciones)
+            $query = "
+                SELECT i.id, i.nombre, i.codigo_barras
+                FROM inventario i
+                LEFT JOIN venta_detalles vd ON i.id = vd.producto_id
+                LEFT JOIN cotizacion_detalles cd ON i.id = cd.producto_id
+                WHERE i.user_id = :user_id
+                AND vd.id IS NULL AND cd.id IS NULL";
+            
             $stmt = $this->pdo->prepare($query);
-            $stmt->execute([$this->user_id]);
-            $productos_con_referencias = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-            // Obtener IDs de productos sin referencias
-            $query = "SELECT i.id 
-                     FROM inventario i 
-                     LEFT JOIN venta_detalles vd ON i.id = vd.producto_id 
-                     LEFT JOIN cotizacion_detalles cd ON i.id = cd.producto_id
-                     WHERE i.user_id = ? AND vd.id IS NULL AND cd.id IS NULL";
-            $stmt = $this->pdo->prepare($query);
-            $stmt->execute([$this->user_id]);
-            $productos_eliminables = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            $stmt->execute([':user_id' => $this->user_id]);
+            $productos_eliminables = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             if (empty($productos_eliminables)) {
-                throw new Exception("No hay productos que se puedan eliminar. Todos los productos tienen ventas o cotizaciones asociadas.", 2);
+                throw new Exception("No hay productos que se puedan eliminar. Todos los productos tienen ventas o cotizaciones asociadas.");
             }
 
-            // Eliminar imágenes físicas de productos sin referencias
-            if (!empty($productos_eliminables)) {
-                $query = "SELECT ruta 
-                         FROM imagenes_producto 
-                         WHERE producto_id IN (" . implode(',', $productos_eliminables) . ")";
-                $stmt = $this->pdo->prepare($query);
-                $stmt->execute();
-                $imagenes = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            $ids_eliminables = array_column($productos_eliminables, 'id');
 
-                foreach ($imagenes as $ruta) {
-                    $ruta_completa = __DIR__ . '/../../' . $ruta;
-                    if (file_exists($ruta_completa)) {
-                        unlink($ruta_completa);
-                    }
+            // 2. Eliminar registros relacionados en orden correcto
+            // Primero eliminar registros de inventario_bodegas
+            $stmt = $this->pdo->prepare("
+                DELETE FROM inventario_bodegas 
+                WHERE producto_id IN (" . implode(',', $ids_eliminables) . ")");
+            $stmt->execute();
+
+            // Eliminar imágenes físicas y sus registros
+            $stmt = $this->pdo->prepare("
+                SELECT ruta FROM imagenes_producto 
+                WHERE producto_id IN (" . implode(',', $ids_eliminables) . ")");
+            $stmt->execute();
+            $imagenes = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+            foreach ($imagenes as $ruta) {
+                $ruta_completa = __DIR__ . '/../../' . $ruta;
+                if (file_exists($ruta_completa)) {
+                    unlink($ruta_completa);
                 }
-
-                // Eliminar productos sin referencias
-                $query = "DELETE FROM inventario 
-                         WHERE id IN (" . implode(',', $productos_eliminables) . ") 
-                         AND user_id = ?";
-                $stmt = $this->pdo->prepare($query);
-                $stmt->execute([$this->user_id]);
             }
+
+            // Eliminar registros de imágenes
+            $stmt = $this->pdo->prepare("
+                DELETE FROM imagenes_producto 
+                WHERE producto_id IN (" . implode(',', $ids_eliminables) . ")");
+            $stmt->execute();
+
+            // Finalmente eliminar los productos
+            $stmt = $this->pdo->prepare("
+                DELETE FROM inventario 
+                WHERE id IN (" . implode(',', $ids_eliminables) . ") 
+                AND user_id = :user_id");
+            $stmt->execute([':user_id' => $this->user_id]);
+
+            // Obtener productos que no se pudieron eliminar por tener referencias
+            $stmt = $this->pdo->prepare("
+                SELECT DISTINCT i.nombre, i.codigo_barras
+                FROM inventario i
+                LEFT JOIN venta_detalles vd ON i.id = vd.producto_id
+                LEFT JOIN cotizacion_detalles cd ON i.id = cd.producto_id
+                WHERE i.user_id = :user_id
+                AND (vd.id IS NOT NULL OR cd.id IS NOT NULL)");
+            $stmt->execute([':user_id' => $this->user_id]);
+            $productos_con_referencias = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             $this->pdo->commit();
-            $mensaje = empty($productos_con_referencias) 
-                ? 'Inventario vaciado exitosamente' 
-                : 'Se eliminaron los productos sin ventas ni cotizaciones asociadas';
 
             return [
                 'success' => true,
-                'message' => $mensaje,
+                'message' => 'Operación completada',
                 'productos_eliminados' => count($productos_eliminables),
                 'productos_con_referencias' => $productos_con_referencias
             ];
+
         } catch (Exception $e) {
             $this->pdo->rollBack();
             return [
