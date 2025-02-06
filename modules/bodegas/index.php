@@ -102,13 +102,32 @@ if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQU
                 break;
 
             case 'add':
+                // Validar datos requeridos
+                if (empty($_POST['nombre'])) {
+                    throw new Exception('El nombre de la bodega es requerido');
+                }
+                
                 $nombre = trim($_POST['nombre']);
-                $ubicacion = trim($_POST['ubicacion']);
+                $ubicacion = trim($_POST['ubicacion'] ?? '');
                 
-                $stmt = $conn->prepare("INSERT INTO bodegas (nombre, ubicacion, usuario_id) VALUES (?, ?, ?)");
-                $stmt->execute([$nombre, $ubicacion, $_SESSION['user_id']]);
+                // Verificar si ya existe una bodega con el mismo nombre
+                $stmt = $conn->prepare("SELECT id FROM bodegas WHERE UPPER(nombre) = UPPER(?) AND usuario_id = ?");
+                $stmt->execute([strtoupper($nombre), $_SESSION['user_id']]);
+                if ($stmt->fetch()) {
+                    throw new Exception('Ya existe una bodega con este nombre');
+                }
                 
-                $response = ['status' => true, 'message' => 'Bodega creada exitosamente'];
+                // Insertar nueva bodega
+                $stmt = $conn->prepare("INSERT INTO bodegas (nombre, ubicacion, usuario_id, estado) VALUES (?, ?, ?, 1)");
+                if ($stmt->execute([$nombre, $ubicacion, $_SESSION['user_id']])) {
+                    $response = [
+                        'status' => true, 
+                        'message' => 'Bodega creada exitosamente',
+                        'id' => $conn->lastInsertId()
+                    ];
+                } else {
+                    throw new Exception('Error al crear la bodega');
+                }
                 break;
                 
             case 'asignar_producto':

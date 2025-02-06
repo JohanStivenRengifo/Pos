@@ -1,19 +1,22 @@
 <?php
-if (!isset($user_id)) {
-    $user_id = $_SESSION['user_id'] ?? null;
-    $email = $_SESSION['email'] ?? null;
-    
-    if ($user_id && $pdo) {
-        // Obtener la información de la empresa y el usuario
-        $stmt = $pdo->prepare("
-            SELECT e.*, u.nombre as user_name, u.email, u.estado 
-            FROM users u 
-            LEFT JOIN empresas e ON e.id = u.empresa_id 
-            WHERE u.id = ? 
-            LIMIT 1
-        ");
-        $stmt->execute([$user_id]);
-        $empresa_info = $stmt->fetch(PDO::FETCH_ASSOC);
+session_start();
+require_once __DIR__ . '/../config/db.php';
+
+// Función helper para escape seguro
+function e($string) {
+    return htmlspecialchars($string ?? '', ENT_QUOTES, 'UTF-8');
+}
+
+// Obtener información del usuario
+$user = [];
+if (isset($_SESSION['user_id'])) {
+    try {
+        $stmt = $pdo->prepare("SELECT * FROM usuarios WHERE id = ?");
+        $stmt->execute([$_SESSION['user_id']]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+    } catch (PDOException $e) {
+        error_log("Error al obtener datos del usuario: " . $e->getMessage());
+        $user = [];
     }
 }
 
@@ -123,13 +126,13 @@ $rutaBase = $rutaBase ?? '';
                             class="flex items-center gap-3 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                         <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
                             <span class="text-sm font-medium text-blue-600">
-                                <?= strtoupper(substr($empresa_info['user_name'] ?? $email, 0, 1)); ?>
+                                <?= strtoupper(substr($user['nombre'] ?? '', 0, 1)); ?>
                             </span>
                         </div>
                         
                         <div class="hidden sm:block text-left">
-                            <p class="text-sm font-medium text-gray-900"><?= htmlspecialchars($empresa_info['user_name'] ?? ''); ?></p>
-                            <p class="text-xs text-gray-500 truncate max-w-[150px]"><?= htmlspecialchars($email) ?></p>
+                            <p class="text-sm font-medium text-gray-900"><?= e($user['nombre'] ?? ''); ?></p>
+                            <p class="text-xs text-gray-500 truncate max-w-[150px]"><?= e($user['email'] ?? ''); ?></p>
                         </div>
                         
                         <svg class="w-5 h-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -140,8 +143,8 @@ $rutaBase = $rutaBase ?? '';
                     <!-- Menú del perfil -->
                     <div id="profileMenu" class="hidden absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-200">
                         <div class="p-4 border-b border-gray-200">
-                            <p class="text-sm font-medium text-gray-800"><?= htmlspecialchars($empresa_info['user_name'] ?? ''); ?></p>
-                            <p class="text-xs text-gray-500 mt-1"><?= htmlspecialchars($email) ?></p>
+                            <p class="text-sm font-medium text-gray-800"><?= e($user['nombre'] ?? ''); ?></p>
+                            <p class="text-xs text-gray-500 mt-1"><?= e($user['email'] ?? ''); ?></p>
                         </div>
                         
                         <div class="p-2">
