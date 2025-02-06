@@ -880,16 +880,16 @@ if (
 
             function validarFacturaElectronica() {
                 if (numeracion.value === 'electronica') {
-                    // Deshabilitar la opción de consumidor final (asumiendo que tiene el ID 1)
-                    const consumidorFinal = clienteSelect.querySelector('option[value="1"]');
+                    // Ajusta este ID según el ID real del consumidor final en tu base de datos
+                    const consumidorFinalId = "1"; 
+                    const consumidorFinal = clienteSelect.querySelector(`option[value="${consumidorFinalId}"]`);
                     if (consumidorFinal) {
                         consumidorFinal.disabled = true;
-                        if (clienteSelect.value === "1") {
+                        if (clienteSelect.value === consumidorFinalId) {
                             clienteSelect.value = "";
                         }
                     }
                 } else {
-                    // Habilitar todas las opciones
                     Array.from(clienteSelect.options).forEach(option => {
                         option.disabled = false;
                     });
@@ -947,16 +947,21 @@ if (
             `;
 
             facturas.forEach(factura => {
+                // Formatear el número de factura
+                const numeroFactura = factura.numberTemplate ? 
+                    (factura.numberTemplate.prefix || '') + factura.numberTemplate.number : 
+                    factura.number;
+
                 html += `
-                    <tr class="border-b">
-                        <td class="px-4 py-2">${factura.numberTemplate}</td>
-                        <td class="px-4 py-2">${factura.client.name}</td>
-                        <td class="px-4 py-2 text-right">$${factura.total.toLocaleString('es-CO')}</td>
-                        <td class="px-4 py-2 text-center">${new Date(factura.date).toLocaleDateString()}</td>
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="px-4 py-2">${numeroFactura}</td>
+                        <td class="px-4 py-2">${factura.client ? factura.client.name : 'N/A'}</td>
+                        <td class="px-4 py-2 text-right">$${Number(factura.total).toLocaleString('es-CO')}</td>
+                        <td class="px-4 py-2 text-center">${new Date(factura.date).toLocaleDateString('es-CO')}</td>
                         <td class="px-4 py-2 text-center">
-                            <button onclick="reimprimirFactura('${factura.id}')" 
+                            <button onclick="enviarFacturaEmail('${factura.id}')" 
                                 class="bg-blue-100 text-blue-700 px-2 py-1 rounded-md hover:bg-blue-200 transition-colors">
-                                <i class="fas fa-print"></i>
+                                <i class="fas fa-envelope"></i>
                             </button>
                         </td>
                     </tr>
@@ -1006,6 +1011,82 @@ if (
                     });
                 } else {
                     throw new Error(data.message || 'Error al reimprimir la factura');
+                }
+            })
+            .catch(error => {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: error.message,
+                    confirmButtonColor: '#EF4444'
+                });
+            });
+        }
+
+        function enviarFacturaEmail(facturaId) {
+            Swal.fire({
+                title: 'Enviar Factura por Correo',
+                html: `
+                    <div class="mb-4">
+                        <input type="email" id="email-factura" class="swal2-input" placeholder="Correo electrónico">
+                    </div>
+                    <div class="mb-4">
+                        <input type="text" id="asunto-correo" class="swal2-input" placeholder="Asunto del correo">
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Enviar',
+                cancelButtonText: 'Cancelar',
+                preConfirm: () => {
+                    const email = document.getElementById('email-factura').value;
+                    const asunto = document.getElementById('asunto-correo').value;
+                    
+                    if (!email) {
+                        Swal.showValidationMessage('Por favor ingrese un correo electrónico');
+                        return false;
+                    }
+                    
+                    return { email, asunto };
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    enviarCorreoFactura(facturaId, result.value.email, result.value.asunto);
+                }
+            });
+        }
+
+        function enviarCorreoFactura(facturaId, email, asunto) {
+            Swal.fire({
+                title: 'Enviando factura...',
+                text: 'Por favor espere',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            fetch('api/alegra/enviar_factura_email.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    facturaId: facturaId,
+                    email: email,
+                    asunto: asunto
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Correo enviado!',
+                        text: 'La factura ha sido enviada correctamente',
+                        confirmButtonColor: '#4F46E5'
+                    });
+                } else {
+                    throw new Error(data.message || 'Error al enviar el correo');
                 }
             })
             .catch(error => {
