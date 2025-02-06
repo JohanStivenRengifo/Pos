@@ -221,7 +221,28 @@ class InventoryManager
                 throw new Exception("Producto no encontrado");
             }
 
-            // Eliminar imágenes físicas
+            // Verificar si tiene ventas o cotizaciones asociadas
+            $stmt = $this->pdo->prepare("
+                SELECT 
+                    CASE 
+                        WHEN EXISTS (SELECT 1 FROM venta_detalles WHERE producto_id = ?) THEN 1
+                        WHEN EXISTS (SELECT 1 FROM cotizacion_detalles WHERE producto_id = ?) THEN 1
+                        ELSE 0
+                    END as tiene_referencias
+            ");
+            $stmt->execute([$producto_id, $producto_id]);
+            $tiene_referencias = $stmt->fetchColumn();
+
+            if ($tiene_referencias) {
+                throw new Exception("No se puede eliminar el producto porque tiene ventas o cotizaciones asociadas");
+            }
+
+            // Eliminar registros relacionados en orden
+            // 1. Eliminar registros de inventario_bodegas
+            $stmt = $this->pdo->prepare("DELETE FROM inventario_bodegas WHERE producto_id = ?");
+            $stmt->execute([$producto_id]);
+
+            // 2. Eliminar imágenes físicas y sus registros
             $stmt = $this->pdo->prepare("SELECT ruta FROM imagenes_producto WHERE producto_id = ?");
             $stmt->execute([$producto_id]);
             $imagenes = $stmt->fetchAll(PDO::FETCH_COLUMN);
@@ -233,7 +254,10 @@ class InventoryManager
                 }
             }
 
-            // Eliminar el producto (las imágenes se eliminarán en cascada)
+            $stmt = $this->pdo->prepare("DELETE FROM imagenes_producto WHERE producto_id = ?");
+            $stmt->execute([$producto_id]);
+
+            // 3. Finalmente eliminar el producto
             $stmt = $this->pdo->prepare("DELETE FROM inventario WHERE id = ? AND user_id = ?");
             $result = $stmt->execute([$producto_id, $this->user_id]);
 
