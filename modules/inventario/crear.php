@@ -11,12 +11,12 @@ if (!isset($_SESSION['user_id'])) {
 $user_id = $_SESSION['user_id'];
 
 // Obtener categorías y departamentos
-$stmt = $pdo->prepare("SELECT id, nombre FROM categorias WHERE estado = 'activo'");
-$stmt->execute();
+$stmt = $pdo->prepare("SELECT id, nombre FROM categorias WHERE estado = 'activo' AND user_id = :user_id");
+$stmt->execute(['user_id' => $user_id]);
 $categorias = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$stmt = $pdo->prepare("SELECT id, nombre FROM departamentos WHERE estado = 'activo'");
-$stmt->execute();
+$stmt = $pdo->prepare("SELECT id, nombre FROM departamentos WHERE estado = 'activo' AND user_id = :user_id");
+$stmt->execute(['user_id' => $user_id]);
 $departamentos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
