@@ -465,12 +465,11 @@ class AlegraIntegration
                     'code' => 'COP'
                 ],
                 'operationType' => 'STANDARD',
-                'documentType' => 'NATIONAL'
+                'documentType' => 'NATIONAL',
+                'status' => 'draft'
             ];
 
             // 4. Crear la factura inicialmente como borrador
-            $invoicePayload['status'] = 'draft'; // Agregar estado borrador
-            
             try {
                 $response = $this->client->request('POST', 'invoices', [
                     'json' => $invoicePayload
@@ -501,7 +500,9 @@ class AlegraIntegration
             try {
                 $updateResponse = $this->client->request('PUT', "invoices/{$invoice['id']}", [
                     'json' => [
-                        'status' => 'open'
+                        'status' => 'open',
+                        'paymentForm' => 'CASH',
+                        'paymentMethod' => 'CASH'
                     ]
                 ]);
                 
