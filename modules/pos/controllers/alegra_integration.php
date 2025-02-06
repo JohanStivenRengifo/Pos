@@ -499,29 +499,54 @@ class AlegraIntegration
 
             error_log('Factura creada con ID: ' . $invoice['id']);
 
-            // 5. Verificar que la factura existe
-            $response = $this->client->request('GET', "invoices/{$invoice['id']}");
-            $invoiceStatus = json_decode($response->getBody()->getContents(), true);
+            // 5. Esperar y verificar que la factura existe y está lista
+            $maxIntentos = 5;
+            $intentoActual = 0;
+            $facturaLista = false;
 
-            if (!isset($invoiceStatus['id'])) {
-                throw new Exception('No se pudo verificar la factura creada');
+            while ($intentoActual < $maxIntentos && !$facturaLista) {
+                sleep(2); // Esperar 2 segundos entre intentos
+                
+                $response = $this->client->request('GET', "invoices/{$invoice['id']}");
+                $invoiceStatus = json_decode($response->getBody()->getContents(), true);
+
+                if (isset($invoiceStatus['status']) && $invoiceStatus['status'] === 'open') {
+                    $facturaLista = true;
+                    error_log('Factura verificada y lista para timbrar');
+                    break;
+                }
+
+                $intentoActual++;
+                error_log("Intento {$intentoActual} de {$maxIntentos} verificando factura");
             }
 
-            error_log('Factura verificada, procediendo a timbrar');
+            if (!$facturaLista) {
+                throw new Exception('La factura no está lista para timbrar después de varios intentos');
+            }
 
-            // 6. Timbrar la factura
+            // 6. Timbrar la factura con nuevo formato de payload
             $stampPayload = [
                 'ids' => [$invoice['id']]
             ];
 
             error_log('Timbrando factura con payload: ' . json_encode($stampPayload));
 
-            $response = $this->client->request('POST', 'invoices/stamp', [
-                'json' => $stampPayload
-            ]);
+            try {
+                $response = $this->client->request('POST', 'invoices/stamp', [
+                    'headers' => [
+                        'accept' => 'application/json',
+                        'content-type' => 'application/json'
+                    ],
+                    'json' => $stampPayload
+                ]);
 
-            $stampResult = json_decode($response->getBody()->getContents(), true);
-            error_log('Resultado del timbrado: ' . json_encode($stampResult));
+                $stampResult = json_decode($response->getBody()->getContents(), true);
+                error_log('Resultado del timbrado: ' . json_encode($stampResult));
+            } catch (\GuzzleHttp\Exception\ClientException $e) {
+                $errorBody = $e->getResponse()->getBody()->getContents();
+                error_log('Error en el timbrado: ' . $errorBody);
+                throw new Exception('Error timbrando factura: ' . $errorBody);
+            }
 
             // 7. Esperar y verificar el estado final
             sleep(3);
