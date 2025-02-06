@@ -235,6 +235,7 @@ if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQU
     <title>Gestión de Bodegas</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body class="bg-gray-50">
     <?php include '../../includes/header.php'; ?>
@@ -405,7 +406,7 @@ if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQU
                     </button>
                 </div>
 
-                <form id="bodegaForm" class="space-y-6 py-4" method="POST">
+                <form id="bodegaForm" class="space-y-6 py-4" action="crear.php" method="POST">
                     <input type="hidden" name="action" value="add">
                     <input type="hidden" name="id" value="">
 
@@ -560,8 +561,7 @@ if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQU
             
             const formData = new FormData(this);
             
-            // Asegurarse de que se envíe por POST
-            fetch('index.php', {
+            fetch('crear.php', {
                 method: 'POST',
                 body: formData,
                 headers: {
@@ -834,7 +834,7 @@ if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQU
             // Auto-eliminar después de 5 segundos
             setTimeout(() => {
                 alertDiv.classList.add('translate-x-full');
-                setTimeout(() => alertDiv.remove(), 500);
+                setTimeout(() => alertDiv.remove(), 5000);
             }, 5000);
         }
 
