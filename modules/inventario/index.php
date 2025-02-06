@@ -984,11 +984,25 @@ try {
                             location.reload();
                         });
                     } else {
-                        Swal.fire('Error', response.message, 'error');
+                        let errorMessage = response.message;
+                        if (errorMessage.includes("ventas o cotizaciones asociadas")) {
+                            errorMessage = "No se puede eliminar el producto porque tiene ventas o cotizaciones asociadas. Para mantener el historial de transacciones, estos productos no pueden ser eliminados.";
+                        }
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'No se puede eliminar',
+                            text: errorMessage,
+                            confirmButtonColor: '#3085d6'
+                        });
                     }
                 },
                 error: function() {
-                    Swal.fire('Error', 'Hubo un problema al eliminar el producto', 'error');
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Hubo un problema al eliminar el producto',
+                        confirmButtonColor: '#3085d6'
+                    });
                 }
             });
         }
