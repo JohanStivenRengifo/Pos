@@ -110,10 +110,10 @@ class InventoryManager
 
         $query = "
             SELECT 
-                inventario.*, 
+                inventario.*,
                 (inventario.stock * inventario.precio_venta) AS valor_total,
                 categorias.nombre AS categoria,
-                COALESCE(b.nombre, 'Sin asignar') as bodega,
+                GROUP_CONCAT(DISTINCT b.nombre) as bodegas,
                 COALESCE(ip.ruta, '') as imagen_principal
             FROM inventario
             LEFT JOIN departamentos ON inventario.departamento_id = departamentos.id
@@ -122,6 +122,7 @@ class InventoryManager
             LEFT JOIN bodegas b ON ib.bodega_id = b.id
             LEFT JOIN imagenes_producto ip ON inventario.id = ip.producto_id AND ip.es_principal = 1
             WHERE {$where_clause}
+            GROUP BY inventario.id
             ORDER BY {$this->config->sort_column} {$this->config->sort_direction}
             LIMIT :limit OFFSET :offset";
 
@@ -768,7 +769,14 @@ try {
                                         </td>
                                         <td class="px-6 py-4">
                                             <div class="text-sm text-gray-600">
-                                                <?= htmlspecialchars($producto['bodega']) ?>
+                                                <?php 
+                                                if (!empty($producto['bodegas'])) {
+                                                    $bodegas = explode(',', $producto['bodegas']);
+                                                    echo htmlspecialchars(implode(', ', array_unique($bodegas)));
+                                                } else {
+                                                    echo 'Sin asignar';
+                                                }
+                                                ?>
                                             </div>
                                         </td>
                                         <td class="px-6 py-4 text-center">

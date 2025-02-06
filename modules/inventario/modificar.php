@@ -35,6 +35,15 @@ function obtenerDepartamentos()
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+function obtenerBodegas()
+{
+    global $pdo;
+    $query = "SELECT id, nombre FROM bodegas WHERE estado = 'activo'";
+    $stmt = $pdo->prepare($query);
+    $stmt->execute();
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
 function obtenerProducto($codigo_barras, $user_id)
 {
     global $pdo;
@@ -44,9 +53,12 @@ function obtenerProducto($codigo_barras, $user_id)
                      GROUP_CONCAT(DISTINCT ip.es_principal) as imagen_principales,
                      GROUP_CONCAT(DISTINCT ip.nombre_archivo) as imagen_nombres,
                      GROUP_CONCAT(DISTINCT ip.tamano) as imagen_tamanos,
-                     GROUP_CONCAT(DISTINCT ip.tipo_mime) as imagen_tipos
+                     GROUP_CONCAT(DISTINCT ip.tipo_mime) as imagen_tipos,
+                     b.id as bodega_id,
+                     b.nombre as bodega_nombre
               FROM inventario i
               LEFT JOIN imagenes_producto ip ON i.id = ip.producto_id
+              LEFT JOIN bodegas b ON i.bodega_id = b.id
               WHERE i.codigo_barras = ? AND i.user_id = ?
               GROUP BY i.id";
     $stmt = $pdo->prepare($query);
@@ -65,7 +77,7 @@ function obtenerImagenesProducto($producto_id)
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-function actualizarProducto($id, $codigo_barras, $nombre, $descripcion, $stock, $precio_costo, $impuesto, $margen_ganancia, $categoria_id, $departamento_id, $stock_minimo, $unidad_medida, $imagenes_nuevas, $imagenes_eliminar, $user_id, $precio_venta = null)
+function actualizarProducto($id, $codigo_barras, $nombre, $descripcion, $stock, $precio_costo, $impuesto, $margen_ganancia, $categoria_id, $departamento_id, $stock_minimo, $unidad_medida, $imagenes_nuevas, $imagenes_eliminar, $user_id, $precio_venta = null, $bodega_id = null)
 {
     global $pdo;
     
@@ -93,6 +105,7 @@ function actualizarProducto($id, $codigo_barras, $nombre, $descripcion, $stock, 
                     precio_venta = :precio_venta,
                     categoria_id = :categoria_id,
                     departamento_id = :departamento_id,
+                    bodega_id = :bodega_id,
                     fecha_modificacion = NOW()
                  WHERE id = :id AND user_id = :user_id";
         
@@ -110,6 +123,7 @@ function actualizarProducto($id, $codigo_barras, $nombre, $descripcion, $stock, 
             ':precio_venta' => $precio_venta,
             ':categoria_id' => $categoria_id,
             ':departamento_id' => $departamento_id,
+            ':bodega_id' => $bodega_id,
             ':id' => $id,
             ':user_id' => $user_id
         ]);
@@ -280,6 +294,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['actualizar'])) {
         $unidad_medida = trim(filter_input(INPUT_POST, 'unidad_medida'));
         $imagenes_eliminar = $_POST['imagenes_eliminar'] ?? null;
         $precio_venta = filter_input(INPUT_POST, 'precio_venta', FILTER_VALIDATE_FLOAT);
+        $bodega_id = filter_input(INPUT_POST, 'bodega', FILTER_VALIDATE_INT);
 
         if (!$id || empty($nombre) || $stock === false || $precio_costo === false) {
             throw new Exception("Por favor, complete todos los campos obligatorios correctamente.");
@@ -301,7 +316,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['actualizar'])) {
             $_FILES['imagenes'] ?? [],
             $imagenes_eliminar,
             $user_id,
-            $precio_venta
+            $precio_venta,
+            $bodega_id
         );
 
         // Mostrar mensaje de éxito y redirigir
@@ -325,6 +341,7 @@ if (!$producto) {
 
 $categorias = obtenerCategorias();
 $departamentos = obtenerDepartamentos();
+$bodegas = obtenerBodegas();
 $imagenes = $producto ? obtenerImagenesProducto($producto['id']) : [];
 ?>
 <!DOCTYPE html>
@@ -652,47 +669,102 @@ $imagenes = $producto ? obtenerImagenesProducto($producto['id']) : [];
                         <div class="border-b border-gray-200 bg-gray-50 px-4 py-3">
                             <h2 class="text-lg font-medium text-gray-900 flex items-center">
                                 <i class="fas fa-tags text-blue-500 mr-2"></i>
-                                Clasificación
+                                Clasificación y Ubicación
                             </h2>
                         </div>
                         <div class="p-6">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 <!-- Categoría -->
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-medium text-gray-700">
                                         Categoría *
                                     </label>
-                                    <select id="categoria" 
-                                            name="categoria"
-                                            class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md sm:text-sm"
-                                            required>
-                                        <option value="">Seleccione una categoría...</option>
-                                        <?php foreach ($categorias as $categoria): ?>
-                                            <option value="<?= htmlspecialchars($categoria['id']) ?>" 
-                                                <?= $producto['categoria_id'] == $categoria['id'] ? 'selected' : '' ?>>
-                                                <?= htmlspecialchars($categoria['nombre']) ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
+                                    <div class="relative">
+                                        <select id="categoria" 
+                                                name="categoria"
+                                                class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md sm:text-sm"
+                                                required>
+                                            <option value="">Seleccione una categoría...</option>
+                                            <?php foreach ($categorias as $categoria): ?>
+                                                <option value="<?= htmlspecialchars($categoria['id']) ?>" 
+                                                    <?= $producto['categoria_id'] == $categoria['id'] ? 'selected' : '' ?>>
+                                                    <?= htmlspecialchars($categoria['nombre']) ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                                            <i class="fas fa-chevron-down text-gray-400"></i>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <!-- Departamento -->
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-medium text-gray-700">
                                         Departamento *
                                     </label>
-                                    <select id="departamento" 
-                                            name="departamento"
-                                            class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md sm:text-sm"
-                                            required>
-                                        <option value="">Seleccione un departamento...</option>
-                                        <?php foreach ($departamentos as $departamento): ?>
-                                            <option value="<?= htmlspecialchars($departamento['id']) ?>" 
-                                                <?= $producto['departamento_id'] == $departamento['id'] ? 'selected' : '' ?>>
-                                                <?= htmlspecialchars($departamento['nombre']) ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
+                                    <div class="relative">
+                                        <select id="departamento" 
+                                                name="departamento"
+                                                class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md sm:text-sm"
+                                                required>
+                                            <option value="">Seleccione un departamento...</option>
+                                            <?php foreach ($departamentos as $departamento): ?>
+                                                <option value="<?= htmlspecialchars($departamento['id']) ?>" 
+                                                    <?= $producto['departamento_id'] == $departamento['id'] ? 'selected' : '' ?>>
+                                                    <?= htmlspecialchars($departamento['nombre']) ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                                            <i class="fas fa-chevron-down text-gray-400"></i>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Bodega -->
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-medium text-gray-700">
+                                        Bodega *
+                                    </label>
+                                    <div class="relative">
+                                        <select id="bodega" 
+                                                name="bodega"
+                                                class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md sm:text-sm"
+                                                required>
+                                            <option value="">Seleccione una bodega...</option>
+                                            <?php foreach ($bodegas as $bodega): ?>
+                                                <option value="<?= htmlspecialchars($bodega['id']) ?>" 
+                                                    <?= $producto['bodega_id'] == $bodega['id'] ? 'selected' : '' ?>>
+                                                    <?= htmlspecialchars($bodega['nombre']) ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
+                                            <i class="fas fa-chevron-down text-gray-400"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Información adicional -->
+                            <div class="mt-6 bg-gray-50 rounded-lg p-4">
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-warehouse text-blue-500 mr-2"></i>
+                                        <span class="text-gray-600">Ubicación actual:</span>
+                                        <span class="ml-2 font-medium"><?= htmlspecialchars($producto['bodega_nombre'] ?? 'No asignada') ?></span>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <i class="fas fa-folder text-blue-500 mr-2"></i>
+                                        <span class="text-gray-600">Categoría actual:</span>
+                                        <span class="ml-2 font-medium"><?= htmlspecialchars($producto['categoria_nombre'] ?? 'No asignada') ?></span>
+                                    </div>
+                                    <div class="flex items-center">
+                                        <i class="fas fa-building text-blue-500 mr-2"></i>
+                                        <span class="text-gray-600">Departamento actual:</span>
+                                        <span class="ml-2 font-medium"><?= htmlspecialchars($producto['departamento_nombre'] ?? 'No asignado') ?></span>
+                                    </div>
                                 </div>
                             </div>
                         </div>

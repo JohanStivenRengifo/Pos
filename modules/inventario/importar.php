@@ -436,11 +436,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $impuesto
                 );
                 
-                // Verificar si el producto existe
+                // Verificar si el producto existe y obtener su ID
                 $stmtCheck->execute([$datos[0], $user_id]);
-                $existe = $stmtCheck->fetch();
+                $productoExistente = $stmtCheck->fetch(PDO::FETCH_ASSOC);
                 
-                if ($existe) {
+                if ($productoExistente) {
                     // Actualizar producto existente
                     $stmtUpdate->execute([
                         $datos[1],            // nombre
@@ -460,6 +460,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $user_id
                     ]);
                     $productosActualizados++;
+                    
+                    // Obtener el ID del producto existente
+                    $stmt = $pdo->prepare("SELECT id FROM inventario WHERE codigo_barras = ? AND user_id = ?");
+                    $stmt->execute([$datos[0], $user_id]);
+                    $producto_id = $stmt->fetchColumn();
                 } else {
                     // Insertar nuevo producto
                     $stmtInsert->execute([
@@ -479,23 +484,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $bodega_id,
                         $ubicacion
                     ]);
+                    $producto_id = $pdo->lastInsertId();
                     $productosImportados++;
                 }
                 
-                // Si se especificó una bodega, crear la relación en inventario_bodegas
-                if ($bodega_id) {
+                // Si se especificó una bodega, crear o actualizar la relación en inventario_bodegas
+                if ($bodega_id && $producto_id) {
+                    // Primero intentamos actualizar
                     $stmt = $pdo->prepare("
                         INSERT INTO inventario_bodegas (bodega_id, producto_id, cantidad)
-                        VALUES (?, LAST_INSERT_ID(), ?)
-                        ON DUPLICATE KEY UPDATE cantidad = ?
+                        VALUES (?, ?, ?)
+                        ON DUPLICATE KEY UPDATE cantidad = VALUES(cantidad)
                     ");
-                    $stmt->execute([$bodega_id, floatval($datos[3]), floatval($datos[3])]);
+                    $stmt->execute([$bodega_id, $producto_id, floatval($datos[3])]);
                 }
                 
                 $procesados[] = [
                     'fila' => $row,
                     'codigo' => $datos[0],
-                    'accion' => $existe ? 'actualizado' : 'importado'
+                    'accion' => $productoExistente ? 'actualizado' : 'importado'
                 ];
                 
             } catch (Exception $e) {
