@@ -468,11 +468,9 @@ class AlegraIntegration
                 'documentType' => 'NATIONAL'
             ];
 
-            // Removemos el campo payments ya que lo manejaremos después de crear la factura
+            // 4. Crear la factura inicialmente como borrador
+            $invoicePayload['status'] = 'draft'; // Agregar estado borrador
             
-            error_log('Payload de factura: ' . json_encode($invoicePayload));
-
-            // 4. Crear la factura con manejo mejorado de errores
             try {
                 $response = $this->client->request('POST', 'invoices', [
                     'json' => $invoicePayload
@@ -499,16 +497,33 @@ class AlegraIntegration
 
             error_log('Factura creada con ID: ' . $invoice['id']);
 
-            // 5. Esperar y verificar que la factura existe y está lista
-            $maxIntentos = 5;
+            // 5. Cambiar el estado de la factura a "open"
+            try {
+                $updateResponse = $this->client->request('PUT', "invoices/{$invoice['id']}", [
+                    'json' => [
+                        'status' => 'open'
+                    ]
+                ]);
+                
+                $updateResult = json_decode($updateResponse->getBody()->getContents(), true);
+                error_log('Factura actualizada a estado open: ' . json_encode($updateResult));
+            } catch (\Exception $e) {
+                error_log('Error actualizando estado de factura: ' . $e->getMessage());
+                throw new Exception('Error actualizando estado de factura: ' . $e->getMessage());
+            }
+
+            // 6. Esperar y verificar que la factura está lista
+            $maxIntentos = 10; // Aumentamos el número de intentos
             $intentoActual = 0;
             $facturaLista = false;
 
             while ($intentoActual < $maxIntentos && !$facturaLista) {
-                sleep(2); // Esperar 2 segundos entre intentos
+                sleep(3); // Aumentamos el tiempo de espera entre intentos
                 
                 $response = $this->client->request('GET', "invoices/{$invoice['id']}");
                 $invoiceStatus = json_decode($response->getBody()->getContents(), true);
+
+                error_log("Verificación de estado #{$intentoActual}: " . json_encode($invoiceStatus));
 
                 if (isset($invoiceStatus['status']) && $invoiceStatus['status'] === 'open') {
                     $facturaLista = true;
@@ -524,7 +539,9 @@ class AlegraIntegration
                 throw new Exception('La factura no está lista para timbrar después de varios intentos');
             }
 
-            // 6. Timbrar la factura con nuevo formato de payload
+            // 7. Timbrar la factura
+            sleep(2); // Esperar un momento adicional antes de timbrar
+            
             $stampPayload = [
                 'ids' => [$invoice['id']]
             ];
@@ -533,10 +550,6 @@ class AlegraIntegration
 
             try {
                 $response = $this->client->request('POST', 'invoices/stamp', [
-                    'headers' => [
-                        'accept' => 'application/json',
-                        'content-type' => 'application/json'
-                    ],
                     'json' => $stampPayload
                 ]);
 
@@ -548,12 +561,12 @@ class AlegraIntegration
                 throw new Exception('Error timbrando factura: ' . $errorBody);
             }
 
-            // 7. Esperar y verificar el estado final
+            // 8. Esperar y verificar el estado final
             sleep(3);
             $response = $this->client->request('GET', "invoices/{$invoice['id']}");
             $finalInvoice = json_decode($response->getBody()->getContents(), true);
 
-            // 8. Crear el pago
+            // 9. Crear el pago
             $paymentResult = $this->createPayment(
                 $invoice['id'],
                 $finalInvoice['total'],
