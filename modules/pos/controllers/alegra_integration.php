@@ -96,13 +96,13 @@ class AlegraIntegration
                 'secondLastName' => $nombres[3] ?? ''
             ];
 
-            // Configurar la dirección según el formato requerido por Alegra
+            // Configurar la dirección según el catálogo oficial de Alegra
             $addressData = [
                 'address' => $clientData['direccion'] ?? 'COLOMBIA',
-                'city' => 'BOGOTÁ D.C.',           // Ciudad normalizada
-                'department' => 'BOGOTÁ D.C.',      // Departamento normalizado
+                'city' => 'Bogotá, D.C.',        // Valor exacto del catálogo
+                'department' => 'Bogotá, D.C.',   // Valor exacto del catálogo
                 'country' => 'Colombia',
-                'zipCode' => '110111'               // Código postal de Bogotá
+                'zipCode' => '110111'             // Código postal de Bogotá
             ];
 
             // Configurar el payload base
@@ -120,10 +120,15 @@ class AlegraIntegration
                 ],
                 'kindOfPerson' => $this->mapPersonType($clientData['tipo_persona']),
                 'regime' => 'SIMPLIFIED_REGIME',
-                'address' => $addressData,          // Usar la dirección normalizada
-                'email' => $clientData['email'] ?? 'cliente@example.com', // Email por defecto si no existe
+                'address' => $addressData,
+                'email' => $clientData['email'] ?? 'cliente@example.com',
                 'phonePrimary' => $clientData['telefono'] ?? '0000000',
-                'mobile' => $clientData['celular'] ?? '0000000'
+                'mobile' => $clientData['celular'] ?? '0000000',
+                'term' => [
+                    'id' => '1',
+                    'name' => 'De contado',
+                    'days' => '0'
+                ]
             ];
 
             error_log('Creando contacto con payload: ' . json_encode($payload));
