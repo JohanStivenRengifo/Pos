@@ -405,29 +405,35 @@ if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQU
                     </button>
                 </div>
 
-                <form id="bodegaForm" class="space-y-6 py-4">
+                <form id="bodegaForm" class="space-y-6 py-4" method="POST">
                     <input type="hidden" name="action" value="add">
                     <input type="hidden" name="id" value="">
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
-                        <input type="text" name="nombre" required
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        <input type="text" 
+                               name="nombre" 
+                               required
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="Nombre de la bodega">
                     </div>
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Ubicación</label>
-                        <input type="text" name="ubicacion"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                        <input type="text" 
+                               name="ubicacion"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="Ubicación de la bodega">
                     </div>
 
                     <div class="flex justify-end space-x-4 pt-4 border-t">
-                        <button type="button" onclick="closeModal()"
-                                class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg">
+                        <button type="button" 
+                                onclick="closeModal()"
+                                class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors">
                             Cancelar
                         </button>
                         <button type="submit"
-                                class="px-4 py-2 bg-blue-600 text-white rounded-lg">
+                                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                             Guardar
                         </button>
                     </div>
@@ -537,12 +543,126 @@ if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQU
     <div id="alert-container" class="fixed top-4 right-4 z-50 max-w-sm"></div>
 
     <script>
+        // Función para mostrar el modal
         function showModal() {
             document.getElementById('bodegaModal').classList.remove('hidden');
         }
 
+        // Función para cerrar el modal
         function closeModal() {
             document.getElementById('bodegaModal').classList.add('hidden');
+            document.getElementById('bodegaForm').reset();
+        }
+
+        // Manejar el envío del formulario de bodega
+        document.getElementById('bodegaForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            
+            // Asegurarse de que se envíe por POST
+            fetch('index.php', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Éxito!',
+                        text: data.message,
+                        showConfirmButton: false,
+                        timer: 1500
+                    }).then(() => {
+                        location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: data.message || 'Hubo un error al crear la bodega'
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Hubo un error al procesar la solicitud'
+                });
+            });
+        });
+
+        // Función para editar bodega
+        function editBodega(bodega) {
+            const form = document.getElementById('bodegaForm');
+            form.querySelector('input[name="id"]').value = bodega.id;
+            form.querySelector('input[name="nombre"]').value = bodega.nombre;
+            form.querySelector('input[name="ubicacion"]').value = bodega.ubicacion || '';
+            form.querySelector('input[name="action"]').value = 'edit';
+            document.getElementById('modalTitle').textContent = 'Editar Bodega';
+            showModal();
+        }
+
+        // Función para eliminar bodega
+        function deleteBodega(id) {
+            Swal.fire({
+                title: '¿Estás seguro?',
+                text: "Esta acción no se puede deshacer",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const formData = new FormData();
+                    formData.append('action', 'delete');
+                    formData.append('id', id);
+
+                    fetch('index.php', {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: '¡Eliminado!',
+                                text: data.message,
+                                showConfirmButton: false,
+                                timer: 1500
+                            }).then(() => {
+                                location.reload();
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: data.message || 'No se pudo eliminar la bodega'
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Hubo un error al procesar la solicitud'
+                        });
+                    });
+                }
+            });
         }
 
         function showProductosModal(bodegaId) {
