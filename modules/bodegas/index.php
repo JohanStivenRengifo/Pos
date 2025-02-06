@@ -217,71 +217,153 @@ if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQU
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-50">
     <?php include '../../includes/header.php'; ?>
     
-    <div class="container mx-auto px-4 py-8">
-        <div class="flex flex-wrap -mx-4">
-            <?php include '../../includes/sidebar.php'; ?>
-            
-            <div class="w-full lg:w-3/4 px-4">
+    <div class="flex">
+        <?php include '../../includes/sidebar.php'; ?>
+        
+        <main class="flex-1 p-6">
+            <div class="max-w-7xl mx-auto">
                 <?php if (!empty($error_message)): ?>
-                    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-                        <strong class="font-bold">Error!</strong>
-                        <span class="block sm:inline"><?= htmlspecialchars($error_message) ?></span>
+                    <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded-lg shadow" role="alert">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-exclamation-circle"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm"><?= htmlspecialchars($error_message) ?></p>
+                            </div>
+                        </div>
                     </div>
                 <?php endif; ?>
 
-                <div class="bg-white rounded-lg shadow-md p-6">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-xl font-bold text-gray-800">Gestión de Bodegas</h2>
-                        <button onclick="showModal()" 
-                                class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-                            <i class="fas fa-plus mr-2"></i>
-                            Nueva Bodega
-                        </button>
+                <div class="bg-white rounded-xl shadow-lg p-6">
+                    <!-- Encabezado con estadísticas -->
+                    <div class="mb-8">
+                        <div class="flex justify-between items-center mb-6">
+                            <div>
+                                <h1 class="text-2xl font-bold text-gray-900">Gestión de Bodegas</h1>
+                                <p class="mt-1 text-sm text-gray-600">Administra las bodegas y sus productos</p>
+                            </div>
+                            <button onclick="showModal()" 
+                                    class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 transition-colors">
+                                <i class="fas fa-plus mr-2"></i>
+                                Nueva Bodega
+                            </button>
+                        </div>
+
+                        <!-- Estadísticas -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                            <div class="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-lg border border-blue-200">
+                                <div class="flex items-center">
+                                    <div class="p-3 rounded-full bg-blue-600 bg-opacity-10">
+                                        <i class="fas fa-warehouse text-blue-600 text-xl"></i>
+                                    </div>
+                                    <div class="ml-4">
+                                        <h3 class="text-sm font-medium text-gray-600">Total Bodegas</h3>
+                                        <p class="text-2xl font-semibold text-gray-900"><?= count($bodegas) ?></p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-lg border border-green-200">
+                                <div class="flex items-center">
+                                    <div class="p-3 rounded-full bg-green-600 bg-opacity-10">
+                                        <i class="fas fa-box text-green-600 text-xl"></i>
+                                    </div>
+                                    <div class="ml-4">
+                                        <h3 class="text-sm font-medium text-gray-600">Total Productos</h3>
+                                        <p class="text-2xl font-semibold text-gray-900"><?= count($productos) ?></p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-lg border border-purple-200">
+                                <div class="flex items-center">
+                                    <div class="p-3 rounded-full bg-purple-600 bg-opacity-10">
+                                        <i class="fas fa-boxes text-purple-600 text-xl"></i>
+                                    </div>
+                                    <div class="ml-4">
+                                        <h3 class="text-sm font-medium text-gray-600">Productos Asignados</h3>
+                                        <p class="text-2xl font-semibold text-gray-900">
+                                            <?php
+                                            $stmt = $conn->prepare("SELECT COUNT(DISTINCT producto_id) as total FROM inventario_bodegas WHERE bodega_id IN (SELECT id FROM bodegas WHERE usuario_id = ?)");
+                                            $stmt->execute([$_SESSION['user_id']]);
+                                            echo $stmt->fetch()['total'];
+                                            ?>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
+                    <!-- Tabla de Bodegas -->
+                    <div class="overflow-hidden shadow ring-1 ring-black ring-opacity-5 rounded-lg">
+                        <table class="min-w-full divide-y divide-gray-300">
                             <thead class="bg-gray-50">
                                 <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ubicación</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                                    <th scope="col" class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900">Nombre</th>
+                                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Ubicación</th>
+                                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Productos</th>
+                                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Estado</th>
+                                    <th scope="col" class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Última Actualización</th>
+                                    <th scope="col" class="relative py-3.5 pl-3 pr-4">
+                                        <span class="sr-only">Acciones</span>
+                                    </th>
                                 </tr>
                             </thead>
-                            <tbody class="bg-white divide-y divide-gray-200">
-                                <?php foreach ($bodegas as $bodega): ?>
-                                <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <?= htmlspecialchars($bodega['nombre']) ?>
+                            <tbody class="divide-y divide-gray-200 bg-white">
+                                <?php foreach ($bodegas as $bodega): 
+                                    // Obtener cantidad de productos en la bodega
+                                    $stmt = $conn->prepare("SELECT COUNT(*) as total FROM inventario_bodegas WHERE bodega_id = ?");
+                                    $stmt->execute([$bodega['id']]);
+                                    $total_productos = $stmt->fetch()['total'];
+                                ?>
+                                <tr class="hover:bg-gray-50">
+                                    <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm">
+                                        <div class="font-medium text-gray-900"><?= htmlspecialchars($bodega['nombre']) ?></div>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <?= htmlspecialchars($bodega['ubicacion']) ?>
+                                    <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                        <?= $bodega['ubicacion'] ? htmlspecialchars($bodega['ubicacion']) : '<span class="text-gray-400">No especificada</span>' ?>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                            <?= $bodega['estado'] ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' ?>">
-                                            <?= $bodega['estado'] ? 'Activo' : 'Inactivo' ?>
+                                    <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                            <?= $total_productos ?> productos
                                         </span>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                        <button onclick="window.location.href='ver.php?id=<?= $bodega['id'] ?>'" 
-                                                class="text-green-600 hover:text-green-900 mr-3" 
-                                                title="Ver productos">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                        <button onclick="showProductosModal(<?= $bodega['id'] ?>)" class="text-blue-600 hover:text-blue-900 mr-3" title="Asignar productos">
-                                            <i class="fas fa-box"></i>
-                                        </button>
-                                        <button onclick="editBodega(<?= htmlspecialchars(json_encode($bodega)) ?>)" class="text-indigo-600 hover:text-indigo-900 mr-3" title="Editar">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button onclick="deleteBodega(<?= $bodega['id'] ?>)" class="text-red-600 hover:text-red-900" title="Eliminar">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
+                                    <td class="whitespace-nowrap px-3 py-4 text-sm">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <?= $bodega['estado'] ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' ?>">
+                                            <?= $bodega['estado'] ? 'Activa' : 'Inactiva' ?>
+                                        </span>
+                                    </td>
+                                    <td class="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                                        <?= date('d/m/Y H:i', strtotime($bodega['updated_at'])) ?>
+                                    </td>
+                                    <td class="whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium">
+                                        <div class="flex justify-end space-x-2">
+                                            <button onclick="window.location.href='ver.php?id=<?= $bodega['id'] ?>'" 
+                                                    class="text-green-600 hover:text-green-900 bg-green-100 p-2 rounded-lg transition-colors"
+                                                    title="Ver productos">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            <button onclick="showProductosModal(<?= $bodega['id'] ?>)" 
+                                                    class="text-blue-600 hover:text-blue-900 bg-blue-100 p-2 rounded-lg transition-colors"
+                                                    title="Asignar productos">
+                                                <i class="fas fa-box"></i>
+                                            </button>
+                                            <button onclick="editBodega(<?= htmlspecialchars(json_encode($bodega)) ?>)" 
+                                                    class="text-indigo-600 hover:text-indigo-900 bg-indigo-100 p-2 rounded-lg transition-colors"
+                                                    title="Editar">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button onclick="deleteBodega(<?= $bodega['id'] ?>)" 
+                                                    class="text-red-600 hover:text-red-900 bg-red-100 p-2 rounded-lg transition-colors"
+                                                    title="Eliminar">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
@@ -290,7 +372,7 @@ if (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQU
                     </div>
                 </div>
             </div>
-        </div>
+        </main>
     </div>
 
     <!-- Modal para Bodegas -->

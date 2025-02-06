@@ -37,72 +37,63 @@ function descargarPlantilla() {
     $spreadsheet = new Spreadsheet();
     $sheet = $spreadsheet->getActiveSheet();
     
-    // Estilo para encabezados
-    $headerStyle = [
-        'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
-        'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'color' => ['rgb' => '007BFF']],
-        'alignment' => ['horizontal' => 'center', 'vertical' => 'center'],
-        'borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN]]
-    ];
-    
-    // Añadir encabezados con descripciones
+    // Establecer encabezados
     $headers = [
-        'A' => ['Código de Barras', 'Código único del producto (8-13 dígitos)'],
-        'B' => ['Nombre', 'Nombre del producto (máx. 100 caracteres)'],
-        'C' => ['Descripción', 'Descripción detallada del producto'],
-        'D' => ['Stock', 'Cantidad inicial en inventario'],
-        'E' => ['Stock Mínimo', 'Cantidad mínima antes de alerta'],
-        'F' => ['Unidad Medida', 'UNIDAD, KG, GR, LT, MT, CM'],
-        'G' => ['Precio Costo', 'Precio de compra sin IVA'],
-        'H' => ['Precio Venta', 'Precio de venta final (incluye IVA)'],
-        'I' => ['Impuesto', 'Porcentaje de IVA (ej: 19)'],
-        'J' => ['Departamento', 'Nombre del departamento'],
-        'K' => ['Categoría', 'Nombre de la categoría']
+        'A1' => 'Código de Barras*',
+        'B1' => 'Nombre del Producto*',
+        'C1' => 'Descripción',
+        'D1' => 'Stock*',
+        'E1' => 'Stock Mínimo*',
+        'F1' => 'Unidad de Medida*',
+        'G1' => 'Precio de Costo*',
+        'H1' => 'Precio de Venta*',
+        'I1' => 'Impuesto (%)*',
+        'J1' => 'Departamento*',
+        'K1' => 'Categoría*',
+        'L1' => 'Bodega',
+        'M1' => 'Ubicación en Bodega'
     ];
-
-    // Aplicar encabezados y estilos
-    foreach ($headers as $col => $header) {
-        $sheet->setCellValue($col . '1', $header[0]);
-        $sheet->setCellValue($col . '2', $header[1]);
-    }
     
-    // Aplicar estilos
-    $sheet->getStyle('A1:K1')->applyFromArray($headerStyle);
-    $sheet->getStyle('A2:K2')->getFont()->setItalic(true);
-    
-    // Agregar datos de ejemplo
+    // Ejemplos de datos
     $ejemplos = [
-        ['7501234567890', 'Producto Ejemplo', 'Descripción del producto', '100', '10', 'UNIDAD', '1000.00', '1500.00', '19', 'Electrónicos', 'Smartphones'],
-        ['7502345678901', 'Otro Producto', 'Otra descripción', '50', '5', 'KG', '500.00', '750.00', '19', 'Alimentos', 'Frutas']
+        [
+            'Instrucciones',
+            'Complete los campos según el formato indicado',
+            'Los campos con * son obligatorios',
+            'Unidades de medida permitidas: UNIDAD, KILOGRAMO, LITRO, METRO, CAJA, PAQUETE',
+            'Los precios deben ser números positivos',
+            'El impuesto debe ser un número entre 0 y 100',
+            'Si la bodega no existe, se creará automáticamente',
+            'La ubicación en bodega es opcional'
+        ],
+        [
+            '7501234567890',
+            'Smartphone Samsung Galaxy A52',
+            'Teléfono inteligente 128GB',
+            '10',
+            '5',
+            'UNIDAD',
+            '300.00',
+            '399.99',
+            '18',
+            'ELECTRÓNICOS',
+            'CELULARES',
+            'BODEGA PRINCIPAL',
+            'ESTANTE A-1'
+        ]
     ];
-    
-    // Agregar los ejemplos usando coordenadas de celda directas
-    $sheet->setCellValue('A3', $ejemplos[0][0]);
-    $sheet->setCellValue('B3', $ejemplos[0][1]);
-    $sheet->setCellValue('C3', $ejemplos[0][2]);
-    $sheet->setCellValue('D3', $ejemplos[0][3]);
-    $sheet->setCellValue('E3', $ejemplos[0][4]);
-    $sheet->setCellValue('F3', $ejemplos[0][5]);
-    $sheet->setCellValue('G3', $ejemplos[0][6]);
-    $sheet->setCellValue('H3', $ejemplos[0][7]);
-    $sheet->setCellValue('I3', $ejemplos[0][8]);
-    $sheet->setCellValue('J3', $ejemplos[0][9]);
-    $sheet->setCellValue('K3', $ejemplos[0][10]);
 
-    $sheet->setCellValue('A4', $ejemplos[1][0]);
-    $sheet->setCellValue('B4', $ejemplos[1][1]);
-    $sheet->setCellValue('C4', $ejemplos[1][2]);
-    $sheet->setCellValue('D4', $ejemplos[1][3]);
-    $sheet->setCellValue('E4', $ejemplos[1][4]);
-    $sheet->setCellValue('F4', $ejemplos[1][5]);
-    $sheet->setCellValue('G4', $ejemplos[1][6]);
-    $sheet->setCellValue('H4', $ejemplos[1][7]);
-    $sheet->setCellValue('I4', $ejemplos[1][8]);
-    $sheet->setCellValue('J4', $ejemplos[1][9]);
-    $sheet->setCellValue('K4', $ejemplos[1][10]);
+    // Aplicar los datos
+    foreach ($headers as $cell => $value) {
+        $sheet->setCellValue($cell, $value);
+    }
+
+    // Aplicar los ejemplos
+    $sheet->fromArray($ejemplos[0], null, 'A3');
+    $sheet->fromArray($ejemplos[1], null, 'A4');
 
     // Autoajustar columnas
-    foreach (range('A', 'K') as $col) {
+    foreach (range('A', 'M') as $col) {
         $sheet->getColumnDimension($col)->setAutoSize(true);
     }
 
@@ -176,6 +167,32 @@ function obtenerOCrearCategoria($pdo, $nombre, $user_id, &$cache = []) {
     return $id;
 }
 
+// Agregar después de las funciones de departamentos y categorías
+
+function obtenerOCrearBodega($pdo, $nombre, $ubicacion, $user_id, &$cache = []) {
+    $nombre = trim(strtoupper($nombre));
+    $cacheKey = $user_id . '_' . $nombre;
+    
+    if (isset($cache[$cacheKey])) {
+        return $cache[$cacheKey];
+    }
+    
+    $stmt = $pdo->prepare("SELECT id FROM bodegas WHERE UPPER(nombre) = ? AND usuario_id = ?");
+    $stmt->execute([$nombre, $user_id]);
+    $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if ($resultado) {
+        $cache[$cacheKey] = $resultado['id'];
+        return $resultado['id'];
+    }
+    
+    $stmt = $pdo->prepare("INSERT INTO bodegas (nombre, ubicacion, usuario_id, estado) VALUES (?, ?, ?, 1)");
+    $stmt->execute([$nombre, $ubicacion, $user_id]);
+    $id = $pdo->lastInsertId();
+    $cache[$cacheKey] = $id;
+    return $id;
+}
+
 // Función para limpiar y convertir valores monetarios
 function limpiarValorMonetario($valor) {
     // Si es numérico, retornarlo directamente
@@ -199,7 +216,7 @@ function limpiarValorMonetario($valor) {
     return floatval($valor);
 }
 
-// Modificar la función validarDatosProducto
+// Modificar la función validarDatosProducto para incluir la validación de bodega
 function validarDatosProducto($datos) {
     $errores = [];
     
@@ -246,6 +263,16 @@ function validarDatosProducto($datos) {
         $errores[] = "Impuesto inválido: debe ser un porcentaje entre 0 y 100";
     }
     
+    // Validar bodega (opcional)
+    if (!empty($datos[11]) && strlen($datos[11]) > 100) {
+        $errores[] = "El nombre de la bodega no debe exceder los 100 caracteres";
+    }
+
+    // Validar ubicación en bodega (opcional)
+    if (!empty($datos[12]) && strlen($datos[12]) > 50) {
+        $errores[] = "La ubicación en bodega no debe exceder los 50 caracteres";
+    }
+
     return $errores;
 }
 
@@ -341,8 +368,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $sqlInsert = "INSERT INTO inventario (
             user_id, codigo_barras, nombre, descripcion, stock, stock_minimo,
             unidad_medida, precio_costo, margen_ganancia, impuesto, precio_venta,
-            departamento_id, categoria_id, fecha_ingreso, fecha_modificacion, estado
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), 'activo')";
+            departamento_id, categoria_id, bodega_id, ubicacion,
+            fecha_ingreso, fecha_modificacion, estado
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), 'activo')";
         $stmtInsert = $pdo->prepare($sqlInsert);
         
         // Preparar la consulta de actualización
@@ -350,7 +378,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             nombre = ?, descripcion = ?, stock = ?, stock_minimo = ?,
             unidad_medida = ?, precio_costo = ?, margen_ganancia = ?,
             impuesto = ?, precio_venta = ?, departamento_id = ?,
-            categoria_id = ?, fecha_modificacion = NOW()
+            categoria_id = ?, bodega_id = ?, ubicacion = ?, fecha_modificacion = NOW()
             WHERE codigo_barras = ? AND user_id = ?";
         $stmtUpdate = $pdo->prepare($sqlUpdate);
         
@@ -366,11 +394,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Preparar caché
         $cacheDepartamentos = [];
         $cacheCategorias = [];
+        $cacheBodegas = [];
         
         // Procesar cada fila
         for ($row = 3; $row <= $highestRow; $row++) {
             $datos = [];
-            for ($col = 'A'; $col <= 'K'; $col++) {
+            for ($col = 'A'; $col <= 'M'; $col++) {
                 $datos[] = trim($worksheet->getCell($col . $row)->getValue());
             }
             
@@ -385,9 +414,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     continue;
                 }
                 
-                // Obtener IDs de departamento y categoría
+                // Obtener IDs de departamento, categoría y bodega
                 $departamento_id = obtenerOCrearDepartamento($pdo, $datos[9], $user_id, $cacheDepartamentos);
                 $categoria_id = obtenerOCrearCategoria($pdo, $datos[10], $user_id, $cacheCategorias);
+                $bodega_id = null;
+                $ubicacion = null;
+                if (!empty($datos[11])) {
+                    $bodega_id = obtenerOCrearBodega($pdo, $datos[11], $datos[12], $user_id, $cacheBodegas);
+                    $ubicacion = $datos[12];
+                }
                 
                 // Obtener los precios limpios
                 $precio_costo = limpiarValorMonetario($datos[6]);
@@ -419,6 +454,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $precio_venta,        // precio_venta limpio
                         $departamento_id,
                         $categoria_id,
+                        $bodega_id,
+                        $ubicacion,
                         $datos[0],            // codigo_barras
                         $user_id
                     ]);
@@ -438,9 +475,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $impuesto,            // impuesto
                         $precio_venta,        // precio_venta limpio
                         $departamento_id,
-                        $categoria_id
+                        $categoria_id,
+                        $bodega_id,
+                        $ubicacion
                     ]);
                     $productosImportados++;
+                }
+                
+                // Si se especificó una bodega, crear la relación en inventario_bodegas
+                if ($bodega_id) {
+                    $stmt = $pdo->prepare("
+                        INSERT INTO inventario_bodegas (bodega_id, producto_id, cantidad)
+                        VALUES (?, LAST_INSERT_ID(), ?)
+                        ON DUPLICATE KEY UPDATE cantidad = ?
+                    ");
+                    $stmt->execute([$bodega_id, floatval($datos[3]), floatval($datos[3])]);
                 }
                 
                 $procesados[] = [
