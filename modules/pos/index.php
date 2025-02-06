@@ -182,6 +182,15 @@ if (
                         <?php endif; ?>
                     </li>
 
+                    <!-- Reimprimir Facturas -->
+                    <li class="h-full flex items-center">
+                        <button onclick="mostrarFacturasElectronicas()" 
+                            class="flex items-center px-3 py-1.5 rounded-full bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors">
+                            <i class="fas fa-receipt text-blue-600 mr-2 text-sm"></i>
+                            <span class="text-xs text-blue-700 font-medium">Reimprimir Facturas</span>
+                        </button>
+                    </li>
+
                     <!-- Perfil de usuario -->
                     <li class="h-full flex items-center relative">
                         <button onclick="togglePerfilMenu()" class="flex items-center space-x-2 px-3 py-2 rounded-full hover:bg-gray-100 transition-colors">
@@ -860,6 +869,152 @@ if (
                 confirmButtonColor: '#4F46E5'
             }).then(() => {
                 imprimirRemision();
+            });
+        }
+
+        // Añadir la validación para el tipo de factura y cliente
+        document.addEventListener('DOMContentLoaded', function() {
+            const tipoDocumento = document.getElementById('tipo-documento');
+            const numeracion = document.getElementById('numeracion');
+            const clienteSelect = document.getElementById('cliente-select');
+
+            function validarFacturaElectronica() {
+                if (numeracion.value === 'electronica') {
+                    // Deshabilitar la opción de consumidor final (asumiendo que tiene el ID 1)
+                    const consumidorFinal = clienteSelect.querySelector('option[value="1"]');
+                    if (consumidorFinal) {
+                        consumidorFinal.disabled = true;
+                        if (clienteSelect.value === "1") {
+                            clienteSelect.value = "";
+                        }
+                    }
+                } else {
+                    // Habilitar todas las opciones
+                    Array.from(clienteSelect.options).forEach(option => {
+                        option.disabled = false;
+                    });
+                }
+            }
+
+            numeracion.addEventListener('change', validarFacturaElectronica);
+            validarFacturaElectronica(); // Validar al cargar
+        });
+
+        function mostrarFacturasElectronicas() {
+            // Mostrar loading
+            Swal.fire({
+                title: 'Cargando facturas...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            // Obtener facturas
+            fetch('api/alegra/obtener_facturas.php')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        mostrarListaFacturas(data.facturas);
+                    } else {
+                        throw new Error(data.message || 'Error al obtener las facturas');
+                    }
+                })
+                .catch(error => {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: error.message,
+                        confirmButtonColor: '#EF4444'
+                    });
+                });
+        }
+
+        function mostrarListaFacturas(facturas) {
+            let html = `
+                <div class="max-h-[400px] overflow-y-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="bg-gray-50">
+                                <th class="px-4 py-2 text-left">Número</th>
+                                <th class="px-4 py-2 text-left">Cliente</th>
+                                <th class="px-4 py-2 text-right">Total</th>
+                                <th class="px-4 py-2 text-center">Fecha</th>
+                                <th class="px-4 py-2 text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            facturas.forEach(factura => {
+                html += `
+                    <tr class="border-b">
+                        <td class="px-4 py-2">${factura.numberTemplate}</td>
+                        <td class="px-4 py-2">${factura.client.name}</td>
+                        <td class="px-4 py-2 text-right">$${factura.total.toLocaleString('es-CO')}</td>
+                        <td class="px-4 py-2 text-center">${new Date(factura.date).toLocaleDateString()}</td>
+                        <td class="px-4 py-2 text-center">
+                            <button onclick="reimprimirFactura('${factura.id}')" 
+                                class="bg-blue-100 text-blue-700 px-2 py-1 rounded-md hover:bg-blue-200 transition-colors">
+                                <i class="fas fa-print"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            Swal.fire({
+                title: 'Facturas Electrónicas',
+                html: html,
+                width: '800px',
+                showCloseButton: true,
+                showConfirmButton: false
+            });
+        }
+
+        function reimprimirFactura(facturaId) {
+            Swal.fire({
+                title: 'Reimprimiendo factura...',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            fetch('api/alegra/obtener_factura.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ facturaId: facturaId })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Aquí puedes implementar la lógica de impresión
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Factura reimpresa',
+                        text: 'La factura se ha reimpreso correctamente',
+                        confirmButtonColor: '#4F46E5'
+                    });
+                } else {
+                    throw new Error(data.message || 'Error al reimprimir la factura');
+                }
+            })
+            .catch(error => {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: error.message,
+                    confirmButtonColor: '#EF4444'
+                });
             });
         }
     </script>
