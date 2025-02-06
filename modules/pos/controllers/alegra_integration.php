@@ -428,7 +428,7 @@ class AlegraIntegration
                 throw new Exception('Error con el vendedor: ' . $seller['error']);
             }
 
-            // 2. Preparar los items SIN impuestos (no responsables de IVA)
+            // 2. Preparar los items
             $items = [];
             foreach ($data['items'] as $item) {
                 $itemAlegra = $this->findOrCreateItem($item);
@@ -440,7 +440,6 @@ class AlegraIntegration
                     'id' => $itemAlegra['data']['id'],
                     'price' => floatval($item['precio']),
                     'quantity' => intval($item['cantidad'])
-                    // Removemos el campo 'tax' ya que no somos responsables de IVA
                 ];
             }
 
@@ -464,193 +463,94 @@ class AlegraIntegration
                 'currency' => [
                     'code' => 'COP'
                 ],
-                'operationType' => 'STANDARD',
-                'documentType' => 'NATIONAL',
                 'status' => 'draft'
             ];
 
-            // 4. Crear la factura inicialmente como borrador
-            try {
-                error_log('Enviando payload de factura: ' . json_encode($invoicePayload));
-                
-                $response = $this->client->request('POST', 'invoices', [
-                    'json' => $invoicePayload
-                ]);
-                
-                $responseBody = $response->getBody()->getContents();
-                error_log('Respuesta cruda de Alegra (creación): ' . $responseBody);
-                
-                if (empty($responseBody)) {
-                    throw new Exception('La respuesta de Alegra está vacía');
-                }
-                
-                $invoice = json_decode($responseBody, true);
-                
-                if (json_last_error() !== JSON_ERROR_NONE) {
-                    throw new Exception('Error decodificando respuesta JSON: ' . json_last_error_msg() . '. Respuesta: ' . $responseBody);
-                }
-                
-                if (!isset($invoice['id'])) {
-                    throw new Exception('No se pudo crear la factura. Respuesta: ' . $responseBody);
-                }
-                
-            } catch (\GuzzleHttp\Exception\ClientException $e) {
-                $errorResponse = $e->getResponse();
-                $errorBody = $errorResponse ? $errorResponse->getBody()->getContents() : 'No response body';
-                $statusCode = $errorResponse ? $errorResponse->getStatusCode() : 'No status code';
-                error_log("Error de cliente HTTP (Status: {$statusCode}): " . $errorBody);
-                throw new Exception("Error creando factura (Status: {$statusCode}): " . $errorBody);
-            } catch (\Exception $e) {
-                error_log('Error inesperado creando factura: ' . $e->getMessage());
-                throw $e;
+            // 4. Crear la factura
+            error_log('Creando factura con payload: ' . json_encode($invoicePayload));
+            
+            $response = $this->client->request('POST', 'invoices', [
+                'json' => $invoicePayload,
+                'headers' => [
+                    'Accept' => 'application/json',
+                    'Content-Type' => 'application/json'
+                ]
+            ]);
+
+            $invoice = json_decode($response->getBody()->getContents(), true);
+            
+            if (!isset($invoice['id'])) {
+                throw new Exception('No se pudo crear la factura: ' . json_encode($invoice));
             }
 
             error_log('Factura creada con ID: ' . $invoice['id']);
 
-            // 5. Cambiar el estado de la factura a "open"
-            try {
-                $updatePayload = [
-                    'status' => 'open',
-                    'paymentForm' => 'CASH',
-                    'paymentMethod' => 'CASH'
-                ];
-                
-                error_log('Enviando payload de actualización: ' . json_encode($updatePayload));
-                
-                $updateResponse = $this->client->request('PUT', "invoices/{$invoice['id']}", [
-                    'headers' => [
-                        'Accept' => 'application/json',
-                        'Content-Type' => 'application/json'
-                    ],
-                    'json' => $updatePayload
-                ]);
-                
-                // Verificar el código de estado HTTP
-                $statusCode = $updateResponse->getStatusCode();
-                error_log("Código de estado de actualización: {$statusCode}");
-                
-                if ($statusCode !== 200) {
-                    throw new Exception("Respuesta inesperada del servidor: {$statusCode}");
-                }
-                
-                // Obtener y verificar los headers
-                $headers = $updateResponse->getHeaders();
-                error_log('Headers de respuesta: ' . json_encode($headers));
-                
-                // Leer el cuerpo de la respuesta
-                $updateBody = (string) $updateResponse->getBody();
-                error_log('Respuesta cruda de actualización: ' . $updateBody);
-                
-                if (trim($updateBody) === '') {
-                    // Si la respuesta está vacía pero el status es 200, consideramos que fue exitoso
-                    if ($statusCode === 200) {
-                        $updateResult = ['status' => 'success'];
-                        error_log('Respuesta vacía pero status 200, considerando exitoso');
-                    } else {
-                        throw new Exception('La respuesta de actualización está vacía');
-                    }
-                } else {
-                    // Intentar decodificar el JSON
-                    $updateResult = json_decode($updateBody, true);
-                    
-                    if (json_last_error() !== JSON_ERROR_NONE) {
-                        error_log('Error JSON: ' . json_last_error_msg());
-                        error_log('Contenido que causó el error: ' . $updateBody);
-                        throw new Exception('Error decodificando respuesta de actualización: ' . json_last_error_msg());
-                    }
-                }
-                
-                error_log('Factura actualizada a estado open: ' . json_encode($updateResult));
-            } catch (\GuzzleHttp\Exception\ClientException $e) {
-                $errorResponse = $e->getResponse();
-                $statusCode = $errorResponse ? $errorResponse->getStatusCode() : 'No status code';
-                $errorBody = '';
-                
-                try {
-                    if ($errorResponse) {
-                        $errorBody = (string) $errorResponse->getBody();
-                        $errorJson = json_decode($errorBody, true);
-                        if (json_last_error() === JSON_ERROR_NONE) {
-                            $errorBody = json_encode($errorJson, JSON_PRETTY_PRINT);
-                        }
-                    }
-                } catch (\Exception $jsonEx) {
-                    $errorBody = 'Error procesando respuesta de error: ' . $jsonEx->getMessage();
-                }
-                
-                error_log("Error actualizando factura (Status: {$statusCode}): " . $errorBody);
-                throw new Exception("Error actualizando estado de factura (Status: {$statusCode}): " . $errorBody);
-            } catch (\Exception $e) {
-                error_log('Error inesperado actualizando factura: ' . $e->getMessage());
-                throw $e;
-            }
-
-            // 6. Esperar y verificar que la factura está lista
-            $maxIntentos = 10; // Aumentamos el número de intentos
+            // 5. Verificar y esperar que la factura esté lista
+            $maxIntentos = 5;
             $intentoActual = 0;
-            $facturaLista = false;
-
-            while ($intentoActual < $maxIntentos && !$facturaLista) {
-                sleep(3); // Aumentamos el tiempo de espera entre intentos
-                
-                $response = $this->client->request('GET', "invoices/{$invoice['id']}");
-                $invoiceStatus = json_decode($response->getBody()->getContents(), true);
-
-                error_log("Verificación de estado #{$intentoActual}: " . json_encode($invoiceStatus));
-
-                if (isset($invoiceStatus['status']) && $invoiceStatus['status'] === 'open') {
-                    $facturaLista = true;
-                    error_log('Factura verificada y lista para timbrar');
-                    break;
-                }
-
-                $intentoActual++;
-                error_log("Intento {$intentoActual} de {$maxIntentos} verificando factura");
-            }
-
-            if (!$facturaLista) {
-                throw new Exception('La factura no está lista para timbrar después de varios intentos');
-            }
-
-            // 7. Timbrar la factura
-            sleep(2); // Esperar un momento adicional antes de timbrar
             
-            $stampPayload = [
-                'ids' => [$invoice['id']]
-            ];
-
-            error_log('Timbrando factura con payload: ' . json_encode($stampPayload));
-
-            try {
-                $response = $this->client->request('POST', 'invoices/stamp', [
-                    'json' => $stampPayload
+            do {
+                sleep(2);
+                $checkResponse = $this->client->request('GET', "invoices/{$invoice['id']}", [
+                    'headers' => ['Accept' => 'application/json']
                 ]);
+                
+                $invoiceStatus = json_decode($checkResponse->getBody()->getContents(), true);
+                error_log('Estado actual de la factura: ' . json_encode($invoiceStatus));
+                
+                $intentoActual++;
+            } while ($intentoActual < $maxIntentos && $invoiceStatus['status'] !== 'draft');
 
-                $stampResult = json_decode($response->getBody()->getContents(), true);
-                error_log('Resultado del timbrado: ' . json_encode($stampResult));
-            } catch (\GuzzleHttp\Exception\ClientException $e) {
-                $errorBody = $e->getResponse()->getBody()->getContents();
-                error_log('Error en el timbrado: ' . $errorBody);
-                throw new Exception('Error timbrando factura: ' . $errorBody);
-            }
+            // 6. Timbrar la factura
+            $stampPayload = ['ids' => [$invoice['id']]];
+            
+            error_log('Timbrando factura con payload: ' . json_encode($stampPayload));
+            
+            $stampResponse = $this->client->request('POST', 'invoices/stamp', [
+                'json' => $stampPayload,
+                'headers' => [
+                    'Accept' => 'application/json',
+                    'Content-Type' => 'application/json'
+                ]
+            ]);
 
-            // 8. Esperar y verificar el estado final
-            sleep(3);
-            $response = $this->client->request('GET', "invoices/{$invoice['id']}");
-            $finalInvoice = json_decode($response->getBody()->getContents(), true);
+            $stampResult = json_decode($stampResponse->getBody()->getContents(), true);
+            error_log('Resultado del timbrado: ' . json_encode($stampResult));
 
-            // 9. Crear el pago
-            $paymentResult = $this->createPayment(
-                $invoice['id'],
-                $finalInvoice['total'],
-                $this->mapPaymentMeans('CASH')
-            );
+            // 7. Obtener la factura final
+            sleep(2);
+            $finalResponse = $this->client->request('GET', "invoices/{$invoice['id']}", [
+                'headers' => ['Accept' => 'application/json']
+            ]);
+            
+            $finalInvoice = json_decode($finalResponse->getBody()->getContents(), true);
+
+            // 8. Obtener el PDF y otros detalles
+            $pdfResponse = $this->client->request('GET', "invoices/{$invoice['id']}/pdf", [
+                'headers' => ['Accept' => 'application/json']
+            ]);
+            
+            $pdfData = json_decode($pdfResponse->getBody()->getContents(), true);
 
             return [
                 'success' => true,
-                'data' => $finalInvoice,
-                'stampResult' => $stampResult,
-                'paymentResult' => $paymentResult
+                'data' => [
+                    'id' => $invoice['id'],
+                    'status' => $finalInvoice['status'],
+                    'number' => $finalInvoice['numberTemplate']['number'],
+                    'total' => $finalInvoice['total'],
+                    'cufe' => $finalInvoice['electronic']['cufe'] ?? null,
+                    'qr_code' => $finalInvoice['electronic']['qrCode'] ?? null,
+                    'pdf_url' => $pdfData['downloadLink'] ?? null,
+                    'xml_url' => $finalInvoice['electronic']['xmlURL'] ?? null
+                ]
+            ];
+        } catch (\GuzzleHttp\Exception\ClientException $e) {
+            $errorBody = $e->getResponse()->getBody()->getContents();
+            error_log('Error de cliente HTTP: ' . $errorBody);
+            return [
+                'success' => false,
+                'error' => 'Error en la petición: ' . $errorBody
             ];
         } catch (\Exception $e) {
             error_log('Error en createInvoice: ' . $e->getMessage());
