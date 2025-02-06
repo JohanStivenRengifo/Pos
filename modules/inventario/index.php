@@ -469,48 +469,21 @@ try {
                 <div class="flex flex-wrap gap-4 mb-8">
                     <div class="flex flex-wrap gap-3">
                         <a href="crear.php"
-                            class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105 shadow-sm">
+                            class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all transform hover:scale-105 shadow-sm">
                             <i class="fas fa-plus mr-2"></i> Nuevo Producto
                         </a>
                         <a href="surtir.php"
-                            class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all transform hover:scale-105 shadow-sm">
+                            class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all transform hover:scale-105 shadow-sm">
                             <i class="fas fa-boxes mr-2"></i> Surtir
                         </a>
                         <a href="importar.php"
-                            class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all transform hover:scale-105 shadow-sm">
+                            class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg hover:from-purple-700 hover:to-purple-800 transition-all transform hover:scale-105 shadow-sm">
                             <i class="fas fa-file-import mr-2"></i> Importar
                         </a>
                         <a href="catalogo.php"
-                            class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all transform hover:scale-105 shadow-sm">
+                            class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg hover:from-indigo-700 hover:to-indigo-800 transition-all transform hover:scale-105 shadow-sm">
                             <i class="fas fa-book mr-2"></i> Catálogo
                         </a>
-                    </div>
-                    <div class="flex gap-3 ml-auto">
-                        <div class="dropdown relative">
-                            <button type="button"
-                                class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all transform hover:scale-105 shadow-sm"
-                                onclick="toggleExportMenu()">
-                                <i class="fas fa-download mr-2"></i> Exportar
-                                <i class="fas fa-chevron-down ml-2"></i>
-                            </button>
-                            <div id="exportMenu" class="hidden absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
-                                <div class="py-1">
-                                    <a href="exportar.php?formato=excel" 
-                                        class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                        <i class="fas fa-file-excel mr-2 text-green-600"></i> Exportar a Excel
-                                    </a>
-                                    <a href="exportar.php?formato=pdf" 
-                                        class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                        <i class="fas fa-file-pdf mr-2 text-red-600"></i> Exportar a PDF
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                        <button type="button"
-                            onclick="confirmarVaciarInventario()"
-                            class="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all transform hover:scale-105 shadow-sm">
-                            <i class="fas fa-trash-alt mr-2"></i> Vaciar
-                        </button>
                     </div>
                 </div>
 
@@ -542,7 +515,7 @@ try {
 
                 <!-- Filtros mejorados -->
                 <div class="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-300 mb-8">
-                    <div class="p-4 bg-gradient-to-r from-blue-600 to-blue-700 rounded-t-xl">
+                    <div class="p-4 bg-gradient-to-r from-blue-600 to-blue-800 rounded-t-xl">
                         <h3 class="text-lg font-semibold text-white flex items-center">
                             <i class="fas fa-filter mr-2"></i>
                             Filtros de búsqueda
@@ -665,15 +638,17 @@ try {
                 </div>
 
                 <!-- Tabla de productos mejorada -->
-                <div class="bg-white rounded-lg shadow-lg overflow-hidden">
-                    <!-- Encabezado de tabla con fondo distintivo -->
-                    <div class="p-4 bg-gray-50 border-b border-gray-200">
-                        <h3 class="text-lg font-semibold text-gray-800">Listado de Productos</h3>
+                <div class="bg-white rounded-xl shadow-lg overflow-hidden">
+                    <div class="p-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-800 flex items-center">
+                            <i class="fas fa-box mr-2 text-blue-600"></i>
+                            Listado de Productos
+                        </h3>
                     </div>
 
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-100">
+                            <thead class="bg-gradient-to-r from-gray-50 to-gray-100">
                                 <tr>
                                     <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                                         Imagen
@@ -727,7 +702,7 @@ try {
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
                                 <?php foreach ($productos as $producto): ?>
-                                    <tr class="hover:bg-gray-50 transition-colors">
+                                    <tr class="hover:bg-blue-50 transition-colors duration-200">
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="flex-shrink-0 h-14 w-14">
                                                 <?php if ($producto['imagen_principal']): ?>
@@ -821,15 +796,17 @@ try {
                     </div>
 
                     <!-- Footer de la tabla con información adicional -->
-                    <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
+                    <div class="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-t border-gray-200">
                         <div class="flex items-center justify-between text-sm text-gray-600">
-                            <span>Mostrando <?= count($productos) ?> de <?= $total_productos ?> productos</span>
+                            <span class="font-medium">
+                                Mostrando <?= count($productos) ?> de <?= $total_productos ?> productos
+                            </span>
                         </div>
                     </div>
                 </div>
 
                 <!-- Paginación mejorada -->
-                <div class="mt-6 flex items-center justify-between">
+                <div class="mt-6 flex items-center justify-between bg-white p-4 rounded-lg shadow-sm">
                     <!-- Selector de items por página -->
                     <div class="flex items-center space-x-2">
                         <label for="items_per_page" class="text-sm text-gray-600">Mostrar:</label>
@@ -1154,21 +1131,6 @@ try {
             params.set('pagina', '1'); // Volver a la primera página al cambiar los items por página
             window.location.search = params.toString();
         }
-
-        function toggleExportMenu() {
-            const menu = document.getElementById('exportMenu');
-            menu.classList.toggle('hidden');
-        }
-
-        // Cerrar el menú cuando se hace clic fuera de él
-        document.addEventListener('click', function(event) {
-            const menu = document.getElementById('exportMenu');
-            const exportButton = event.target.closest('button');
-            
-            if (!exportButton && !menu.contains(event.target)) {
-                menu.classList.add('hidden');
-            }
-        });
     </script>
 
     <!-- Estilos adicionales para mejorar la UI -->
@@ -1204,6 +1166,43 @@ try {
             border-width: 0 6px 6px 6px;
             border-style: solid;
             border-color: transparent transparent #1f2937 transparent;
+        }
+
+        /* Efecto hover suave para botones */
+        .hover\:scale-105:hover {
+            transition: all 0.2s ease-in-out;
+        }
+
+        /* Sombras mejoradas */
+        .shadow-custom {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 
+                        0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        /* Animación para mensajes de alerta */
+        .alert-animate {
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-10px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        /* Mejorar aspecto de la tabla */
+        .table-hover tr:hover {
+            background-color: rgba(59, 130, 246, 0.05);
+        }
+
+        /* Estilo para los iconos en los encabezados */
+        .header-icon {
+            @apply text-blue-600 opacity-75 group-hover:opacity-100 transition-opacity;
         }
     </style>
 </body>
