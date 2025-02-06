@@ -518,27 +518,66 @@ class AlegraIntegration
                 error_log('Enviando payload de actualización: ' . json_encode($updatePayload));
                 
                 $updateResponse = $this->client->request('PUT', "invoices/{$invoice['id']}", [
+                    'headers' => [
+                        'Accept' => 'application/json',
+                        'Content-Type' => 'application/json'
+                    ],
                     'json' => $updatePayload
                 ]);
                 
-                $updateBody = $updateResponse->getBody()->getContents();
-                error_log('Respuesta cruda de actualización: ' . $updateBody);
+                // Verificar el código de estado HTTP
+                $statusCode = $updateResponse->getStatusCode();
+                error_log("Código de estado de actualización: {$statusCode}");
                 
-                if (empty($updateBody)) {
-                    throw new Exception('La respuesta de actualización está vacía');
+                if ($statusCode !== 200) {
+                    throw new Exception("Respuesta inesperada del servidor: {$statusCode}");
                 }
                 
-                $updateResult = json_decode($updateBody, true);
+                // Obtener y verificar los headers
+                $headers = $updateResponse->getHeaders();
+                error_log('Headers de respuesta: ' . json_encode($headers));
                 
-                if (json_last_error() !== JSON_ERROR_NONE) {
-                    throw new Exception('Error decodificando respuesta de actualización: ' . json_last_error_msg() . '. Respuesta: ' . $updateBody);
+                // Leer el cuerpo de la respuesta
+                $updateBody = (string) $updateResponse->getBody();
+                error_log('Respuesta cruda de actualización: ' . $updateBody);
+                
+                if (trim($updateBody) === '') {
+                    // Si la respuesta está vacía pero el status es 200, consideramos que fue exitoso
+                    if ($statusCode === 200) {
+                        $updateResult = ['status' => 'success'];
+                        error_log('Respuesta vacía pero status 200, considerando exitoso');
+                    } else {
+                        throw new Exception('La respuesta de actualización está vacía');
+                    }
+                } else {
+                    // Intentar decodificar el JSON
+                    $updateResult = json_decode($updateBody, true);
+                    
+                    if (json_last_error() !== JSON_ERROR_NONE) {
+                        error_log('Error JSON: ' . json_last_error_msg());
+                        error_log('Contenido que causó el error: ' . $updateBody);
+                        throw new Exception('Error decodificando respuesta de actualización: ' . json_last_error_msg());
+                    }
                 }
                 
                 error_log('Factura actualizada a estado open: ' . json_encode($updateResult));
             } catch (\GuzzleHttp\Exception\ClientException $e) {
                 $errorResponse = $e->getResponse();
-                $errorBody = $errorResponse ? $errorResponse->getBody()->getContents() : 'No response body';
                 $statusCode = $errorResponse ? $errorResponse->getStatusCode() : 'No status code';
+                $errorBody = '';
+                
+                try {
+                    if ($errorResponse) {
+                        $errorBody = (string) $errorResponse->getBody();
+                        $errorJson = json_decode($errorBody, true);
+                        if (json_last_error() === JSON_ERROR_NONE) {
+                            $errorBody = json_encode($errorJson, JSON_PRETTY_PRINT);
+                        }
+                    }
+                } catch (\Exception $jsonEx) {
+                    $errorBody = 'Error procesando respuesta de error: ' . $jsonEx->getMessage();
+                }
+                
                 error_log("Error actualizando factura (Status: {$statusCode}): " . $errorBody);
                 throw new Exception("Error actualizando estado de factura (Status: {$statusCode}): " . $errorBody);
             } catch (\Exception $e) {
