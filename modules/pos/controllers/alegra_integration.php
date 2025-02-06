@@ -471,17 +471,23 @@ class AlegraIntegration
 
             // 4. Crear la factura inicialmente como borrador
             try {
+                error_log('Enviando payload de factura: ' . json_encode($invoicePayload));
+                
                 $response = $this->client->request('POST', 'invoices', [
                     'json' => $invoicePayload
                 ]);
                 
                 $responseBody = $response->getBody()->getContents();
-                error_log('Respuesta cruda de Alegra: ' . $responseBody);
+                error_log('Respuesta cruda de Alegra (creación): ' . $responseBody);
+                
+                if (empty($responseBody)) {
+                    throw new Exception('La respuesta de Alegra está vacía');
+                }
                 
                 $invoice = json_decode($responseBody, true);
                 
                 if (json_last_error() !== JSON_ERROR_NONE) {
-                    throw new Exception('Error decodificando respuesta JSON: ' . json_last_error_msg());
+                    throw new Exception('Error decodificando respuesta JSON: ' . json_last_error_msg() . '. Respuesta: ' . $responseBody);
                 }
                 
                 if (!isset($invoice['id'])) {
@@ -489,28 +495,55 @@ class AlegraIntegration
                 }
                 
             } catch (\GuzzleHttp\Exception\ClientException $e) {
-                $errorBody = $e->getResponse()->getBody()->getContents();
-                error_log('Error de cliente HTTP: ' . $errorBody);
-                throw new Exception('Error creando factura: ' . $errorBody);
+                $errorResponse = $e->getResponse();
+                $errorBody = $errorResponse ? $errorResponse->getBody()->getContents() : 'No response body';
+                $statusCode = $errorResponse ? $errorResponse->getStatusCode() : 'No status code';
+                error_log("Error de cliente HTTP (Status: {$statusCode}): " . $errorBody);
+                throw new Exception("Error creando factura (Status: {$statusCode}): " . $errorBody);
+            } catch (\Exception $e) {
+                error_log('Error inesperado creando factura: ' . $e->getMessage());
+                throw $e;
             }
 
             error_log('Factura creada con ID: ' . $invoice['id']);
 
             // 5. Cambiar el estado de la factura a "open"
             try {
+                $updatePayload = [
+                    'status' => 'open',
+                    'paymentForm' => 'CASH',
+                    'paymentMethod' => 'CASH'
+                ];
+                
+                error_log('Enviando payload de actualización: ' . json_encode($updatePayload));
+                
                 $updateResponse = $this->client->request('PUT', "invoices/{$invoice['id']}", [
-                    'json' => [
-                        'status' => 'open',
-                        'paymentForm' => 'CASH',
-                        'paymentMethod' => 'CASH'
-                    ]
+                    'json' => $updatePayload
                 ]);
                 
-                $updateResult = json_decode($updateResponse->getBody()->getContents(), true);
+                $updateBody = $updateResponse->getBody()->getContents();
+                error_log('Respuesta cruda de actualización: ' . $updateBody);
+                
+                if (empty($updateBody)) {
+                    throw new Exception('La respuesta de actualización está vacía');
+                }
+                
+                $updateResult = json_decode($updateBody, true);
+                
+                if (json_last_error() !== JSON_ERROR_NONE) {
+                    throw new Exception('Error decodificando respuesta de actualización: ' . json_last_error_msg() . '. Respuesta: ' . $updateBody);
+                }
+                
                 error_log('Factura actualizada a estado open: ' . json_encode($updateResult));
+            } catch (\GuzzleHttp\Exception\ClientException $e) {
+                $errorResponse = $e->getResponse();
+                $errorBody = $errorResponse ? $errorResponse->getBody()->getContents() : 'No response body';
+                $statusCode = $errorResponse ? $errorResponse->getStatusCode() : 'No status code';
+                error_log("Error actualizando factura (Status: {$statusCode}): " . $errorBody);
+                throw new Exception("Error actualizando estado de factura (Status: {$statusCode}): " . $errorBody);
             } catch (\Exception $e) {
-                error_log('Error actualizando estado de factura: ' . $e->getMessage());
-                throw new Exception('Error actualizando estado de factura: ' . $e->getMessage());
+                error_log('Error inesperado actualizando factura: ' . $e->getMessage());
+                throw $e;
             }
 
             // 6. Esperar y verificar que la factura está lista
