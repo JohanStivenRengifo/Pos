@@ -486,10 +486,26 @@ try {
                         </a>
                     </div>
                     <div class="flex gap-3 ml-auto">
-                        <a href="reporte_stock_bajo.php"
-                            class="inline-flex items-center px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-all transform hover:scale-105 shadow-sm">
-                            <i class="fas fa-file-pdf mr-2"></i> Reporte Stock Bajo
-                        </a>
+                        <div class="dropdown relative">
+                            <button type="button"
+                                class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all transform hover:scale-105 shadow-sm"
+                                onclick="toggleExportMenu()">
+                                <i class="fas fa-download mr-2"></i> Exportar
+                                <i class="fas fa-chevron-down ml-2"></i>
+                            </button>
+                            <div id="exportMenu" class="hidden absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
+                                <div class="py-1">
+                                    <a href="exportar.php?formato=excel" 
+                                        class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        <i class="fas fa-file-excel mr-2 text-green-600"></i> Exportar a Excel
+                                    </a>
+                                    <a href="exportar.php?formato=pdf" 
+                                        class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        <i class="fas fa-file-pdf mr-2 text-red-600"></i> Exportar a PDF
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
                         <button type="button"
                             onclick="confirmarVaciarInventario()"
                             class="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all transform hover:scale-105 shadow-sm">
@@ -1138,6 +1154,21 @@ try {
             params.set('pagina', '1'); // Volver a la primera página al cambiar los items por página
             window.location.search = params.toString();
         }
+
+        function toggleExportMenu() {
+            const menu = document.getElementById('exportMenu');
+            menu.classList.toggle('hidden');
+        }
+
+        // Cerrar el menú cuando se hace clic fuera de él
+        document.addEventListener('click', function(event) {
+            const menu = document.getElementById('exportMenu');
+            const exportButton = event.target.closest('button');
+            
+            if (!exportButton && !menu.contains(event.target)) {
+                menu.classList.add('hidden');
+            }
+        });
     </script>
 
     <!-- Estilos adicionales para mejorar la UI -->

@@ -358,10 +358,10 @@ $imagenes = $producto ? obtenerImagenesProducto($producto['id']) : [];
 <body class="bg-gray-50">
     <?php include '../../includes/header.php'; ?>
     
-    <div class="container mx-auto px-4">
+    <div class="container mx-auto px-4 flex">
         <?php include '../../includes/sidebar.php'; ?>
 
-        <div class="main-body p-4">
+        <div class="flex-1 ml-64 p-4">
             <!-- Encabezado con breadcrumbs -->
             <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
                 <div class="flex justify-between items-center">
