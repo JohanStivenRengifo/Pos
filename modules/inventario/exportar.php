@@ -1,4 +1,10 @@
 <?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+set_time_limit(300); // 5 minutos
+ini_set('memory_limit', '256M');
+
 session_start();
 require_once '../../config/db.php';
 
@@ -8,30 +14,40 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-// Verificar si composer y las dependencias están instaladas
-if (!file_exists('../../vendor/autoload.php')) {
-    die('Error: Composer y las dependencias necesarias no están instaladas. Por favor, ejecute "composer require phpoffice/phpspreadsheet tecnickcom/tcpdf" en la raíz del proyecto.');
+// Verificar la existencia del directorio vendor y el autoload
+$vendorPath = __DIR__ . '/../../vendor/autoload.php';
+if (!file_exists($vendorPath)) {
+    die('Error: Las dependencias no están instaladas. Por favor, ejecute los siguientes comandos en la terminal:<br><br>' .
+        '<code>cd ' . __DIR__ . '/../../</code><br>' .
+        '<code>composer require phpoffice/phpspreadsheet</code><br>' .
+        '<code>composer require tecnickcom/tcpdf</code>');
 }
 
-require_once '../../vendor/autoload.php';
+require_once $vendorPath;
 
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
 
 try {
     $user_id = $_SESSION['user_id'];
     $formato = $_GET['formato'] ?? 'excel';
 
-    // Consulta SQL para obtener todos los datos del inventario
+    // Verificar que el formato sea válido
+    if (!in_array($formato, ['excel', 'pdf'])) {
+        throw new Exception('Formato de exportación no válido');
+    }
+
+    // Consulta SQL mejorada
     $query = "
         SELECT 
             i.*,
             c.nombre as categoria_nombre,
             d.nombre as departamento_nombre,
-            GROUP_CONCAT(DISTINCT b.nombre) as bodegas,
+            GROUP_CONCAT(DISTINCT b.nombre SEPARATOR ', ') as bodegas,
             (i.stock * i.precio_venta) as valor_total
         FROM inventario i
         LEFT JOIN categorias c ON i.categoria_id = c.id
@@ -40,6 +56,7 @@ try {
         LEFT JOIN bodegas b ON ib.bodega_id = b.id
         WHERE i.user_id = :user_id
         GROUP BY i.id
+        ORDER BY i.nombre ASC
     ";
 
     $stmt = $pdo->prepare($query);
@@ -47,94 +64,123 @@ try {
     $productos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     if (empty($productos)) {
-        die('No hay productos para exportar.');
+        throw new Exception('No hay productos para exportar.');
     }
 
     if ($formato === 'excel') {
         // Crear nuevo documento Excel
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Inventario');
 
-        // Establecer encabezados con estilo
+        // Establecer encabezados
         $headers = [
-            'Código de Barras', 'Nombre', 'Descripción', 'Stock', 'Stock Mínimo',
-            'Unidad Medida', 'Precio Costo', 'Margen Ganancia', 'Impuesto',
-            'Precio Venta', 'Valor Total', 'Categoría', 'Departamento',
-            'Bodegas', 'Ubicación', 'Estado', 'Fecha Ingreso'
+            'A' => ['Código de Barras', 15],
+            'B' => ['Nombre', 40],
+            'C' => ['Descripción', 50],
+            'D' => ['Stock', 10],
+            'E' => ['Stock Mínimo', 15],
+            'F' => ['Unidad Medida', 15],
+            'G' => ['Precio Costo', 15],
+            'H' => ['Margen %', 12],
+            'I' => ['IVA %', 10],
+            'J' => ['Precio Venta', 15],
+            'K' => ['Valor Total', 15],
+            'L' => ['Categoría', 20],
+            'M' => ['Departamento', 20],
+            'N' => ['Bodegas', 30],
+            'O' => ['Ubicación', 15],
+            'P' => ['Estado', 12],
+            'Q' => ['Fecha Ingreso', 20]
         ];
+
+        // Aplicar encabezados y ajustar columnas
+        foreach ($headers as $columna => $info) {
+            $sheet->setCellValue($columna . '1', $info[0]);
+            $sheet->getColumnDimension($columna)->setWidth($info[1]);
+        }
 
         // Estilo para encabezados
         $headerStyle = [
             'font' => [
                 'bold' => true,
                 'color' => ['rgb' => 'FFFFFF'],
+                'size' => 11,
+                'name' => 'Arial',
             ],
             'fill' => [
                 'fillType' => Fill::FILL_SOLID,
-                'startColor' => ['rgb' => '1E40AF'], // Color azul corporativo
+                'startColor' => ['rgb' => '1E40AF'],
             ],
             'borders' => [
                 'allBorders' => [
                     'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => '000000'],
                 ],
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical' => Alignment::VERTICAL_CENTER,
             ],
         ];
 
-        // Aplicar encabezados y estilo
-        foreach (array_values($headers) as $i => $header) {
-            $col = chr(65 + $i); // Convertir número a letra (A, B, C, etc.)
-            $sheet->setCellValue($col . '1', $header);
-            $sheet->getColumnDimension($col)->setAutoSize(true);
-        }
         $sheet->getStyle('A1:Q1')->applyFromArray($headerStyle);
-
-        // Estilo para datos
-        $dataStyle = [
-            'borders' => [
-                'allBorders' => [
-                    'borderStyle' => Border::BORDER_THIN,
-                ],
-            ],
-        ];
+        $sheet->getRowDimension(1)->setRowHeight(30);
 
         // Llenar datos
         $row = 2;
         foreach ($productos as $producto) {
-            $sheet->setCellValueByColumnAndRow(1, $row, $producto['codigo_barras']);
-            $sheet->setCellValueByColumnAndRow(2, $row, $producto['nombre']);
-            $sheet->setCellValueByColumnAndRow(3, $row, $producto['descripcion']);
-            $sheet->setCellValueByColumnAndRow(4, $row, $producto['stock']);
-            $sheet->setCellValueByColumnAndRow(5, $row, $producto['stock_minimo']);
-            $sheet->setCellValueByColumnAndRow(6, $row, $producto['unidad_medida']);
-            
-            // Formato moneda para precios
-            $sheet->setCellValueByColumnAndRow(7, $row, $producto['precio_costo']);
-            $sheet->setCellValueByColumnAndRow(8, $row, $producto['margen_ganancia']);
-            $sheet->setCellValueByColumnAndRow(9, $row, $producto['impuesto']);
-            $sheet->setCellValueByColumnAndRow(10, $row, $producto['precio_venta']);
-            $sheet->setCellValueByColumnAndRow(11, $row, $producto['valor_total']);
-            
-            $sheet->setCellValueByColumnAndRow(12, $row, $producto['categoria_nombre']);
-            $sheet->setCellValueByColumnAndRow(13, $row, $producto['departamento_nombre']);
-            $sheet->setCellValueByColumnAndRow(14, $row, $producto['bodegas']);
-            $sheet->setCellValueByColumnAndRow(15, $row, $producto['ubicacion']);
-            $sheet->setCellValueByColumnAndRow(16, $row, $producto['estado']);
-            $sheet->setCellValueByColumnAndRow(17, $row, $producto['fecha_ingreso']);
+            $sheet->setCellValue('A' . $row, $producto['codigo_barras']);
+            $sheet->setCellValue('B' . $row, $producto['nombre']);
+            $sheet->setCellValue('C' . $row, $producto['descripcion']);
+            $sheet->setCellValue('D' . $row, $producto['stock']);
+            $sheet->setCellValue('E' . $row, $producto['stock_minimo']);
+            $sheet->setCellValue('F' . $row, $producto['unidad_medida']);
+            $sheet->setCellValue('G' . $row, $producto['precio_costo']);
+            $sheet->setCellValue('H' . $row, $producto['margen_ganancia']);
+            $sheet->setCellValue('I' . $row, $producto['impuesto']);
+            $sheet->setCellValue('J' . $row, $producto['precio_venta']);
+            $sheet->setCellValue('K' . $row, $producto['valor_total']);
+            $sheet->setCellValue('L' . $row, $producto['categoria_nombre']);
+            $sheet->setCellValue('M' . $row, $producto['departamento_nombre']);
+            $sheet->setCellValue('N' . $row, $producto['bodegas']);
+            $sheet->setCellValue('O' . $row, $producto['ubicacion']);
+            $sheet->setCellValue('P' . $row, $producto['estado']);
+            $sheet->setCellValue('Q' . $row, $producto['fecha_ingreso']);
             $row++;
         }
 
-        // Aplicar formato de moneda
-        $sheet->getStyle('G2:K' . ($row-1))->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_CURRENCY_USD_SIMPLE);
-        
-        // Aplicar estilo a todos los datos
-        $sheet->getStyle('A2:Q' . ($row-1))->applyFromArray($dataStyle);
+        // Aplicar formatos
+        $lastRow = $row - 1;
+        $sheet->getStyle('G2:K' . $lastRow)->getNumberFormat()
+              ->setFormatCode(NumberFormat::FORMAT_CURRENCY_USD_SIMPLE);
+        $sheet->getStyle('H2:I' . $lastRow)->getNumberFormat()
+              ->setFormatCode(NumberFormat::FORMAT_PERCENTAGE_00);
 
-        // Configurar encabezados HTTP para descarga
+        // Estilo para los datos
+        $dataStyle = [
+            'borders' => [
+                'allBorders' => [
+                    'borderStyle' => Border::BORDER_THIN,
+                    'color' => ['rgb' => '000000'],
+                ],
+            ],
+            'alignment' => [
+                'vertical' => Alignment::VERTICAL_CENTER,
+            ],
+        ];
+        $sheet->getStyle('A2:Q' . $lastRow)->applyFromArray($dataStyle);
+
+        // Configurar la respuesta HTTP
+        ob_end_clean(); // Limpiar cualquier salida previa
         header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        header('Content-Disposition: attachment;filename="inventario_' . date('Y-m-d') . '.xlsx"');
+        header('Content-Disposition: attachment;filename="inventario_' . date('Y-m-d_H-i-s') . '.xlsx"');
         header('Cache-Control: max-age=0');
+        header('Expires: Fri, 11 Nov 1980 00:00:00 GMT');
+        header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
+        header('Cache-Control: cache, must-revalidate');
+        header('Pragma: public');
 
-        // Crear archivo Excel
         $writer = new Xlsx($spreadsheet);
         $writer->save('php://output');
         exit;
@@ -199,9 +245,29 @@ try {
     }
 
 } catch (Exception $e) {
-    // Registrar el error
     error_log("Error en exportación: " . $e->getMessage());
     
-    // Mostrar mensaje de error amigable
-    die('Ha ocurrido un error al exportar los datos. Por favor, verifique que todas las dependencias estén instaladas correctamente y que tenga los permisos necesarios.');
+    // Determinar si es una solicitud AJAX
+    if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && 
+        strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
+        
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success' => false,
+            'message' => 'Error al exportar: ' . $e->getMessage()
+        ]);
+    } else {
+        echo '<div style="color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; padding: 1rem; margin: 1rem; border-radius: 0.25rem;">';
+        echo '<h3 style="margin-top: 0;">Error al exportar</h3>';
+        echo '<p>' . htmlspecialchars($e->getMessage()) . '</p>';
+        echo '<p>Por favor, verifique que:</p>';
+        echo '<ul style="margin-left: 20px;">';
+        echo '<li>Todas las dependencias estén instaladas correctamente</li>';
+        echo '<li>Tenga los permisos necesarios en el sistema</li>';
+        echo '<li>Haya suficiente memoria disponible</li>';
+        echo '</ul>';
+        echo '<p><a href="javascript:history.back()" style="color: #721c24;">← Volver</a></p>';
+        echo '</div>';
+    }
+    exit;
 } 
