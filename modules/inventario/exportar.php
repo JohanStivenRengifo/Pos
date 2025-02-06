@@ -3,7 +3,22 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 set_time_limit(300); // 5 minutos
-ini_set('memory_limit', '256M');
+ini_set('memory_limit', '512M');
+ini_set('max_execution_time', 300);
+
+// Verificar extensiones requeridas
+$required_extensions = ['zip', 'xml', 'gd', 'mbstring'];
+$missing_extensions = [];
+foreach ($required_extensions as $ext) {
+    if (!extension_loaded($ext)) {
+        $missing_extensions[] = $ext;
+    }
+}
+
+if (!empty($missing_extensions)) {
+    die('Error: Las siguientes extensiones de PHP son requeridas: ' . implode(', ', $missing_extensions) . 
+        '<br>Por favor, instálelas usando: <code>sudo apt-get install php-' . implode(' php-', $missing_extensions) . '</code>');
+}
 
 session_start();
 require_once '../../config/db.php';
@@ -14,12 +29,20 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+// Verificar y crear directorio temporal si no existe
+$tempDir = __DIR__ . '/../../temp';
+if (!file_exists($tempDir)) {
+    if (!mkdir($tempDir, 0777, true)) {
+        die('Error: No se pudo crear el directorio temporal');
+    }
+}
+
 // Verificar la existencia del directorio vendor y el autoload
 $vendorPath = __DIR__ . '/../../vendor/autoload.php';
 if (!file_exists($vendorPath)) {
     die('Error: Las dependencias no están instaladas. Por favor, ejecute los siguientes comandos en la terminal:<br><br>' .
         '<code>cd ' . __DIR__ . '/../../</code><br>' .
-        '<code>composer require phpoffice/phpspreadsheet</code><br>' .
+        '<code>composer require phpoffice/phpspreadsheet:"^1.24"</code><br>' . // Versión específica
         '<code>composer require tecnickcom/tcpdf</code>');
 }
 
@@ -171,19 +194,37 @@ try {
         ];
         $sheet->getStyle('A2:Q' . $lastRow)->applyFromArray($dataStyle);
 
-        // Configurar la respuesta HTTP
-        ob_end_clean(); // Limpiar cualquier salida previa
-        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        header('Content-Disposition: attachment;filename="inventario_' . date('Y-m-d_H-i-s') . '.xlsx"');
-        header('Cache-Control: max-age=0');
-        header('Expires: Fri, 11 Nov 1980 00:00:00 GMT');
-        header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
-        header('Cache-Control: cache, must-revalidate');
-        header('Pragma: public');
-
-        $writer = new Xlsx($spreadsheet);
-        $writer->save('php://output');
-        exit;
+        // Crear archivo temporal
+        $tempFile = $tempDir . '/inventario_' . date('Y-m-d_H-i-s') . '.xlsx';
+        
+        // Limpiar el buffer de salida
+        if (ob_get_length()) ob_end_clean();
+        
+        try {
+            // Intentar guardar primero en archivo temporal
+            $writer = new Xlsx($spreadsheet);
+            $writer->save($tempFile);
+            
+            // Si se guardó correctamente, enviarlo al navegador
+            if (file_exists($tempFile)) {
+                header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                header('Content-Disposition: attachment;filename="' . basename($tempFile) . '"');
+                header('Cache-Control: max-age=0');
+                header('Expires: 0');
+                header('Pragma: public');
+                
+                readfile($tempFile);
+                unlink($tempFile); // Eliminar archivo temporal
+                exit;
+            } else {
+                throw new Exception('No se pudo crear el archivo temporal');
+            }
+        } catch (Exception $e) {
+            if (file_exists($tempFile)) {
+                unlink($tempFile);
+            }
+            throw new Exception('Error al generar el archivo Excel: ' . $e->getMessage());
+        }
 
     } else if ($formato === 'pdf') {
         // Crear nuevo documento PDF
@@ -247,6 +288,9 @@ try {
 } catch (Exception $e) {
     error_log("Error en exportación: " . $e->getMessage());
     
+    // Limpiar cualquier salida previa
+    if (ob_get_length()) ob_end_clean();
+    
     // Determinar si es una solicitud AJAX
     if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && 
         strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
@@ -257,6 +301,7 @@ try {
             'message' => 'Error al exportar: ' . $e->getMessage()
         ]);
     } else {
+        header('HTTP/1.1 500 Internal Server Error');
         echo '<div style="color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; padding: 1rem; margin: 1rem; border-radius: 0.25rem;">';
         echo '<h3 style="margin-top: 0;">Error al exportar</h3>';
         echo '<p>' . htmlspecialchars($e->getMessage()) . '</p>';
@@ -265,7 +310,12 @@ try {
         echo '<li>Todas las dependencias estén instaladas correctamente</li>';
         echo '<li>Tenga los permisos necesarios en el sistema</li>';
         echo '<li>Haya suficiente memoria disponible</li>';
+        echo '<li>Las extensiones PHP requeridas estén instaladas</li>';
         echo '</ul>';
+        echo '<p>Detalles técnicos:</p>';
+        echo '<pre style="background: #f8f9fa; padding: 1rem; border-radius: 0.25rem; font-size: 0.875rem;">';
+        echo htmlspecialchars($e->getTraceAsString());
+        echo '</pre>';
         echo '<p><a href="javascript:history.back()" style="color: #721c24;">← Volver</a></p>';
         echo '</div>';
     }
