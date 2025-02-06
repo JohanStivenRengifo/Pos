@@ -266,62 +266,94 @@ if (isset($_GET['codigo_barras'])) {
     $messageType = "error";
 }
 
-// Procesar formulario de actualización
+// Agregar estas funciones de validación
+function validarPrecio($precio) {
+    return is_numeric($precio) && $precio >= 0;
+}
+
+function validarStock($stock) {
+    return is_numeric($stock) && $stock >= 0;
+}
+
+// Modificar la sección de procesamiento del formulario
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['actualizar'])) {
     try {
-        $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
-        $codigo_barras = trim(filter_input(INPUT_POST, 'codigo_barras'));
+        $errores = [];
         
-        // Verificar si el código de barras ya existe para otro producto
+        // Validaciones mejoradas
+        $id = filter_input(INPUT_POST, 'id', FILTER_VALIDATE_INT);
+        if (!$id) {
+            $errores[] = "ID de producto inválido";
+        }
+
+        $codigo_barras = trim(filter_input(INPUT_POST, 'codigo_barras'));
+        if (empty($codigo_barras)) {
+            $errores[] = "El código de barras es requerido";
+        } elseif (strlen($codigo_barras) < 8 || strlen($codigo_barras) > 13) {
+            $errores[] = "El código de barras debe tener entre 8 y 13 caracteres";
+        }
+        
+        // Verificar duplicados solo si cambió el código
         if ($codigo_barras !== $producto['codigo_barras']) {
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM inventario WHERE codigo_barras = ? AND id != ?");
-            $stmt->execute([$codigo_barras, $id]);
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM inventario WHERE codigo_barras = ? AND id != ? AND user_id = ?");
+            $stmt->execute([$codigo_barras, $id, $user_id]);
             if ($stmt->fetchColumn() > 0) {
-                throw new Exception("El código de barras ya está en uso por otro producto.");
+                $errores[] = "El código de barras ya está en uso";
             }
         }
 
-        // Obtener los valores del formulario
         $nombre = trim(filter_input(INPUT_POST, 'nombre'));
-        $descripcion = trim(filter_input(INPUT_POST, 'descripcion'));
-        $stock = filter_input(INPUT_POST, 'stock', FILTER_VALIDATE_INT);
-        $precio_costo = filter_input(INPUT_POST, 'precio_costo', FILTER_VALIDATE_FLOAT);
-        $impuesto = filter_input(INPUT_POST, 'impuesto', FILTER_VALIDATE_FLOAT);
-        $margen_ganancia = filter_input(INPUT_POST, 'margen_ganancia', FILTER_VALIDATE_FLOAT);
-        $categoria_id = filter_input(INPUT_POST, 'categoria', FILTER_VALIDATE_INT);
-        $departamento_id = filter_input(INPUT_POST, 'departamento', FILTER_VALIDATE_INT);
-        $stock_minimo = filter_input(INPUT_POST, 'stock_minimo', FILTER_VALIDATE_INT);
-        $unidad_medida = trim(filter_input(INPUT_POST, 'unidad_medida'));
-        $imagenes_eliminar = $_POST['imagenes_eliminar'] ?? null;
-        $precio_venta = filter_input(INPUT_POST, 'precio_venta', FILTER_VALIDATE_FLOAT);
-        $bodega_id = filter_input(INPUT_POST, 'bodega', FILTER_VALIDATE_INT);
-
-        if (!$id || empty($nombre) || $stock === false || $precio_costo === false) {
-            throw new Exception("Por favor, complete todos los campos obligatorios correctamente.");
+        if (empty($nombre)) {
+            $errores[] = "El nombre es requerido";
         }
 
+        $stock = filter_input(INPUT_POST, 'stock', FILTER_VALIDATE_INT);
+        if (!validarStock($stock)) {
+            $errores[] = "El stock debe ser un número entero positivo";
+        }
+
+        $precio_costo = filter_input(INPUT_POST, 'precio_costo', FILTER_VALIDATE_FLOAT);
+        if (!validarPrecio($precio_costo)) {
+            $errores[] = "El precio de costo debe ser un número positivo";
+        }
+
+        $impuesto = filter_input(INPUT_POST, 'impuesto', FILTER_VALIDATE_FLOAT);
+        if (!validarPrecio($impuesto)) {
+            $errores[] = "El impuesto debe ser un número positivo";
+        }
+
+        $margen_ganancia = filter_input(INPUT_POST, 'margen_ganancia', FILTER_VALIDATE_FLOAT);
+        if (!validarPrecio($margen_ganancia)) {
+            $errores[] = "El margen de ganancia debe ser un número positivo";
+        }
+
+        // Si hay errores, mostrarlos
+        if (!empty($errores)) {
+            throw new Exception(implode("<br>", $errores));
+        }
+
+        // Continuar con la actualización si no hay errores
         actualizarProducto(
             $id,
             $codigo_barras,
             $nombre,
-            $descripcion,
+            $_POST['descripcion'],
             $stock,
             $precio_costo,
             $impuesto,
             $margen_ganancia,
-            $categoria_id,
-            $departamento_id,
-            $stock_minimo,
-            $unidad_medida,
+            $_POST['categoria'],
+            $_POST['departamento'],
+            $_POST['stock_minimo'],
+            $_POST['unidad_medida'],
             $_FILES['imagenes'] ?? [],
-            $imagenes_eliminar,
+            $_POST['imagenes_eliminar'] ?? null,
             $user_id,
-            $precio_venta,
-            $bodega_id
+            $_POST['precio_venta'],
+            $_POST['bodega']
         );
 
-        // Mostrar mensaje de éxito y redirigir
-        $_SESSION['message'] = "Producto actualizado exitosamente.";
+        $_SESSION['message'] = "Producto actualizado exitosamente";
         $_SESSION['message_type'] = "success";
         header("Location: index.php");
         exit();
@@ -329,7 +361,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['actualizar'])) {
     } catch (Exception $e) {
         $message = $e->getMessage();
         $messageType = "error";
-        error_log("Error al actualizar producto: " . $e->getMessage());
     }
 }
 
