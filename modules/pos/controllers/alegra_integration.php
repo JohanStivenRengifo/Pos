@@ -96,6 +96,15 @@ class AlegraIntegration
                 'secondLastName' => $nombres[3] ?? ''
             ];
 
+            // Configurar la dirección según el formato requerido por Alegra
+            $addressData = [
+                'address' => $clientData['direccion'] ?? 'COLOMBIA',
+                'city' => 'BOGOTÁ D.C.',           // Ciudad normalizada
+                'department' => 'BOGOTÁ D.C.',      // Departamento normalizado
+                'country' => 'Colombia',
+                'zipCode' => '110111'               // Código postal de Bogotá
+            ];
+
             // Configurar el payload base
             $payload = [
                 'name' => $clientData['nombre'],
@@ -110,39 +119,39 @@ class AlegraIntegration
                     'sendElectronicDocuments' => true
                 ],
                 'kindOfPerson' => $this->mapPersonType($clientData['tipo_persona']),
-                'regime' => 'SIMPLIFIED_REGIME',  // Forzar régimen simplificado
-                'address' => [
-                    'address' => $clientData['direccion'] ?? 'COLOMBIA',
-                    'city' => 'BOGOTÁ',
-                    'department' => 'BOGOTÁ',
-                    'country' => 'Colombia'
-                ]
+                'regime' => 'SIMPLIFIED_REGIME',
+                'address' => $addressData,          // Usar la dirección normalizada
+                'email' => $clientData['email'] ?? 'cliente@example.com', // Email por defecto si no existe
+                'phonePrimary' => $clientData['telefono'] ?? '0000000',
+                'mobile' => $clientData['celular'] ?? '0000000'
             ];
 
-            // Si no es consumidor final, agregar datos adicionales
-            if ($clientData['documento'] !== '222222222222') {
-                $payload = array_merge($payload, [
-                    'email' => $clientData['email'] ?? '',
-                    'phonePrimary' => $clientData['telefono'] ?? '',
-                    'mobile' => $clientData['celular'] ?? '',
-                    'term' => [
-                        'id' => '1',
-                        'name' => 'De contado',
-                        'days' => '0'
-                    ]
-                ]);
-            }
+            error_log('Creando contacto con payload: ' . json_encode($payload));
 
             $response = $this->client->request('POST', 'contacts', [
-                'json' => $payload
+                'json' => $payload,
+                'headers' => [
+                    'Accept' => 'application/json',
+                    'Content-Type' => 'application/json'
+                ]
             ]);
 
             $result = json_decode($response->getBody()->getContents(), true);
+            error_log('Respuesta de creación de contacto: ' . json_encode($result));
+
             return [
                 'success' => true,
                 'data' => $result
             ];
+        } catch (\GuzzleHttp\Exception\ClientException $e) {
+            $errorBody = $e->getResponse()->getBody()->getContents();
+            error_log('Error creando contacto: ' . $errorBody);
+            return [
+                'success' => false,
+                'error' => 'Error creando contacto: ' . $errorBody
+            ];
         } catch (\Exception $e) {
+            error_log('Error inesperado creando contacto: ' . $e->getMessage());
             return [
                 'success' => false,
                 'error' => $e->getMessage()
