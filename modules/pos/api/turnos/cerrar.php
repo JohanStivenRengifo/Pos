@@ -1,8 +1,4 @@
 <?php
-// Evitar que se muestren errores en la salida
-error_reporting(0);
-ini_set('display_errors', 0);
-
 // Iniciar sesión y establecer headers
 session_start();
 header('Content-Type: application/json');
@@ -18,8 +14,8 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['turno_actual'])) {
     exit;
 }
 
-// Verificar que el archivo existe antes de incluirlo
-if (!file_exists('../../config/database.php')) {
+    // Verificar que el archivo existe antes de incluirlo
+    if (!file_exists('../../../../config/db.php')) {
     echo json_encode([
         'success' => false,
         'message' => 'Error de configuración: No se encuentra el archivo de conexión'

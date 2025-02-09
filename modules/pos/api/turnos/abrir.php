@@ -1,8 +1,4 @@
 <?php
-// Evitar que se muestren errores en la salida
-error_reporting(0);
-ini_set('display_errors', 0);
-
 // Iniciar sesión y establecer headers
 session_start();
 header('Content-Type: application/json');
