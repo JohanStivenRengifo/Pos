@@ -321,44 +321,73 @@ if (isset($_SESSION['user_id'])) {
 
     <!-- Footer -->
     <footer class="bg-gray-900 text-white py-12">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
-                <div>
-                    <h3 class="text-lg font-semibold mb-4">VendEasy</h3>
-                    <p class="text-gray-400 text-sm">
-                        Sistema contable profesional para empresas modernas.
-                    </p>
-                </div>
-                <div>
-                    <h3 class="text-lg font-semibold mb-4">Enlaces</h3>
-                    <ul class="space-y-2">
-                        <li><a href="#caracteristicas" class="text-gray-400 hover:text-white transition-colors">Características</a></li>
-                        <li><a href="#precios" class="text-gray-400 hover:text-white transition-colors">Precios</a></li>
-                        <li><a href="#nosotros" class="text-gray-400 hover:text-white transition-colors">Nosotros</a></li>
-                    </ul>
-                </div>
-                <div>
-                    <h3 class="text-lg font-semibold mb-4">Legal</h3>
-                    <ul class="space-y-2">
-                        <li><a href="terminos-y-condiciones.php" class="text-gray-400 hover:text-white transition-colors">Términos y Condiciones</a></li>
-                        <li><a href="politica-privacidad.php" class="text-gray-400 hover:text-white transition-colors">Política de Privacidad</a></li>
-                    </ul>
-                </div>
-                <div>
-                    <h3 class="text-lg font-semibold mb-4">Contacto</h3>
-                    <ul class="space-y-2">
-                        <li class="text-gray-400">soporte@vendeasy.com</li>
-                        <li class="text-gray-400">+57 (1) 123-4567</li>
-                    </ul>
-                </div>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <!-- Sección Logo y Descripción -->
+            <div class="space-y-4">
+                <h3 class="text-xl font-bold mb-4 text-blue-400">VendEasy</h3>
+                <p class="text-gray-400 text-sm leading-relaxed">
+                    Sistema contable profesional para empresas modernas que buscan optimizar sus procesos financieros.
+                </p>
             </div>
-            <div class="mt-8 pt-8 border-t border-gray-800 text-center">
+
+            <!-- Enlaces Rápidos -->
+            <div>
+                <h3 class="text-lg font-semibold mb-4 text-blue-400">Enlaces</h3>
+                <ul class="space-y-3">
+                    <li><a href="#caracteristicas" class="text-gray-400 hover:text-white transition-colors duration-300 flex items-center"><i class="fas fa-chevron-right mr-2 text-xs"></i>Características</a></li>
+                    <li><a href="#precios" class="text-gray-400 hover:text-white transition-colors duration-300 flex items-center"><i class="fas fa-chevron-right mr-2 text-xs"></i>Precios</a></li>
+                    <li><a href="#nosotros" class="text-gray-400 hover:text-white transition-colors duration-300 flex items-center"><i class="fas fa-chevron-right mr-2 text-xs"></i>Nosotros</a></li>
+                </ul>
+            </div>
+
+            <!-- Legal -->
+            <div>
+                <h3 class="text-lg font-semibold mb-4 text-blue-400">Legal</h3>
+                <ul class="space-y-3">
+                    <li><a href="terminos-y-condiciones.php" class="text-gray-400 hover:text-white transition-colors duration-300 flex items-center"><i class="fas fa-chevron-right mr-2 text-xs"></i>Términos y Condiciones</a></li>
+                    <li><a href="politica-privacidad.php" class="text-gray-400 hover:text-white transition-colors duration-300 flex items-center"><i class="fas fa-chevron-right mr-2 text-xs"></i>Política de Privacidad</a></li>
+                </ul>
+            </div>
+
+            <!-- Contacto -->
+            <div>
+                <h3 class="text-lg font-semibold mb-4 text-blue-400">Contacto</h3>
+                <ul class="space-y-3">
+                    <li class="flex items-center text-gray-400 hover:text-white transition-colors duration-300">
+                        <i class="fas fa-envelope mr-3 text-blue-400"></i>
+                        <a href="mailto:soporte@vendeasy.com">soporte@vendeasy.com</a>
+                    </li>
+                    <li class="flex items-center text-gray-400 hover:text-white transition-colors duration-300">
+                        <i class="fas fa-phone mr-3 text-blue-400"></i>
+                        <a href="tel:+573116035791">+57 311 603 5791</a>
+                    </li>
+                    <li class="flex items-center text-gray-400 hover:text-white transition-colors duration-300">
+                        <i class="fab fa-whatsapp mr-3 text-blue-400"></i>
+                        <a href="https://wa.me/573116035791" target="_blank" class="hover:text-green-400">
+                            Chatea con nosotros
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Copyright -->
+        <div class="mt-12 pt-8 border-t border-gray-800">
+            <div class="flex flex-col md:flex-row justify-between items-center">
                 <p class="text-gray-400 text-sm">
                     © <?php echo date('Y'); ?> VendEasy. Todos los derechos reservados.
                 </p>
+                <div class="mt-4 md:mt-0">
+                    <a href="#" class="text-gray-400 hover:text-white transition-colors duration-300 text-sm">
+                        Diseñado con <i class="fas fa-heart text-red-500 mx-1"></i> por <a href="https://github.com/JohanRengifo">Johan Rengifo</a>
+                    </a>
+                </div>
             </div>
         </div>
-    </footer>
+    </div>
+</footer>
+
 
     <script>
         // Mobile menu functionality
