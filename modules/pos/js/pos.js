@@ -41,7 +41,10 @@ function generarBotonesEfectivo(total) {
 }
 
 // Variables y funciones globales
-let carrito;
+let carrito = {
+    items: [],
+    descuento: 0
+};
 
 // Definir las funciones en el objeto window para hacerlas globalmente accesibles
 window.modificarCantidad = function(id, delta) {
@@ -112,7 +115,7 @@ function actualizarCarritoUI() {
     const totalElement = document.getElementById('venta-total');
     const btnProcesar = document.getElementById('procesar-venta');
 
-    if (carrito.items.length === 0) {
+    if (!carrito.items.length) {
         listaCarrito.innerHTML = '';
         listaVacia.style.display = 'block';
         btnProcesar.disabled = true;
@@ -211,15 +214,6 @@ function filtrarProductos(busqueda) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Inicializar carrito
-    carrito = {
-        items: [],
-        cliente: null,
-        tipo_documento: 'factura',
-        numeracion: 'principal',
-        descuento: 0
-    };
-
     // Función para calcular el total
     function calcularTotal() {
         const subtotal = carrito.items.reduce((sum, item) => sum + (item.precio * item.cantidad), 0);
@@ -252,11 +246,11 @@ document.addEventListener('DOMContentLoaded', function() {
             existente.cantidad++;
         } else {
             carrito.items.push({
-                id: producto.id,
+                id: parseInt(producto.id),
                 nombre: producto.nombre,
                 precio: parseFloat(producto.precio),
                 cantidad: 1,
-                stock: producto.stock
+                stock: parseInt(producto.stock)
             });
         }
         actualizarCarritoUI();

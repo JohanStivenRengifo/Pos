@@ -191,9 +191,9 @@ if (
                         </button>
                     </li>
 
-                    <!-- Perfil de usuario -->
-                    <li class="h-full flex items-center relative">
-                        <button onclick="togglePerfilMenu()" class="flex items-center space-x-2 px-3 py-2 rounded-full hover:bg-gray-100 transition-colors">
+                    <!-- Perfil de usuario simplificado -->
+                    <li class="h-full flex items-center gap-2">
+                        <div class="flex items-center gap-2">
                             <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
                                 <span class="text-sm font-medium text-indigo-600">
                                     <?= substr($user_name, 0, 1) ?>
@@ -207,26 +207,10 @@ if (
                                     <?= htmlspecialchars($user_role) ?>
                                 </p>
                             </div>
-                        </button>
-                        
-                        <!-- Menú desplegable del perfil -->
-                        <div id="perfil-menu" class="hidden absolute right-0 top-full mt-1 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5">
-                            <div class="py-1">
-                                <div class="px-4 py-2 text-sm text-gray-700 border-b">
-                                    <p class="font-medium"><?= htmlspecialchars($user_name) ?></p>
-                                    <p class="text-xs text-gray-500"><?= htmlspecialchars($user_email) ?></p>
-                                </div>
-                                <a href="perfil/index.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                    <i class="fas fa-user-circle mr-2"></i> Mi Perfil
-                                </a>
-                                <a href="configuracion/index.php" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                    <i class="fas fa-cog mr-2"></i> Configuración
-                                </a>
-                                <button onclick="cerrarSesion()" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">
-                                    <i class="fas fa-sign-out-alt mr-2"></i> Cerrar Sesión
-                                </button>
-                            </div>
                         </div>
+                        <button onclick="toggleProfileMenu()" class="ml-2 p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </button>
                     </li>
                 </ul>
             </div>
@@ -234,11 +218,12 @@ if (
     </nav>
 
     <!-- Contenido principal ajustado -->
-    <div class="pt-16 h-[calc(100vh-4rem)] overflow-hidden">
-        <div class="h-full">
-            <div class="flex flex-col lg:flex-row h-full">
+    <div class="h-screen overflow-hidden">
+        <div class="h-[calc(100vh-4rem)] mt-16">
+            <!-- Contenedor principal con grid responsivo -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 h-full">
                 <!-- Panel izquierdo: Productos -->
-                <div class="w-full lg:w-[65%] h-full flex flex-col bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div class="lg:col-span-8 h-full flex flex-col bg-white shadow-sm border-r border-gray-200 overflow-hidden">
                     <!-- Barra de búsqueda mejorada -->
                     <div class="sticky top-0 z-10 bg-white p-4 border-b border-gray-200">
                         <div class="relative">
@@ -252,9 +237,9 @@ if (
                         </div>
                     </div>
 
-                    <!-- Grid de productos mejorado -->
+                    <!-- Grid de productos mejorado con scroll -->
                     <div id="products-grid" class="flex-1 overflow-y-auto">
-                        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 p-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 p-4">
                             <?php if (empty($productos)): ?>
                                 <div class="col-span-full flex flex-col items-center justify-center py-12 text-gray-400">
                                     <i class="fas fa-box-open text-4xl mb-4 animate-bounce"></i>
@@ -344,7 +329,7 @@ if (
                 </div>
 
                 <!-- Panel derecho: Carrito mejorado -->
-                <div class="w-full lg:w-[35%] h-full flex flex-col bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div class="lg:col-span-4 h-full flex flex-col bg-white shadow-sm border-l border-gray-200 overflow-hidden">
                     <?php if (!$turno_actual): ?>
                     <!-- Mensaje cuando no hay turno abierto -->
                     <div class="h-full flex flex-col items-center justify-center p-8 text-center">
@@ -361,15 +346,15 @@ if (
                     </div>
                     <?php else: ?>
                     <!-- Encabezado del panel -->
-                    <div class="bg-gray-50 border-b border-gray-200">
-                        <div class="p-4 space-y-3">
+                    <div class="bg-gray-50 border-b border-gray-200 py-2">
+                        <div class="px-3 space-y-2">
                             <!-- Tipo documento y Numeración -->
-                            <div class="flex gap-2">
-                                <select id="tipo-documento" class="flex-1 border border-gray-300 rounded-lg text-sm py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200">
+                            <div class="grid grid-cols-2 gap-2">
+                                <select id="tipo-documento" class="w-full border border-gray-300 rounded-lg text-xs py-1.5 px-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200">
                                     <option value="factura">Factura de venta</option>
                                     <option value="cotizacion">Cotización</option>
                                 </select>
-                                <select id="numeracion" class="flex-1 border border-gray-300 rounded-lg text-sm py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200">
+                                <select id="numeracion" class="w-full border border-gray-300 rounded-lg text-xs py-1.5 px-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200">
                                     <option value="principal">Principal</option>
                                     <option value="electronica">Electrónica</option>
                                 </select>
@@ -377,26 +362,25 @@ if (
 
                             <!-- Cliente -->
                             <div class="flex gap-2">
-                                <select id="cliente-select" class="flex-1 border border-gray-300 rounded-lg text-sm py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200">
-                                    <option value="">-- Seleccione un cliente --</option>
+                                <select id="cliente-select" class="flex-1 border border-gray-300 rounded-lg text-xs py-1.5 px-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200">
                                     <?php foreach ($clientes as $cliente): ?>
-                                        <option value="<?= $cliente['id'] ?>">
+                                        <option value="<?= $cliente['id'] ?>" <?= $cliente['id'] == '1' ? 'selected' : '' ?>>
                                             <?= htmlspecialchars(trim($cliente['nombre'])) ?> - <?= htmlspecialchars($cliente['documento']) ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
-                                <a href="../clientes/index.php" class="px-3 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600 transition-all duration-200 flex items-center justify-center hover:border-indigo-300">
+                                <a href="../clientes/index.php" class="px-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600 transition-all duration-200 flex items-center justify-center hover:border-indigo-300">
                                     <i class="fas fa-plus"></i>
                                 </a>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Lista de productos -->
+                    <!-- Lista de productos con scroll -->
                     <div class="flex-1 flex flex-col overflow-hidden">
-                        <div class="p-4 border-b border-gray-200">
+                        <div class="py-2 px-3 border-b border-gray-200">
                             <div class="flex justify-between items-center">
-                                <h5 class="text-sm font-medium flex items-center text-gray-700">
+                                <h5 class="text-xs font-medium flex items-center text-gray-700">
                                     <i class="fas fa-shopping-cart mr-2 text-indigo-500"></i>Productos
                                 </h5>
                                 <span class="bg-indigo-100 text-indigo-800 text-xs font-medium px-2 py-0.5 rounded-lg">
@@ -405,20 +389,22 @@ if (
                             </div>
                         </div>
 
-                        <!-- Tabla de productos con scroll -->
-                        <div class="flex-1 overflow-y-auto">
-                            <div class="p-4">
+                        <!-- Tabla de productos con scroll mejorado -->
+                        <div class="flex-1 overflow-y-auto px-3">
+                            <div class="min-w-full">
                                 <table class="w-full">
-                                    <thead class="text-xs text-gray-700">
+                                    <thead class="text-xs text-gray-700 sticky top-0 bg-white z-10">
                                         <tr>
-                                            <th class="text-left py-2">Producto</th>
-                                            <th class="text-center w-20">Cant.</th>
-                                            <th class="text-right w-24">Precio</th>
-                                            <th class="text-right w-24">Total</th>
-                                            <th class="w-10"></th>
+                                            <th class="text-left py-2 bg-white">Producto</th>
+                                            <th class="text-center w-24 bg-white">Cant.</th>
+                                            <th class="text-right w-20 bg-white">Precio</th>
+                                            <th class="text-right w-20 bg-white">Total</th>
+                                            <th class="w-8 bg-white"></th>
                                         </tr>
                                     </thead>
-                                    <tbody id="venta-lista"></tbody>
+                                    <tbody id="venta-lista" class="divide-y divide-gray-100">
+                                        <!-- Los items se agregarán dinámicamente aquí -->
+                                    </tbody>
                                 </table>
                                 <div id="venta-lista-empty" class="text-center text-gray-500 py-8">
                                     <i class="fas fa-shopping-basket text-3xl mb-3 text-gray-300"></i>
@@ -428,36 +414,36 @@ if (
                         </div>
                     </div>
 
-                    <!-- Panel de totales y acciones -->
+                    <!-- Panel de totales y acciones compacto -->
                     <div class="border-t border-gray-200">
-                        <div class="p-4 bg-gray-50 space-y-4">
-                            <!-- Totales -->
-                            <div class="space-y-2">
-                                <div class="flex justify-between items-center text-sm">
+                        <div class="p-3 bg-gray-50 space-y-2">
+                            <!-- Totales en grid compacto -->
+                            <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                                <div class="flex justify-between items-center">
                                     <span class="text-gray-600">Subtotal:</span>
                                     <span id="subtotal" class="font-medium">$0</span>
                                 </div>
                                 <div class="flex justify-between items-center">
-                                    <span class="text-gray-600 text-sm">Descuento:</span>
-                                    <div class="flex items-center gap-2">
+                                    <span class="text-gray-600">Descuento:</span>
+                                    <div class="flex items-center gap-1">
                                         <input type="number" id="descuento"
-                                            class="w-16 border border-gray-300 rounded-lg px-2 py-1 text-center text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                            class="w-12 border border-gray-300 rounded px-1 py-0.5 text-center text-xs focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
                                             min="0" max="100" value="0">
-                                        <span class="text-sm text-gray-500">%</span>
+                                        <span class="text-gray-500">%</span>
                                     </div>
                                 </div>
-                                <div class="flex justify-between items-center text-sm">
+                                <div class="flex justify-between items-center">
                                     <span class="text-gray-600">Desc. aplicado:</span>
                                     <span id="descuento-monto" class="text-red-600">-$0</span>
                                 </div>
-                                <div class="flex justify-between items-center pt-2 border-t border-gray-200">
+                                <div class="flex justify-between items-center">
                                     <span class="font-medium">Total:</span>
-                                    <span id="venta-total" class="text-xl font-bold text-indigo-600">$0</span>
+                                    <span id="venta-total" class="text-lg font-bold text-indigo-600">$0</span>
                                 </div>
                             </div>
 
                             <!-- Método de pago -->
-                            <select id="metodo-pago" class="w-full border border-gray-300 rounded-lg text-sm py-2 px-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200">
+                            <select id="metodo-pago" class="w-full border border-gray-300 rounded-lg text-xs py-1.5 px-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200">
                                 <option value="efectivo">Efectivo</option>
                                 <option value="tarjeta">Tarjeta</option>
                                 <option value="transferencia">Transferencia</option>
@@ -465,9 +451,9 @@ if (
 
                             <!-- Botón procesar -->
                             <button id="procesar-venta"
-                                class="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white py-3 px-4 rounded-lg transition-all duration-300 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 shadow-sm hover:shadow-md flex items-center justify-center space-x-2"
+                                class="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white py-2 px-4 rounded-lg transition-all duration-300 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 shadow-sm hover:shadow-md flex items-center justify-center space-x-2"
                                 disabled>
-                                <i class="fas fa-check-circle text-lg"></i>
+                                <i class="fas fa-check-circle"></i>
                                 <span>Confirmar Venta</span>
                             </button>
                         </div>
@@ -534,37 +520,9 @@ if (
             }, 60000); // Actualizar cada minuto
         });
 
-        function togglePerfilMenu() {
-            const menu = document.getElementById('perfil-menu');
-            menu.classList.toggle('hidden');
-        }
-
-        // Cerrar el menú cuando se hace clic fuera de él
-        document.addEventListener('click', function(event) {
-            const menu = document.getElementById('perfil-menu');
-            const perfilButton = event.target.closest('button[onclick="togglePerfilMenu()"]');
-            
-            if (!perfilButton && !menu.contains(event.target)) {
-                menu.classList.add('hidden');
-            }
-        });
-
-        // Función mejorada para cerrar sesión
-        function cerrarSesion() {
-            Swal.fire({
-                title: '¿Cerrar sesión?',
-                text: "¿Estás seguro de que deseas salir?",
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#4F46E5',
-                cancelButtonColor: '#EF4444',
-                confirmButtonText: 'Sí, cerrar sesión',
-                cancelButtonText: 'Cancelar'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    window.location.href = 'auth/logout.php';
-                }
-            });
+        function toggleProfileMenu() {
+            // Redirigir directamente al logout
+            window.location.href = 'auth/logout.php';
         }
 
         // Variable global para controlar el estado del turno
@@ -859,17 +817,72 @@ if (
             });
         }
 
-        // Modifica la función existente que maneja el éxito de la venta para incluir la nueva secuencia
-        function handleVentaExitosa(response) {
-            window.ultimaFacturaId = response.facturaId; // Guarda el ID de la factura
-            Swal.fire({
-                icon: 'success',
-                title: '¡Venta realizada!',
-                text: 'La venta se ha procesado correctamente.',
-                confirmButtonColor: '#4F46E5'
-            }).then(() => {
-                imprimirRemision();
+        // Función para procesar la venta
+        async function procesarVenta() {
+            if (!carrito.items.length || !document.getElementById('cliente-select').value) {
+                Swal.fire({
+                    title: 'Carrito vacío o cliente no seleccionado',
+                    text: 'Agregue productos al carrito y seleccione un cliente antes de continuar',
+                    icon: 'warning'
+                });
+                return;
+            }
+
+            const tipoDocumento = document.getElementById('tipo-documento').value;
+            const clienteId = document.getElementById('cliente-select').value;
+            const metodoPago = document.getElementById('metodo-pago').value;
+            const descuentoPorcentaje = parseInt(document.getElementById('descuento').value) || 0;
+
+            // Calcular totales
+            let subtotal = 0;
+            carrito.items.forEach(item => {
+                subtotal += item.precio * item.cantidad;
             });
+            
+            const descuentoMonto = (subtotal * descuentoPorcentaje) / 100;
+            const total = subtotal - descuentoMonto;
+
+            try {
+                const response = await fetch('api/ventas/procesar.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        items: carrito.items,
+                        cliente_id: clienteId,
+                        tipo_documento: tipoDocumento,
+                        numeracion: document.getElementById('numeracion').value,
+                        metodo_pago: metodoPago,
+                        descuento: descuentoPorcentaje, // Enviamos el porcentaje de descuento
+                        subtotal: subtotal,
+                        total: total
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '¡Venta realizada!',
+                        text: 'La venta se ha procesado correctamente'
+                    }).then(() => {
+                        // Limpiar carrito y recargar
+                        carrito.items = [];
+                        actualizarCarritoUI();
+                        location.reload();
+                    });
+                } else {
+                    throw new Error(data.message || 'Error al procesar la venta');
+                }
+            } catch (error) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: error.message
+                });
+            }
         }
 
         // Añadir la validación para el tipo de factura y cliente
@@ -1098,6 +1111,206 @@ if (
                 });
             });
         }
+
+        // Función para agregar producto al carrito
+        function agregarProductoAlCarrito(producto) {
+            const listaVenta = document.getElementById('venta-lista');
+            const listaEmpty = document.getElementById('venta-lista-empty');
+            const cantidadItems = document.getElementById('cantidad-items');
+            
+            // Verificar si el producto ya está en el carrito
+            const productoExistente = document.querySelector(`tr[data-id="${producto.id}"]`);
+            
+            if (productoExistente) {
+                // Incrementar cantidad si el producto ya existe
+                const cantidadInput = productoExistente.querySelector('input[type="number"]');
+                const cantidadActual = parseInt(cantidadInput.value);
+                if (cantidadActual < producto.cantidad) {
+                    cantidadInput.value = cantidadActual + 1;
+                    actualizarTotalProducto(productoExistente);
+                }
+            } else {
+                // Agregar nuevo producto
+                const tr = document.createElement('tr');
+                tr.setAttribute('data-id', producto.id);
+                tr.setAttribute('data-precio', producto.precio);
+                tr.innerHTML = `
+                    <td class="py-2">
+                        <div class="flex flex-col">
+                            <span class="font-medium text-xs text-gray-900">${producto.nombre}</span>
+                            <span class="text-xs text-gray-500">${producto.codigo}</span>
+                        </div>
+                    </td>
+                    <td class="text-center">
+                        <div class="flex items-center justify-center gap-1">
+                            <button onclick="decrementarCantidad(this)" 
+                                class="text-gray-500 hover:text-indigo-600 p-1 rounded-full hover:bg-indigo-50">
+                                <i class="fas fa-minus text-xs"></i>
+                            </button>
+                            <input type="number" 
+                                class="w-12 text-center border border-gray-300 rounded px-1 py-0.5 text-xs"
+                                min="1" 
+                                max="${producto.cantidad}"
+                                value="1"
+                                onchange="validarCantidad(this, ${producto.cantidad})"
+                                onkeyup="this.value=this.value.replace(/[^\\d]/,'')">
+                            <button onclick="incrementarCantidad(this)" 
+                                class="text-gray-500 hover:text-indigo-600 p-1 rounded-full hover:bg-indigo-50">
+                                <i class="fas fa-plus text-xs"></i>
+                            </button>
+                        </div>
+                    </td>
+                    <td class="text-right text-xs">
+                        $${Number(producto.precio).toLocaleString('es-CO')}
+                    </td>
+                    <td class="text-right text-xs font-medium">
+                        $${Number(producto.precio).toLocaleString('es-CO')}
+                    </td>
+                    <td>
+                        <button onclick="eliminarProducto(this.closest('tr'))" 
+                            class="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-red-50">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </td>
+                `;
+                
+                listaVenta.appendChild(tr);
+            }
+            
+            // Actualizar UI
+            actualizarTotales();
+            actualizarVisibilidadCarritoVacio();
+            
+            // Habilitar botón de procesar venta
+            document.getElementById('procesar-venta').disabled = false;
+        }
+
+        // Funciones para manipular cantidades
+        function decrementarCantidad(button) {
+            const input = button.parentElement.querySelector('input');
+            const currentValue = parseInt(input.value);
+            if (currentValue > 1) {
+                input.value = currentValue - 1;
+                actualizarTotalProducto(button.closest('tr'));
+            }
+        }
+
+        function incrementarCantidad(button) {
+            const input = button.parentElement.querySelector('input');
+            const currentValue = parseInt(input.value);
+            const maxValue = parseInt(input.getAttribute('max'));
+            if (currentValue < maxValue) {
+                input.value = currentValue + 1;
+                actualizarTotalProducto(button.closest('tr'));
+            }
+        }
+
+        function validarCantidad(input, maxCantidad) {
+            let valor = parseInt(input.value) || 0;
+            if (valor < 1) valor = 1;
+            if (valor > maxCantidad) valor = maxCantidad;
+            input.value = valor;
+            actualizarTotalProducto(input.closest('tr'));
+        }
+
+        // Función para eliminar producto
+        function eliminarProducto(tr) {
+            tr.remove();
+            actualizarTotales();
+            actualizarVisibilidadCarritoVacio();
+            
+            // Deshabilitar botón si no hay productos
+            const productos = document.querySelectorAll('#venta-lista tr');
+            if (productos.length === 0) {
+                document.getElementById('procesar-venta').disabled = true;
+            }
+        }
+
+        // Función para actualizar el total de un producto
+        function actualizarTotalProducto(tr) {
+            const cantidad = parseInt(tr.querySelector('input[type="number"]').value);
+            const precio = parseFloat(tr.getAttribute('data-precio'));
+            const total = cantidad * precio;
+            
+            tr.querySelector('td:nth-child(4)').textContent = `$${total.toLocaleString('es-CO')}`;
+            actualizarTotales();
+        }
+
+        // Función para actualizar los totales
+        function actualizarTotales() {
+            let subtotal = 0;
+            const productos = document.querySelectorAll('#venta-lista tr');
+            const cantidadItems = document.getElementById('cantidad-items');
+            
+            productos.forEach(tr => {
+                const cantidad = parseInt(tr.querySelector('input[type="number"]').value);
+                const precio = parseFloat(tr.getAttribute('data-precio'));
+                subtotal += cantidad * precio;
+            });
+            
+            // Actualizar contador de items
+            cantidadItems.textContent = productos.length;
+            
+            // Actualizar subtotal
+            document.getElementById('subtotal').textContent = `$${subtotal.toLocaleString('es-CO')}`;
+            
+            // Calcular y actualizar descuento
+            const descuentoPorcentaje = parseInt(document.getElementById('descuento').value) || 0;
+            const descuentoMonto = (subtotal * descuentoPorcentaje) / 100;
+            document.getElementById('descuento-monto').textContent = `-$${descuentoMonto.toLocaleString('es-CO')}`;
+            
+            // Actualizar total
+            const total = subtotal - descuentoMonto;
+            document.getElementById('venta-total').textContent = `$${total.toLocaleString('es-CO')}`;
+        }
+
+        // Función para actualizar visibilidad del mensaje de carrito vacío
+        function actualizarVisibilidadCarritoVacio() {
+            const listaVenta = document.getElementById('venta-lista');
+            const listaEmpty = document.getElementById('venta-lista-empty');
+            
+            if (listaVenta.children.length > 0) {
+                listaEmpty.style.display = 'none';
+            } else {
+                listaEmpty.style.display = 'block';
+            }
+        }
+
+        // Inicializar eventos
+        document.addEventListener('DOMContentLoaded', function() {
+            // Agregar evento a los productos
+            document.querySelectorAll('.item-view').forEach(item => {
+                item.addEventListener('click', function() {
+                    const producto = {
+                        id: this.dataset.id,
+                        nombre: this.dataset.nombre,
+                        precio: this.dataset.precio,
+                        cantidad: parseInt(this.dataset.cantidad),
+                        codigo: this.dataset.codigo
+                    };
+                    
+                    if (producto.cantidad > 0) {
+                        agregarProductoAlCarrito(producto);
+                    }
+                });
+            });
+            
+            // Evento para el input de descuento
+            document.getElementById('descuento').addEventListener('input', function() {
+                if (this.value > 100) this.value = 100;
+                if (this.value < 0) this.value = 0;
+                actualizarTotales();
+            });
+
+            // Seleccionar cliente por defecto (Consumidor Final)
+            const clienteSelect = document.getElementById('cliente-select');
+            if (clienteSelect) {
+                const consumidorFinalOption = Array.from(clienteSelect.options).find(option => option.value === '1');
+                if (consumidorFinalOption) {
+                    clienteSelect.value = '1';
+                }
+            }
+        });
     </script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>

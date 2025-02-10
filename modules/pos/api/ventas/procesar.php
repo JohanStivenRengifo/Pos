@@ -84,8 +84,11 @@ try {
         $subtotal += floatval($item['precio']) * intval($item['cantidad']);
     }
     
-    $descuento = isset($data['descuento']) ? ($subtotal * floatval($data['descuento'])) / 100 : 0;
-    $total = $subtotal - $descuento;
+    // Guardar el porcentaje de descuento directamente
+    $descuento_porcentaje = isset($data['descuento']) ? floatval($data['descuento']) : 0;
+    // Calcular el total con el descuento
+    $descuento_monto = ($subtotal * $descuento_porcentaje) / 100;
+    $total = $subtotal - $descuento_monto;
 
     // Insertar venta con todos los campos necesarios
     $stmt = $pdo->prepare("
@@ -120,7 +123,7 @@ try {
         $data['numeracion'],
         $total,
         $subtotal,
-        $descuento,
+        $descuento_porcentaje, // Guardamos el porcentaje en lugar del monto
         $data['metodo_pago'],
         $numero_factura,
         $data['alegra_id'] ?? null,
