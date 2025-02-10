@@ -24,7 +24,7 @@ function validatePassword($password) {
 }
 
 // Función para registrar usuario
-function registerUser($pdo, $email, $password, $nombre, $apellidos, $telefono) {
+function registerUser($pdo, $email, $password, $nombre = '') {
     try {
         $pdo->beginTransaction();
 
@@ -43,18 +43,15 @@ function registerUser($pdo, $email, $password, $nombre, $apellidos, $telefono) {
             INSERT INTO users (
                 email, 
                 password, 
-                nombre,
-                apellidos,
-                telefono,
+                nombre, 
+                fecha_creacion,
                 rol,
-                estado,
-                pais,
-                created_at
+                estado
             ) VALUES (
-                ?, ?, ?, ?, ?, 'administrador', 'activo', 'Colombia', NOW()
+                ?, ?, ?, NOW(), 'administrador', 'activo'
             )
         ");
-        $result = $stmt->execute([$email, $hashed_password, $nombre, $apellidos, $telefono]);
+        $result = $stmt->execute([$email, $hashed_password, $nombre]);
 
         if (!$result) {
             throw new Exception('Error al registrar el usuario.');
@@ -62,7 +59,37 @@ function registerUser($pdo, $email, $password, $nombre, $apellidos, $telefono) {
 
         $user_id = $pdo->lastInsertId();
 
-        // Registrar el evento
+        // Crear cliente Consumidor Final
+        $stmt = $pdo->prepare("INSERT INTO clientes (
+            user_id,
+            nombre,
+            email,
+            telefono,
+            created_at,
+            tipo_identificacion,
+            identificacion,
+            primer_nombre,
+            segundo_nombre,
+            apellidos,
+            municipio_departamento,
+            codigo_postal
+        ) VALUES (?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, ?)");
+
+        $stmt->execute([
+            $user_id,
+            'Consumidor Final',
+            'consumidorfinal@example.com',
+            '0000000000',
+            'CC', // Cédula de Ciudadanía
+            '222222222', // Identificación genérica
+            'Consumidor',
+            '',
+            'Final',
+            'Bogotá D.C., Colombia',
+            '110111' // Código postal de Bogotá
+        ]);
+
+        // Registrar el evento con created_at
         $stmt = $pdo->prepare("
             INSERT INTO user_events (
                 user_id, 
@@ -77,8 +104,7 @@ function registerUser($pdo, $email, $password, $nombre, $apellidos, $telefono) {
             'user_agent' => $_SERVER['HTTP_USER_AGENT'],
             'action' => 'register',
             'email' => $email,
-            'nombre' => $nombre,
-            'apellidos' => $apellidos
+            'nombre' => $nombre
         ]);
         
         $stmt->execute([
@@ -89,11 +115,10 @@ function registerUser($pdo, $email, $password, $nombre, $apellidos, $telefono) {
 
         $pdo->commit();
         
-        // Iniciar sesión automáticamente
+        // Iniciar sesión automáticamente después del registro
         $_SESSION['user_id'] = $user_id;
         $_SESSION['email'] = $email;
         $_SESSION['nombre'] = $nombre;
-        $_SESSION['apellidos'] = $apellidos;
         $_SESSION['rol'] = 'administrador';
         
         return ['status' => true, 'message' => 'Registro exitoso'];
@@ -115,8 +140,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $password = trim($_POST['password']);
         $confirm_password = trim($_POST['confirm_password']);
         $nombre = trim($_POST['nombre'] ?? '');
-        $apellidos = trim($_POST['apellidos'] ?? '');
-        $telefono = trim($_POST['telefono'] ?? '');
         
         // Validaciones
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -131,11 +154,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             throw new Exception('Las contraseñas no coinciden.');
         }
 
-        if (empty($nombre) || empty($apellidos)) {
-            throw new Exception('El nombre y apellidos son obligatorios.');
-        }
-
-        $result = registerUser($pdo, $email, $password, $nombre, $apellidos, $telefono);
+        $result = registerUser($pdo, $email, $password, $nombre);
 
         if (isAjaxRequest()) {
             ApiResponse::send($result['status'], $result['message'], 
@@ -284,32 +303,6 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                 
                 <div class="space-y-4">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label for="nombre" class="block text-sm font-medium text-gray-700">Nombres</label>
-                            <div class="mt-1 relative">
-                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <i class="fas fa-user text-gray-400"></i>
-                                </div>
-                                <input type="text" id="nombre" name="nombre" required 
-                                       minlength="3" maxlength="100"
-                                       class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                                       placeholder="Ingresa tus nombres">
-                            </div>
-                        </div>
-
-                        <div>
-                            <label for="apellidos" class="block text-sm font-medium text-gray-700">Apellidos</label>
-                            <div class="mt-1 relative">
-                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <i class="fas fa-user text-gray-400"></i>
-                                </div>
-                                <input type="text" id="apellidos" name="apellidos" required 
-                                       minlength="3" maxlength="100"
-                                       class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                                       placeholder="Ingresa tus apellidos">
-                            </div>
-                        </div>
                     <div>
                         <label for="nombre" class="block text-sm font-medium text-gray-700">Nombre Completo</label>
                         <div class="mt-1 relative">
