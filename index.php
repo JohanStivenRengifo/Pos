@@ -28,10 +28,38 @@ if (isset($_SESSION['user_id'])) {
                     fontFamily: {
                         sans: ['Inter', 'sans-serif'],
                     },
+                    animation: {
+                        'fade-in': 'fadeIn 1s ease-in',
+                        'slide-up': 'slideUp 0.5s ease-out',
+                        'bounce-slow': 'bounce 3s infinite',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        slideUp: {
+                            '0%': { transform: 'translateY(20px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' },
+                        }
+                    }
                 }
             }
         }
     </script>
+    <style>
+        .hero-gradient {
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+        }
+        .floating {
+            animation: floating 3s ease-in-out infinite;
+        }
+        @keyframes floating {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+            100% { transform: translateY(0px); }
+        }
+    </style>
 </head>
 
 <body class="font-sans antialiased text-gray-800 bg-white">
@@ -79,22 +107,53 @@ if (isset($_SESSION['user_id'])) {
     </nav>
 
     <!-- Hero Section -->
-    <section class="pt-20 pb-32 bg-gradient-to-b from-blue-50 to-white">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20">
-            <div class="text-center">
-                <h1 class="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
-                    <span class="block">Sistema Contable</span>
-                    <span class="block text-primary">Profesional y Confiable</span>
-                </h1>
-                <p class="mt-3 max-w-md mx-auto text-base text-gray-500 sm:text-lg md:mt-5 md:text-xl md:max-w-3xl">
-                    La solución completa para la gestión financiera de tu empresa. Miles de negocios confían en nosotros para su contabilidad diaria.
-                </p>
-                <div class="mt-5 max-w-md mx-auto sm:flex sm:justify-center md:mt-8">
-                    <div class="rounded-md shadow">
-                        <a href="modules/auth/register.php" class="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-primary hover:bg-secondary md:py-4 md:text-lg md:px-10 transition-colors duration-200">
-                            Comenzar Ahora
+    <section class="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-gray-900 to-blue-900 text-white">
+        <!-- Animated background elements -->
+        <div class="absolute inset-0 overflow-hidden">
+            <div class="absolute w-96 h-96 bg-blue-500 rounded-full filter blur-3xl opacity-20 -top-20 -left-20 floating"></div>
+            <div class="absolute w-96 h-96 bg-purple-500 rounded-full filter blur-3xl opacity-20 -bottom-20 -right-20 floating" style="animation-delay: 1s;"></div>
+        </div>
+        
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 relative">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                <div class="text-left animate-fade-in">
+                    <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-tight">
+                        <span class="block mb-2">Sistema Contable</span>
+                        <span class="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
+                            Profesional y Confiable
+                        </span>
+                    </h1>
+                    <p class="mt-6 text-xl text-gray-300 max-w-2xl animate-slide-up" style="animation-delay: 0.3s;">
+                        Automatiza tu contabilidad, facturación y gestión financiera con la plataforma líder en Colombia. 
+                        Diseñado específicamente para empresas que buscan crecer.
+                    </p>
+                    <div class="mt-8 flex flex-col sm:flex-row gap-4 animate-slide-up" style="animation-delay: 0.6s;">
+                        <a href="modules/auth/register.php" class="inline-flex items-center justify-center px-8 py-3 text-base font-medium rounded-lg text-white bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 transform hover:scale-105 transition-all duration-200">
+                            <span>Prueba Gratis 14 Días</span>
+                            <svg class="ml-2 -mr-1 w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                            </svg>
                         </a>
                     </div>
+                    <div class="mt-8 flex items-center gap-6 text-sm text-gray-300 animate-slide-up" style="animation-delay: 0.9s;">
+                        <div class="flex items-center">
+                            <i class="fas fa-check-circle text-green-400 mr-2"></i>
+                            Sin tarjeta de crédito
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fas fa-check-circle text-green-400 mr-2"></i>
+                            Soporte 24/7
+                        </div>
+                    </div>
+                </div>
+                <div class="relative animate-fade-in" style="animation-delay: 0.6s;">
+                    <div class="relative z-10 bg-white/10 backdrop-blur-lg rounded-2xl p-2 shadow-2xl transform hover:scale-105 transition-transform duration-300">
+                        <img src="assets/img/dashboard-preview.png" alt="Dashboard VendEasy" class="rounded-xl shadow-lg" 
+                             onerror="this.src='https://via.placeholder.com/600x400/2563eb/ffffff?text=Dashboard+VendEasy'"/>
+                    </div>
+                    <!-- Decorative elements -->
+                    <div class="absolute -top-4 -right-4 w-72 h-72 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-bounce-slow"></div>
+                    <div class="absolute -bottom-4 -left-4 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-bounce-slow" style="animation-delay: 1s;"></div>
                 </div>
             </div>
         </div>
@@ -165,108 +224,181 @@ if (isset($_SESSION['user_id'])) {
     </section>
 
     <!-- Pricing Section -->
-    <section id="precios" class="py-20 bg-white">
+    <section id="precios" class="py-20 bg-gradient-to-b from-gray-50 to-white">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center">
-                <h2 class="text-3xl font-extrabold text-gray-900 sm:text-4xl">
-                    Planes diseñados para tu negocio
+                <span class="text-primary font-semibold">Planes Flexibles</span>
+                <h2 class="mt-2 text-3xl font-extrabold text-gray-900 sm:text-4xl">
+                    Planes diseñados para hacer crecer tu negocio
                 </h2>
                 <p class="mt-4 text-lg text-gray-500">
-                    Elige el plan que mejor se adapte a tus necesidades
+                    Elige el plan que mejor se adapte a tus necesidades. ¡Comienza hoy mismo!
                 </p>
             </div>
 
             <div class="mt-16 grid grid-cols-1 gap-8 lg:grid-cols-3">
                 <!-- Plan Básico -->
-                <div class="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300 p-8">
+                <div class="relative bg-white rounded-2xl shadow-xl p-8 transform hover:scale-105 transition-all duration-300">
+                    <div class="absolute -top-4 -right-4">
+                        <div class="bg-green-400 text-white text-xs px-3 py-1 rounded-full">
+                            Ahorra 20%
+                        </div>
+                    </div>
                     <h3 class="text-xl font-semibold text-gray-900">Básico</h3>
-                    <p class="mt-4 text-gray-500">Ideal para emprendedores</p>
-                    <p class="mt-8">
-                        <span class="text-4xl font-extrabold text-gray-900">$3</span>
+                    <p class="mt-4 text-gray-500">Perfecto para emprendedores</p>
+                    <div class="mt-6">
+                        <span class="text-4xl font-extrabold text-gray-900">$12.500</span>
                         <span class="text-base font-medium text-gray-500">/mes</span>
-                    </p>
+                        <p class="text-sm text-gray-500 mt-1">Facturado anualmente o $15.000/mes</p>
+                    </div>
                     <ul class="mt-8 space-y-4">
                         <li class="flex items-center">
-                            <i class="fas fa-check text-green-500 mr-2"></i>
+                            <i class="fas fa-check-circle text-green-500 mr-2"></i>
                             <span>Hasta 100 facturas mensuales</span>
                         </li>
                         <li class="flex items-center">
-                            <i class="fas fa-check text-green-500 mr-2"></i>
-                            <span>1 Usuario</span>
+                            <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                            <span>2 Usuarios incluidos</span>
                         </li>
                         <li class="flex items-center">
-                            <i class="fas fa-check text-green-500 mr-2"></i>
+                            <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                            <span>Facturación electrónica DIAN</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check-circle text-green-500 mr-2"></i>
+                            <span>Reportes básicos</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check-circle text-green-500 mr-2"></i>
                             <span>Soporte por email</span>
                         </li>
                     </ul>
-                    <a href="modules/auth/register.php" class="mt-8 block w-full bg-primary text-white text-center py-3 rounded-md hover:bg-secondary transition-colors duration-200">
-                        Comenzar
+                    <a href="modules/auth/register.php" class="mt-8 block w-full bg-gradient-to-r from-green-400 to-green-500 text-white text-center py-3 rounded-lg hover:from-green-500 hover:to-green-600 transition-all duration-200">
+                        Comenzar prueba gratis
                     </a>
                 </div>
 
                 <!-- Plan Profesional -->
-                <div class="bg-white rounded-lg shadow-lg border-2 border-primary p-8 transform scale-105">
-                    <div class="absolute top-0 right-0 bg-primary text-white px-4 py-1 rounded-bl-lg rounded-tr-lg text-sm font-medium">
-                        Más Popular
+                <div class="relative bg-gradient-to-b from-blue-50 to-white rounded-2xl shadow-xl p-8 transform hover:scale-105 transition-all duration-300 border-2 border-primary">
+                    <div class="absolute -top-5 -right-5">
+                        <div class="bg-primary text-white px-4 py-1 rounded-full text-sm font-medium">
+                            Más Popular
+                        </div>
                     </div>
                     <h3 class="text-xl font-semibold text-gray-900">Profesional</h3>
                     <p class="mt-4 text-gray-500">Para pequeñas empresas</p>
-                    <p class="mt-8">
-                        <span class="text-4xl font-extrabold text-gray-900">$6</span>
+                    <div class="mt-6">
+                        <span class="text-4xl font-extrabold text-gray-900">$27.500</span>
                         <span class="text-base font-medium text-gray-500">/mes</span>
-                    </p>
+                        <p class="text-sm text-gray-500 mt-1">Facturado anualmente o $33.000/mes</p>
+                    </div>
                     <ul class="mt-8 space-y-4">
                         <li class="flex items-center">
-                            <i class="fas fa-check text-green-500 mr-2"></i>
+                            <i class="fas fa-check-circle text-primary mr-2"></i>
+                            <span>Todo lo del plan Básico</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check-circle text-primary mr-2"></i>
                             <span>Facturas ilimitadas</span>
                         </li>
                         <li class="flex items-center">
-                            <i class="fas fa-check text-green-500 mr-2"></i>
-                            <span>5 Usuarios</span>
+                            <i class="fas fa-check-circle text-primary mr-2"></i>
+                            <span>5 Usuarios incluidos</span>
                         </li>
                         <li class="flex items-center">
-                            <i class="fas fa-check text-green-500 mr-2"></i>
+                            <i class="fas fa-check-circle text-primary mr-2"></i>
+                            <span>Integración con Alegra</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check-circle text-primary mr-2"></i>
+                            <span>Reportes avanzados</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check-circle text-primary mr-2"></i>
                             <span>Soporte prioritario 24/7</span>
                         </li>
                         <li class="flex items-center">
-                            <i class="fas fa-check text-green-500 mr-2"></i>
-                            <span>Reportes avanzados</span>
+                            <i class="fas fa-check-circle text-primary mr-2"></i>
+                            <span>API REST básica</span>
                         </li>
                     </ul>
-                    <a href="modules/auth/register.php" class="mt-8 block w-full bg-primary text-white text-center py-3 rounded-md hover:bg-secondary transition-colors duration-200">
-                        Comenzar
+                    <a href="modules/auth/register.php" class="mt-8 block w-full bg-gradient-to-r from-blue-500 to-blue-700 text-white text-center py-3 rounded-lg hover:from-blue-600 hover:to-blue-800 transition-all duration-200">
+                        Comenzar prueba gratis
                     </a>
                 </div>
 
                 <!-- Plan Empresarial -->
-                <div class="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300 p-8">
+                <div class="relative bg-white rounded-2xl shadow-xl p-8 transform hover:scale-105 transition-all duration-300">
+                    <div class="absolute -top-4 -right-4">
+                        <div class="bg-purple-500 text-white text-xs px-3 py-1 rounded-full">
+                            Personalizable
+                        </div>
+                    </div>
                     <h3 class="text-xl font-semibold text-gray-900">Empresarial</h3>
                     <p class="mt-4 text-gray-500">Para medianas y grandes empresas</p>
-                    <p class="mt-8">
-                        <span class="text-4xl font-extrabold text-gray-900">$9</span>
+                    <div class="mt-6">
+                        <span class="text-4xl font-extrabold text-gray-900">$57.500</span>
                         <span class="text-base font-medium text-gray-500">/mes</span>
-                    </p>
+                        <p class="text-sm text-gray-500 mt-1">Facturado anualmente o $69.000/mes</p>
+                    </div>
                     <ul class="mt-8 space-y-4">
                         <li class="flex items-center">
-                            <i class="fas fa-check text-green-500 mr-2"></i>
-                            <span>Todo lo de Profesional</span>
+                            <i class="fas fa-check-circle text-purple-500 mr-2"></i>
+                            <span>Todo lo del plan Profesional</span>
                         </li>
                         <li class="flex items-center">
-                            <i class="fas fa-check text-green-500 mr-2"></i>
+                            <i class="fas fa-check-circle text-purple-500 mr-2"></i>
                             <span>Usuarios ilimitados</span>
                         </li>
                         <li class="flex items-center">
-                            <i class="fas fa-check text-green-500 mr-2"></i>
-                            <span>Facturas ilimitadas</span>
+                            <i class="fas fa-check-circle text-purple-500 mr-2"></i>
+                            <span>Múltiples sucursales</span>
                         </li>
                         <li class="flex items-center">
-                            <i class="fas fa-check text-green-500 mr-2"></i>
-                            <span>Sin Limites</span>
+                            <i class="fas fa-check-circle text-purple-500 mr-2"></i>
+                            <span>API REST completa</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check-circle text-purple-500 mr-2"></i>
+                            <span>Personalización white-label</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check-circle text-purple-500 mr-2"></i>
+                            <span>Soporte VIP dedicado</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check-circle text-purple-500 mr-2"></i>
+                            <span>Capacitación personalizada</span>
                         </li>
                     </ul>
-                    <a href="modules/auth/register.php" class="mt-8 block w-full bg-primary text-white text-center py-3 rounded-md hover:bg-secondary transition-colors duration-200">
-                        Contactar Ventas
+                    <a href="modules/auth/register.php" class="mt-8 block w-full bg-gradient-to-r from-purple-500 to-purple-700 text-white text-center py-3 rounded-lg hover:from-purple-600 hover:to-purple-800 transition-all duration-200">
+                        Contactar ventas
                     </a>
+                </div>
+            </div>
+
+            <!-- Garantía y Beneficios -->
+            <div class="mt-20 grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="flex items-center justify-center">
+                    <i class="fas fa-shield-alt text-2xl text-primary mr-4"></i>
+                    <div>
+                        <h4 class="font-semibold">Garantía de 30 días</h4>
+                        <p class="text-sm text-gray-500">Devolución del 100% si no estás satisfecho</p>
+                    </div>
+                </div>
+                <div class="flex items-center justify-center">
+                    <i class="fas fa-clock text-2xl text-primary mr-4"></i>
+                    <div>
+                        <h4 class="font-semibold">Prueba Gratuita</h4>
+                        <p class="text-sm text-gray-500">14 días sin compromiso</p>
+                    </div>
+                </div>
+                <div class="flex items-center justify-center">
+                    <i class="fas fa-handshake text-2xl text-primary mr-4"></i>
+                    <div>
+                        <h4 class="font-semibold">Soporte Premium</h4>
+                        <p class="text-sm text-gray-500">Asistencia personalizada</p>
+                    </div>
                 </div>
             </div>
         </div>
