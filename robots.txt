@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /modules/auth/
+Disallow: /config/
+Disallow: /includes/
+Disallow: /assets/admin/
+Disallow: /modules/
+
+Sitemap: https://johanrengifo.cloud/sitemap.xml 

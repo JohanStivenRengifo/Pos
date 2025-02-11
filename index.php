@@ -35,9 +35,38 @@ if (isset($_SESSION['user_id'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VendEasy - Sistema Contable Profesional</title>
-    <meta name="description" content="Sistema contable profesional para empresas. Gestiona tus finanzas de manera eficiente con la plataforma líder en el mercado.">
+    <title>VendEasy - Sistema Contable Profesional para Empresas Colombianas</title>
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="VendEasy es el sistema contable profesional líder en Colombia. Gestiona facturación electrónica, inventario y contabilidad de manera eficiente. Prueba gratuita por 14 días.">
+    <meta name="keywords" content="sistema contable, facturación electrónica, contabilidad en línea, software contable, facturación Colombia, VendEasy">
+    <meta name="author" content="VendEasy">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:title" content="VendEasy - Sistema Contable Profesional">
+    <meta property="og:description" content="Sistema contable profesional para empresas colombianas. Gestiona tus finanzas de manera eficiente con la plataforma líder en el mercado.">
+    <meta property="og:image" content="https://vendeasy.com/assets/img/og-image.jpg">
+    <meta property="og:url" content="https://vendeasy.com">
+    <meta property="og:type" content="website">
+    
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="VendEasy - Sistema Contable Profesional">
+    <meta name="twitter:description" content="Sistema contable profesional para empresas colombianas. Gestiona tus finanzas de manera eficiente.">
+    <meta name="twitter:image" content="https://vendeasy.com/assets/img/twitter-card.jpg">
+    
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://vendeasy.com">
+    
+    <!-- Favicon -->
     <link rel="icon" type="image/png" href="/favicon/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/favicon/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-16x16.png">
+    <link rel="manifest" href="/site.webmanifest">
+    
+    <!-- Styles -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">

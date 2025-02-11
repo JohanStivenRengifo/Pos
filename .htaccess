@@ -6,11 +6,17 @@ ServerSignature Off
 SetEnv TZ America/Bogota
 
 # Configuración de errores
-ErrorDocument 400 https://johanrengifo.cloud/errors/400.php
-ErrorDocument 401 https://johanrengifo.cloud/errors/401.php
-ErrorDocument 403 https://johanrengifo.cloud/errors/403.php
-ErrorDocument 404 https://johanrengifo.cloud/errors/404.php
-ErrorDocument 500 https://johanrengifo.cloud/errors/500.php
+php_flag display_errors off
+php_value error_reporting E_ALL
+php_value log_errors on
+php_value error_log "logs/error.log"
+
+# Páginas de error personalizadas
+ErrorDocument 400 /errors/400.php
+ErrorDocument 401 /errors/401.php
+ErrorDocument 403 /errors/403.php
+ErrorDocument 404 /errors/404.php
+ErrorDocument 500 /errors/500.php
 
 # Protección contra XSS y otros ataques
 <IfModule mod_headers.c>
