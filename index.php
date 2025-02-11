@@ -188,16 +188,6 @@ if (isset($_SESSION['user_id'])) {
                             </svg>
                         </a>
                     </div>
-                    <div class="mt-8 flex items-center gap-6 text-sm text-gray-300 animate-slide-up" style="animation-delay: 0.9s;">
-                        <div class="flex items-center">
-                            <i class="fas fa-check-circle text-green-400 mr-2"></i>
-                            Prueba gratuita 14 días
-                        </div>
-                        <div class="flex items-center">
-                            <i class="fas fa-check-circle text-green-400 mr-2"></i>
-                            Soporte personalizado
-                        </div>
-                    </div>
                 </div>
                 <div class="relative animate-fade-in" style="animation-delay: 0.6s;">
                     <div class="relative z-10 bg-white/10 backdrop-blur-lg rounded-2xl p-2 shadow-2xl transform hover:scale-105 transition-transform duration-300">
