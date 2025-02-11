@@ -12,6 +12,27 @@ if (!isset($_SESSION['user_id'])) {
 // Incluir la configuración de la base de datos
 require_once 'config/db.php';
 
+// Verificar suscripción activa
+$stmt = $pdo->prepare("
+    SELECT p.*, e.plan_suscripcion 
+    FROM pagos p
+    JOIN empresas e ON e.id = p.empresa_id
+    WHERE p.empresa_id = ? 
+    AND p.estado = 'completado'
+    AND p.fecha_fin_plan >= NOW()
+    ORDER BY p.fecha_pago DESC
+    LIMIT 1
+");
+
+$stmt->execute([$_SESSION['empresa_id']]);
+$suscripcion = $stmt->fetch();
+
+if (!$suscripcion) {
+    $_SESSION['error_message'] = "Tu suscripción ha expirado. Por favor, renueva tu plan para continuar.";
+    header('Location: /modules/empresa/planes.php');
+    exit();
+}
+
 // Funciones para obtener totales de manera segura
 function getTotal($query, $params = [])
 {
