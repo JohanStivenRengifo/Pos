@@ -1,8 +1,32 @@
 <?php
 session_start();
+require_once 'config/db.php';
 
 if (isset($_SESSION['user_id'])) {
-    header("Location: welcome.php");
+    // Verificar suscripción activa
+    $stmt = $pdo->prepare("
+        SELECT p.*, e.plan_suscripcion 
+        FROM pagos p
+        JOIN empresas e ON e.id = p.empresa_id
+        WHERE p.empresa_id = ? 
+        AND p.estado = 'completado'
+        AND p.fecha_fin_plan >= NOW()
+        ORDER BY p.fecha_pago DESC
+        LIMIT 1
+    ");
+    
+    $stmt->execute([$_SESSION['empresa_id']]);
+    $suscripcion = $stmt->fetch();
+
+    if (!$suscripcion) {
+        // No tiene suscripción activa
+        $_SESSION['error_message'] = "Tu suscripción ha expirado. Por favor, renueva tu plan para continuar.";
+        header('Location: modules/empresa/planes.php');
+        exit();
+    }
+
+    // Si tiene suscripción activa, redirigir al dashboard
+    header('Location: welcome.php');
     exit();
 }
 ?>
@@ -129,7 +153,7 @@ if (isset($_SESSION['user_id'])) {
                     </p>
                     <div class="mt-8 flex flex-col sm:flex-row gap-4 animate-slide-up" style="animation-delay: 0.6s;">
                         <a href="modules/auth/register.php" class="inline-flex items-center justify-center px-8 py-3 text-base font-medium rounded-lg text-white bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 transform hover:scale-105 transition-all duration-200">
-                            <span>Prueba Gratis 14 Días</span>
+                            <span>Comienza ahora!</span>
                             <svg class="ml-2 -mr-1 w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" />
                             </svg>
@@ -223,6 +247,146 @@ if (isset($_SESSION['user_id'])) {
         </div>
     </section>
 
+    <!-- Pricing Section -->
+    <section id="precios" class="py-20 bg-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center">
+                <h2 class="text-3xl font-extrabold text-gray-900 sm:text-4xl">
+                    Planes diseñados para tu negocio
+                </h2>
+                <p class="mt-4 text-lg text-gray-500">
+                    Elige el plan que mejor se adapte a tus necesidades
+                </p>
+            </div>
+
+            <div class="mt-16 grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
+                <!-- Plan Básico -->
+                <div class="bg-white rounded-2xl shadow-lg overflow-hidden transform hover:scale-105 transition-transform duration-300">
+                    <div class="p-8">
+                        <h3 class="text-xl font-semibold text-gray-900">Básico</h3>
+                        <p class="mt-4 text-gray-500">Ideal para emprendedores y pequeños negocios</p>
+                        <div class="mt-6">
+                            <span class="text-4xl font-bold text-gray-900">$29.900</span>
+                            <span class="text-gray-500">/mes</span>
+                        </div>
+                        <ul class="mt-8 space-y-4">
+                            <li class="flex items-center">
+                                <i class="fas fa-check text-green-500 mr-3"></i>
+                                <span>Hasta 100 facturas mensuales</span>
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-check text-green-500 mr-3"></i>
+                                <span>1 usuario</span>
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-check text-green-500 mr-3"></i>
+                                <span>Reportes básicos</span>
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-check text-green-500 mr-3"></i>
+                                <span>Soporte por email</span>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="px-8 pb-8">
+                        <a href="modules/auth/register.php?plan=basic" class="block w-full bg-primary hover:bg-secondary text-white text-center py-3 rounded-lg transition-colors duration-200">
+                            Comenzar ahora
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Plan Profesional -->
+                <div class="bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl shadow-xl overflow-hidden transform hover:scale-105 transition-transform duration-300">
+                    <div class="absolute top-5 right-5">
+                        <span class="bg-yellow-400 text-gray-900 text-xs font-bold px-3 py-1 rounded-full">MÁS POPULAR</span>
+                    </div>
+                    <div class="p-8">
+                        <h3 class="text-xl font-semibold text-white">Profesional</h3>
+                        <p class="mt-4 text-blue-100">Perfecto para negocios en crecimiento</p>
+                        <div class="mt-6">
+                            <span class="text-4xl font-bold text-white">$59.900</span>
+                            <span class="text-blue-100">/mes</span>
+                        </div>
+                        <ul class="mt-8 space-y-4 text-white">
+                            <li class="flex items-center">
+                                <i class="fas fa-check text-green-400 mr-3"></i>
+                                <span>Hasta 500 facturas mensuales</span>
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-check text-green-400 mr-3"></i>
+                                <span>3 usuarios</span>
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-check text-green-400 mr-3"></i>
+                                <span>Reportes avanzados</span>
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-check text-green-400 mr-3"></i>
+                                <span>Soporte prioritario 24/7</span>
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-check text-green-400 mr-3"></i>
+                                <span>Control de inventario</span>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="px-8 pb-8">
+                        <a href="modules/auth/register.php?plan=pro" class="block w-full bg-white text-primary hover:bg-gray-100 text-center py-3 rounded-lg transition-colors duration-200">
+                            Comenzar ahora
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Plan Empresarial -->
+                <div class="bg-white rounded-2xl shadow-lg overflow-hidden transform hover:scale-105 transition-transform duration-300">
+                    <div class="p-8">
+                        <h3 class="text-xl font-semibold text-gray-900">Empresarial</h3>
+                        <p class="mt-4 text-gray-500">Para grandes empresas y corporaciones</p>
+                        <div class="mt-6">
+                            <span class="text-4xl font-bold text-gray-900">$119.900</span>
+                            <span class="text-gray-500">/mes</span>
+                        </div>
+                        <ul class="mt-8 space-y-4">
+                            <li class="flex items-center">
+                                <i class="fas fa-check text-green-500 mr-3"></i>
+                                <span>Facturas ilimitadas</span>
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-check text-green-500 mr-3"></i>
+                                <span>Usuarios ilimitados</span>
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-check text-green-500 mr-3"></i>
+                                <span>API personalizada</span>
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-check text-green-500 mr-3"></i>
+                                <span>Soporte VIP</span>
+                            </li>
+                            <li class="flex items-center">
+                                <i class="fas fa-check text-green-500 mr-3"></i>
+                                <span>Personalización completa</span>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="px-8 pb-8">
+                        <a href="modules/auth/register.php?plan=enterprise" class="block w-full bg-primary hover:bg-secondary text-white text-center py-3 rounded-lg transition-colors duration-200">
+                            Contactar ventas
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FAQs de precios -->
+            <div class="mt-16 text-center">
+                <p class="text-gray-500">
+                    ¿Tienes preguntas sobre nuestros planes? 
+                    <a href="#" class="text-primary hover:text-secondary">Consulta nuestras FAQs</a> 
+                    o <a href="#" class="text-primary hover:text-secondary">contáctanos</a>
+                </p>
+            </div>
+        </div>
+    </section>
 
     <!-- About Section -->
     <section id="nosotros" class="py-20 bg-gray-50">

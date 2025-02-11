@@ -139,7 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $response = [
                 'status' => true,
                 'message' => 'Empresa registrada exitosamente',
-                'redirect' => '../../welcome.php'
+                'redirect' => 'planes.php'
             ];
         } catch (Exception $e) {
             if (isset($logo_path) && file_exists('../../' . $logo_path)) {
@@ -177,28 +177,88 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Configuración de Empresa | VendEasy</title>
     <link rel="icon" type="image/png" href="../../favicon/favicon.ico"/>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        body {
-            font-family: 'Poppins', sans-serif;
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 3px solid #fff;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
-<body class="bg-gray-50">
-    <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-        <div class="max-w-3xl w-full space-y-8 bg-white p-8 rounded-xl shadow-lg">
-            <!-- Header -->
+<body class="min-h-screen flex flex-col md:flex-row bg-gray-50">
+    <!-- Sección lateral con imagen y mensaje de bienvenida -->
+    <div class="hidden lg:flex lg:w-1/2 bg-primary-600 text-white p-12 flex-col justify-between">
+        <div>
+            <h1 class="text-4xl font-bold mb-4">VendEasy</h1>
+            <p class="text-primary-100">Sistema integral de gestión empresarial</p>
+        </div>
+        <div class="space-y-6">
+            <h2 class="text-3xl font-bold">Configura tu empresa</h2>
+            <p class="text-xl text-primary-100">Personaliza la información de tu negocio para comenzar a facturar</p>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-building text-primary-300"></i>
+                    <span>Datos fiscales</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-file-invoice text-primary-300"></i>
+                    <span>Facturación</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-users text-primary-300"></i>
+                    <span>Multiusuario</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-chart-bar text-primary-300"></i>
+                    <span>Reportes</span>
+                </div>
+            </div>
+        </div>
+        <div class="text-sm text-primary-100">
+            © <?= date('Y') ?> VendEasy. Todos los derechos reservados.
+        </div>
+    </div>
+
+    <!-- Formulario -->
+    <div class="flex-1 flex items-center justify-center p-6 sm:p-12">
+        <div class="w-full max-w-md space-y-8">
             <div class="text-center">
-                <h2 class="text-3xl font-extrabold text-gray-900 mb-2">
-                    Configuración de tu Empresa
-                </h2>
-                <p class="text-gray-600">
-                    Completa los detalles de tu empresa para comenzar a usar VendEasy
-                </p>
+                <h2 class="mt-6 text-3xl font-bold text-gray-900">Configuración de Empresa</h2>
+                <p class="mt-2 text-sm text-gray-600">Completa los datos de tu empresa para comenzar</p>
             </div>
 
             <!-- Progress Steps -->
@@ -206,16 +266,16 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 <div class="w-full">
                     <div class="flex items-center justify-between relative">
                         <div class="w-full absolute top-1/2 transform -translate-y-1/2">
-                            <div class="h-1 bg-blue-200"></div>
+                            <div class="h-1 bg-primary-200"></div>
                         </div>
                         <div class="relative flex flex-col items-center">
-                            <div class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center z-10">
+                            <div class="w-10 h-10 bg-primary-600 rounded-full flex items-center justify-center z-10">
                                 <i class="fas fa-check text-white"></i>
                             </div>
                             <span class="text-sm mt-2">Registro</span>
                         </div>
                         <div class="relative flex flex-col items-center">
-                            <div class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center z-10">
+                            <div class="w-10 h-10 bg-primary-600 rounded-full flex items-center justify-center z-10">
                                 <span class="text-white">2</span>
                             </div>
                             <span class="text-sm mt-2">Empresa</span>
@@ -245,13 +305,47 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 </div>
             <?php endif; ?>
 
-            <form id="empresaForm" method="POST" action="" enctype="multipart/form-data" class="space-y-6">
+            <form id="empresaForm" method="POST" action="" enctype="multipart/form-data" class="mt-8 space-y-6">
                 <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?>">
                 
+                <!-- Tipo de Persona -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de Persona</label>
+                    <div class="grid grid-cols-2 gap-4">
+                        <label class="flex items-center p-4 border rounded-lg cursor-pointer hover:border-primary-500 transition-colors">
+                            <input type="radio" name="tipo_persona" value="natural" class="text-primary-600" required>
+                            <span class="ml-2">Natural</span>
+                        </label>
+                        <label class="flex items-center p-4 border rounded-lg cursor-pointer hover:border-primary-500 transition-colors">
+                            <input type="radio" name="tipo_persona" value="juridica" class="text-primary-600">
+                            <span class="ml-2">Jurídica</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Campos específicos para persona natural -->
+                <div id="campos_natural" class="space-y-4 hidden">
+                    <div>
+                        <label for="primer_nombre" class="block text-sm font-medium text-gray-700">Primer Nombre</label>
+                        <input type="text" id="primer_nombre" name="primer_nombre" 
+                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary-500 focus:border-primary-500">
+                    </div>
+                    <div>
+                        <label for="segundo_nombre" class="block text-sm font-medium text-gray-700">Segundo Nombre</label>
+                        <input type="text" id="segundo_nombre" name="segundo_nombre" 
+                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary-500 focus:border-primary-500">
+                    </div>
+                    <div>
+                        <label for="apellidos" class="block text-sm font-medium text-gray-700">Apellidos</label>
+                        <input type="text" id="apellidos" name="apellidos" 
+                               class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary-500 focus:border-primary-500">
+                    </div>
+                </div>
+
                 <!-- Logo Upload Section -->
                 <div class="flex justify-center">
                     <div class="w-full max-w-xs">
-                        <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-blue-500 transition-colors">
+                        <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-primary-500 transition-colors">
                             <div class="space-y-1 text-center">
                                 <div id="preview" class="hidden mb-3">
                                     <img src="" alt="Logo preview" class="mx-auto h-24 w-24 object-contain">
@@ -260,7 +354,7 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                                     <i class="fas fa-cloud-upload-alt text-gray-400 text-3xl"></i>
                                 </div>
                                 <div class="flex text-sm text-gray-600">
-                                    <label for="logo" class="relative cursor-pointer rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none">
+                                    <label for="logo" class="relative cursor-pointer rounded-md font-medium text-primary-600 hover:text-primary-500 focus-within:outline-none">
                                         <span>Sube el logo</span>
                                         <input id="logo" name="logo" type="file" class="sr-only" accept="image/png,image/jpeg">
                                     </label>
@@ -286,7 +380,7 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                                     <i class="fas fa-building text-gray-400"></i>
                                 </div>
                                 <input type="text" id="nombre_empresa" name="nombre_empresa" required
-                                    class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                                    class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500">
                             </div>
                         </div>
 
@@ -299,7 +393,7 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                                     <i class="fas fa-id-card text-gray-400"></i>
                                 </div>
                                 <input type="text" id="nit" name="nit" required
-                                    class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                                    class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500">
                             </div>
                         </div>
 
@@ -312,7 +406,7 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                                     <i class="fas fa-file-invoice-dollar text-gray-400"></i>
                                 </div>
                                 <select id="regimen_fiscal" name="regimen_fiscal" required
-                                    class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                                    class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500">
                                     <option value="">Seleccione un régimen</option>
                                     <option value="Común">Régimen Común</option>
                                     <option value="Simplificado">Régimen Simplificado</option>
@@ -334,7 +428,7 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                                     <i class="fas fa-map-marker-alt text-gray-400"></i>
                                 </div>
                                 <input type="text" id="direccion" name="direccion" required
-                                    class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                                    class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500">
                             </div>
                         </div>
 
@@ -347,7 +441,7 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                                     <i class="fas fa-phone text-gray-400"></i>
                                 </div>
                                 <input type="tel" id="telefono" name="telefono" required
-                                    class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                                    class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500">
                             </div>
                         </div>
 
@@ -360,7 +454,7 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                                     <i class="fas fa-envelope text-gray-400"></i>
                                 </div>
                                 <input type="email" id="correo_contacto" name="correo_contacto" required
-                                    class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                                    class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500">
                             </div>
                         </div>
                     </div>
@@ -380,7 +474,7 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                                     <i class="fas fa-hashtag text-gray-400"></i>
                                 </div>
                                 <input type="text" id="prefijo_factura" name="prefijo_factura" required
-                                    class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                                    class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500">
                             </div>
                         </div>
 
@@ -393,7 +487,7 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                                     <i class="fas fa-sort-numeric-down text-gray-400"></i>
                                 </div>
                                 <input type="number" id="numero_inicial" name="numero_inicial" required min="1"
-                                    class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                                    class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500">
                             </div>
                         </div>
 
@@ -406,20 +500,20 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                                     <i class="fas fa-sort-numeric-up text-gray-400"></i>
                                 </div>
                                 <input type="number" id="numero_final" name="numero_final" required min="1"
-                                    class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                                    class="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500">
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="pt-6">
-                    <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                        <span>Guardar y Continuar</span>
-                        <div class="spinner hidden ml-3">
-                            <i class="fas fa-circle-notch fa-spin"></i>
-                        </div>
-                    </button>
-                </div>
+                <button type="submit" 
+                    class="group relative w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition duration-150 ease-in-out">
+                    <span class="absolute left-0 inset-y-0 flex items-center pl-3">
+                        <i class="fas fa-save"></i>
+                    </span>
+                    <span class="mx-auto">Guardar y Continuar</span>
+                    <div class="spinner hidden absolute right-4 top-1/2 transform -translate-y-1/2"></div>
+                </button>
             </form>
         </div>
     </div>
@@ -508,7 +602,7 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                     showConfirmButton: false
                 });
 
-                window.location.href = data.redirect || '../../welcome.php';
+                window.location.href = data.redirect || 'planes.php';
             } catch (error) {
                 console.error('Error:', error);
                 Swal.fire({
@@ -521,6 +615,20 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                 submitButton.classList.remove('opacity-75', 'cursor-not-allowed');
                 submitButton.querySelector('.spinner').classList.add('hidden');
             }
+        });
+
+        // Agregar manejo de tipo de persona
+        const tipoPersonaInputs = document.querySelectorAll('input[name="tipo_persona"]');
+        const camposNatural = document.getElementById('campos_natural');
+
+        tipoPersonaInputs.forEach(input => {
+            input.addEventListener('change', function() {
+                if (this.value === 'natural') {
+                    camposNatural.classList.remove('hidden');
+                } else {
+                    camposNatural.classList.add('hidden');
+                }
+            });
         });
     });
     </script>

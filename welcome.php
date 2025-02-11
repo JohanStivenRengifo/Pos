@@ -455,6 +455,7 @@ if (isset($_POST['logout'])) {
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
     <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <style>
         .gradient-primary {
@@ -472,6 +473,26 @@ if (isset($_POST['logout'])) {
 
 <body class="bg-gray-50">
     <?php include 'includes/header.php'; ?>
+
+    <?php if (isset($_GET['payment_success']) && isset($_SESSION['success_message'])): ?>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            Swal.fire({
+                icon: 'success',
+                title: '¡Pago Exitoso!',
+                text: '<?= htmlspecialchars($_SESSION['success_message']) ?>',
+                showConfirmButton: true,
+                confirmButtonText: 'Continuar',
+                confirmButtonColor: '#0284c7',
+                timer: 5000,
+                timerProgressBar: true
+            });
+        });
+    </script>
+    <?php 
+        unset($_SESSION['success_message']);
+    endif; 
+    ?>
 
     <div class="flex">
         <?php include 'includes/sidebar.php'; ?>
