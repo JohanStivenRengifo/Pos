@@ -148,8 +148,8 @@ if (isset($_SESSION['user_id'])) {
                         </span>
                     </h1>
                     <p class="mt-6 text-xl text-gray-300 max-w-2xl animate-slide-up" style="animation-delay: 0.3s;">
-                        Automatiza tu contabilidad, facturación y gestión financiera con la plataforma líder en Colombia. 
-                        Diseñado específicamente para empresas que buscan crecer.
+                        Descubre una nueva forma de gestionar tu contabilidad y facturación. Una plataforma moderna y fresca, 
+                        diseñada específicamente para empresas colombianas que buscan innovar.
                     </p>
                     <div class="mt-8 flex flex-col sm:flex-row gap-4 animate-slide-up" style="animation-delay: 0.6s;">
                         <a href="modules/auth/register.php" class="inline-flex items-center justify-center px-8 py-3 text-base font-medium rounded-lg text-white bg-gradient-to-r from-blue-500 to-blue-700 hover:from-blue-600 hover:to-blue-800 transform hover:scale-105 transition-all duration-200">
@@ -162,11 +162,11 @@ if (isset($_SESSION['user_id'])) {
                     <div class="mt-8 flex items-center gap-6 text-sm text-gray-300 animate-slide-up" style="animation-delay: 0.9s;">
                         <div class="flex items-center">
                             <i class="fas fa-check-circle text-green-400 mr-2"></i>
-                            Sin tarjeta de crédito
+                            Prueba gratuita 14 días
                         </div>
                         <div class="flex items-center">
                             <i class="fas fa-check-circle text-green-400 mr-2"></i>
-                            Soporte 24/7
+                            Soporte personalizado
                         </div>
                     </div>
                 </div>
@@ -228,8 +228,8 @@ if (isset($_SESSION['user_id'])) {
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4">
                 <div class="bg-white p-6 rounded-lg shadow-sm text-center">
-                    <div class="text-4xl font-bold text-primary">100+</div>
-                    <p class="mt-2 text-gray-600">Empresas Activas</p>
+                    <div class="text-4xl font-bold text-primary">10+</div>
+                    <p class="mt-2 text-gray-600">Empresas Pioneras</p>
                 </div>
                 <div class="bg-white p-6 rounded-lg shadow-sm text-center">
                     <div class="text-4xl font-bold text-primary">99.9%</div>
@@ -240,8 +240,8 @@ if (isset($_SESSION['user_id'])) {
                     <p class="mt-2 text-gray-600">Soporte Técnico</p>
                 </div>
                 <div class="bg-white p-6 rounded-lg shadow-sm text-center">
-                    <div class="text-4xl font-bold text-primary">1M+</div>
-                    <p class="mt-2 text-gray-600">Facturas Emitidas</p>
+                    <div class="text-4xl font-bold text-primary">100%</div>
+                    <p class="mt-2 text-gray-600">Satisfacción Garantizada</p>
                 </div>
             </div>
         </div>
@@ -396,8 +396,8 @@ if (isset($_SESSION['user_id'])) {
                     Sobre VendEasy
                 </h2>
                 <p class="mt-4 text-lg text-gray-500 max-w-3xl mx-auto">
-                    Somos la plataforma líder en soluciones contables para empresas en Latinoamérica. 
-                    Nuestra misión es simplificar la gestión financiera de tu negocio con tecnología de última generación.
+                    Somos una innovadora plataforma de soluciones contables diseñada específicamente para empresas colombianas. 
+                    Nuestra misión es revolucionar la gestión financiera de tu negocio con tecnología de última generación y un enfoque centrado en el usuario.
                 </p>
             </div>
 
@@ -408,7 +408,7 @@ if (isset($_SESSION['user_id'])) {
                     </div>
                     <h3 class="text-lg font-medium text-gray-900">Seguridad Garantizada</h3>
                     <p class="mt-2 text-gray-500">
-                        Certificación ISO 27001 y cumplimiento GDPR
+                        Tecnología de punta con certificaciones en proceso
                     </p>
                 </div>
 
@@ -418,7 +418,7 @@ if (isset($_SESSION['user_id'])) {
                     </div>
                     <h3 class="text-lg font-medium text-gray-900">Soporte Premium</h3>
                     <p class="mt-2 text-gray-500">
-                        Equipo de soporte local 24/7
+                        Equipo de soporte local comprometido
                     </p>
                 </div>
 
@@ -428,7 +428,7 @@ if (isset($_SESSION['user_id'])) {
                     </div>
                     <h3 class="text-lg font-medium text-gray-900">Innovación Constante</h3>
                     <p class="mt-2 text-gray-500">
-                        Actualizaciones mensuales con nuevas funciones
+                        Desarrollo ágil con mejoras semanales
                     </p>
                 </div>
             </div>
