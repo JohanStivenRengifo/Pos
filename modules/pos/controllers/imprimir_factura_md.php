@@ -1,54 +1,169 @@
 <?php
-// Primero, asegurarnos de que no haya salida previa
+// Deshabilitar cualquier salida previa
+error_reporting(0);
+ini_set('display_errors', 0);
+
+// Limpiar cualquier salida en el buffer
+while (ob_get_level()) {
+    ob_end_clean();
+}
+
+// Iniciar un nuevo buffer limpio
 ob_start();
 
 require_once '../../../config/db.php';
 require_once '../../../vendor/autoload.php';
 
-// Habilitar el reporte de errores pero guardarlos en el log en lugar de mostrarlos
-ini_set('display_errors', 0);
-ini_set('log_errors', 1);
-error_reporting(E_ALL);
+// Verificar y cargar FPDF al inicio
+if (!class_exists('FPDF')) {
+    require_once '../../../vendor/setasign/fpdf/fpdf.php';
+}
 
-// Verificar y cargar FPDF
-$fpdfPaths = [
-    'fpdf/fpdf.php',                    // Ruta relativa actual
-    '../fpdf/fpdf.php',                 // Un nivel arriba
-    '../../fpdf/fpdf.php',             // Dos niveles arriba
-    '../../../fpdf/fpdf.php',          // Tres niveles arriba
-    '../../../vendor/fpdf/fpdf.php',   // En vendor
-    dirname(__FILE__) . '/fpdf/fpdf.php' // Ruta absoluta
-];
+// Clase para convertir números a letras
+class NumeroALetras {
+    private static $UNIDADES = [
+        '',
+        'UN ',
+        'DOS ',
+        'TRES ',
+        'CUATRO ',
+        'CINCO ',
+        'SEIS ',
+        'SIETE ',
+        'OCHO ',
+        'NUEVE ',
+        'DIEZ ',
+        'ONCE ',
+        'DOCE ',
+        'TRECE ',
+        'CATORCE ',
+        'QUINCE ',
+        'DIECISEIS ',
+        'DIECISIETE ',
+        'DIECIOCHO ',
+        'DIECINUEVE ',
+        'VEINTE '
+    ];
 
-$fpdfLoaded = false;
-foreach ($fpdfPaths as $path) {
-    if (file_exists($path)) {
-        require_once $path;
-        $fpdfLoaded = true;
-        break;
+    private static $DECENAS = [
+        'VEINTI',
+        'TREINTA ',
+        'CUARENTA ',
+        'CINCUENTA ',
+        'SESENTA ',
+        'SETENTA ',
+        'OCHENTA ',
+        'NOVENTA ',
+        'CIEN '
+    ];
+
+    private static $CENTENAS = [
+        'CIENTO ',
+        'DOSCIENTOS ',
+        'TRESCIENTOS ',
+        'CUATROCIENTOS ',
+        'QUINIENTOS ',
+        'SEISCIENTOS ',
+        'SETECIENTOS ',
+        'OCHOCIENTOS ',
+        'NOVECIENTOS '
+    ];
+
+    public static function convertir($number, $moneda = '') {
+        $converted = '';
+        $decimales = '';
+
+        if (($number < 0) || ($number > 999999999)) {
+            return 'No es posible convertir el número a letras';
+        }
+
+        $div_decimales = explode('.',$number);
+
+        if(count($div_decimales) > 1){
+            $number = $div_decimales[0];
+            $decNumberStr = (string) $div_decimales[1];
+            if(strlen($decNumberStr) == 2){
+                $decimales = $decNumberStr;
+            } else if(strlen($decNumberStr) == 1){
+                $decimales = $decNumberStr . '0';
+            }
+        }
+
+        $numberStr = (string) $number;
+        $numberStrFill = str_pad($numberStr, 9, '0', STR_PAD_LEFT);
+        $millones = substr($numberStrFill, 0, 3);
+        $miles = substr($numberStrFill, 3, 3);
+        $cientos = substr($numberStrFill, 6);
+
+        if (intval($millones) > 0) {
+            if ($millones == '001') {
+                $converted .= 'UN MILLON ';
+            } else if (intval($millones) > 0) {
+                $converted .= sprintf('%sMILLONES ', self::convertGroup($millones));
+            }
+        }
+
+        if (intval($miles) > 0) {
+            if ($miles == '001') {
+                $converted .= 'MIL ';
+            } else if (intval($miles) > 0) {
+                $converted .= sprintf('%sMIL ', self::convertGroup($miles));
+            }
+        }
+
+        if (intval($cientos) > 0) {
+            if ($cientos == '001') {
+                $converted .= 'UN ';
+            } else if (intval($cientos) > 0) {
+                $converted .= sprintf('%s ', self::convertGroup($cientos));
+            }
+        }
+
+        if(empty($decimales)){
+            $valor_convertido = $converted . strtoupper($moneda);
+        } else {
+            $valor_convertido = $converted . strtoupper($moneda) . ' CON ' . $decimales . '/100';
+        }
+
+        return trim($valor_convertido);
+    }
+
+    private static function convertGroup($n) {
+        $output = '';
+
+        if ($n == '100') {
+            $output = "CIEN ";
+        } else if ($n[0] !== '0') {
+            $output = self::$CENTENAS[$n[0] - 1];
+        }
+
+        $k = intval(substr($n,1));
+
+        if ($k <= 20) {
+            $output .= self::$UNIDADES[$k];
+        } else {
+            if(($k > 30) && ($n[2] !== '0')) {
+                $output .= sprintf('%sY %s', self::$DECENAS[intval($n[1]) - 2], self::$UNIDADES[intval($n[2])]);
+            } else {
+                $output .= sprintf('%s%s', self::$DECENAS[intval($n[1]) - 2], self::$UNIDADES[intval($n[2])]);
+            }
+        }
+
+        return $output;
     }
 }
 
-if (!$fpdfLoaded) {
-    die('Error: La librería FPDF no está instalada. Por favor, instale FPDF en una de las siguientes ubicaciones: ' . implode(', ', $fpdfPaths));
-}
-
-session_start();
-if (!isset($_SESSION['user_id']) || !isset($_GET['id'])) {
-    header('Location: index.php');
-    exit;
-}
-
-// Antes de cualquier salida, agregar esto al inicio del archivo, justo después de los requires
-if (ob_get_level()) ob_end_clean();
-header('Content-Type: application/pdf');
-
 try {
+    session_start();
+    if (!isset($_SESSION['user_id']) || !isset($_GET['id'])) {
+        throw new Exception('No se ha especificado una venta válida.');
+    }
+
     // Obtener datos de la venta
     $stmt = $pdo->prepare("
         SELECT v.*, 
                c.primer_nombre, c.segundo_nombre, c.apellidos, 
-               c.identificacion, c.direccion, c.telefono,
+               c.identificacion, c.direccion, c.telefono, c.email,
                e.nombre_empresa, e.nit, e.direccion as empresa_direccion,
                e.telefono as empresa_telefono, e.logo, e.correo_contacto as empresa_email,
                e.regimen_fiscal, e.prefijo_factura, e.numero_inicial, e.numero_final
@@ -57,106 +172,260 @@ try {
         LEFT JOIN empresas e ON e.estado = 1 AND e.es_principal = 1
         WHERE v.id = ?
     ");
-    $stmt->execute([$_GET['id']]);
+    
+    if (!$stmt->execute([$_GET['id']])) {
+        throw new Exception('Error al obtener los datos de la venta');
+    }
+    
     $venta = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$venta) {
+        throw new Exception('No se encontró la venta especificada');
+    }
 
-    // Obtener detalles
+    // Obtener detalles de la venta
     $stmt = $pdo->prepare("
         SELECT vd.*, i.nombre, i.codigo_barras
         FROM venta_detalles vd
         LEFT JOIN inventario i ON vd.producto_id = i.id
         WHERE vd.venta_id = ?
     ");
-    $stmt->execute([$_GET['id']]);
+    
+    if (!$stmt->execute([$_GET['id']])) {
+        throw new Exception('Error al obtener los detalles de la venta');
+    }
+    
     $detalles = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     // Crear clase personalizada de PDF
     class FacturaPDF extends FPDF {
+        protected $B = 0;
+        protected $I = 0;
+        protected $U = 0;
+        protected $HREF = '';
+
+        function __construct() {
+            parent::__construct();
+            $this->SetFont('Arial', '', 10);
+            $this->SetAutoPageBreak(true, 50);
+            $this->SetMargins(15, 15, 15);
+            $this->AliasNbPages();
+            // Definir colores corporativos
+            $this->SetDrawColor(220, 220, 220); // Gris claro para bordes
+            $this->SetFillColor(245, 245, 245); // Gris más claro para fondos
+        }
+
         function Header() {
             global $venta;
             
-            // Logo
+            // Crear un rectángulo de fondo para el encabezado
+            $this->SetFillColor(250, 250, 250);
+            $this->Rect(0, 0, 210, 45, 'F');
+            
+            // Logo y encabezado principal
             if (!empty($venta['logo']) && file_exists('../../../' . $venta['logo'])) {
-                $this->Image('../../../' . $venta['logo'], 10, 10, 30);
+                $this->Image('../../../' . $venta['logo'], 15, 10, 40);
             }
             
-            // Título del documento
+            // Información de la empresa (centrada)
+            $this->SetY(10);
             $this->SetFont('Arial', 'B', 16);
-            if ($venta['numeracion'] === 'electronica') {
-                $this->Cell(0, 10, mb_convert_encoding('FACTURA ELECTRÓNICA DE VENTA', 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
-            } else {
-                $this->Cell(0, 10, mb_convert_encoding('FACTURA DE VENTA', 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
-            }
-            
-            // Número de factura
-            $this->SetFont('Arial', '', 12);
-            $this->Cell(0, 6, mb_convert_encoding('No. ' . ($venta['prefijo_factura'] ?? '') . $venta['numero_factura'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
-            
-            // Información de la empresa
+            $this->Cell(0, 8, $this->normalize('VendEasy'), 0, 1, 'C');
             $this->SetFont('Arial', '', 10);
-            $this->Cell(0, 6, mb_convert_encoding($venta['nombre_empresa'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
-            $this->Cell(0, 6, mb_convert_encoding('NIT: ' . $venta['nit'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
-            $this->Cell(0, 6, mb_convert_encoding($venta['empresa_direccion'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
-            $this->Cell(0, 6, mb_convert_encoding('Tel: ' . $venta['empresa_telefono'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
-            $this->Cell(0, 6, mb_convert_encoding('Email: ' . $venta['empresa_email'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
+            $this->Cell(0, 5, $this->normalize('NIT: 1048067754'), 0, 1, 'C');
+            $this->Cell(0, 5, $this->normalize('Popayan'), 0, 1, 'C');
+            $this->SetFont('Arial', '', 9);
+            $this->Cell(0, 5, $this->normalize('Tel: 3116035791'), 0, 1, 'C');
+            $this->Cell(0, 5, $this->normalize('johanstivenrengifo@outlook.com'), 0, 1, 'C');
+
+            // Número de factura y tipo (lado derecho)
+            $this->SetXY(130, 10);
+            $this->SetFont('Arial', 'B', 14);
+            $this->SetTextColor(50, 50, 50);
+            $this->Cell(70, 8, $this->normalize('FACTURA DE VENTA'), 0, 1, 'R');
             
-            $this->Ln(5);
-        }
-
-        function Footer() {
-            $this->SetY(-15);
-            $this->SetFont('Arial', 'I', 8);
-            $this->Cell(0, 10, mb_convert_encoding('Página ' . $this->PageNo() . '/{nb}', 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
-        }
-
-        function InfoSection($title) {
+            $this->SetXY(130, 18);
             $this->SetFont('Arial', 'B', 12);
-            $this->SetFillColor(230, 230, 230);
-            $this->Cell(0, 8, mb_convert_encoding($title, 'ISO-8859-1', 'UTF-8'), 0, 1, 'L', true);
-            $this->Ln(4);
+            $this->Cell(70, 8, $this->normalize('No. ' . ($venta['prefijo_factura'] ?? '') . $venta['numero_factura']), 0, 1, 'R');
+            
+            // Fechas
+            $this->SetXY(130, 26);
+            $this->SetFont('Arial', '', 9);
+            $this->Cell(70, 5, $this->normalize('Fecha de emisión: ' . date('d/m/Y', strtotime($venta['fecha']))), 0, 1, 'R');
+            
+            $this->Ln(15);
+        }
+
+        function normalize($string) {
+            return iconv('UTF-8', 'ISO-8859-1//TRANSLIT', $string);
+        }
+
+        function InfoCliente() {
+            global $venta;
+            
+            // Rectángulo gris claro para la sección del cliente
+            $this->SetFillColor(248, 248, 248);
+            $this->RoundedRect(10, $this->GetY(), 190, 40, 2, 'F');
+            
+            // Título de la sección
+            $this->SetFont('Arial', 'B', 11);
+            $this->SetTextColor(50, 50, 50);
+            $this->Cell(190, 8, $this->normalize('INFORMACIÓN DEL CLIENTE'), 'B', 1, 'L');
+            
+            $this->SetTextColor(0, 0, 0);
+            $this->SetFont('Arial', '', 9);
+            $y = $this->GetY() + 2;
+            
+            $nombre_cliente = trim($venta['primer_nombre'] . ' ' . $venta['segundo_nombre'] . ' ' . $venta['apellidos']);
+            
+            // Diseño en dos columnas
+            $col_width = 90;
+            $this->SetFont('Arial', 'B', 9);
+            
+            // Primera columna
+            $this->SetXY(15, $y);
+            $this->SetFont('Arial', 'B', 9);
+            $this->Cell(25, 6, $this->normalize('Cliente:'), 0, 0, 'L');
+            $this->SetFont('Arial', '', 9);
+            $this->Cell($col_width - 25, 6, $this->normalize($nombre_cliente), 0, 0, 'L');
+            
+            // Segunda columna
+            $this->SetX(110);
+            $this->SetFont('Arial', 'B', 9);
+            $this->Cell(25, 6, $this->normalize('NIT/CC:'), 0, 0, 'L');
+            $this->SetFont('Arial', '', 9);
+            $this->Cell($col_width - 25, 6, $this->normalize($venta['identificacion']), 0, 1, 'L');
+            
+            // Segunda fila
+            $this->SetXY(15, $y + 8);
+            $this->SetFont('Arial', 'B', 9);
+            $this->Cell(25, 6, $this->normalize('Dirección:'), 0, 0, 'L');
+            $this->SetFont('Arial', '', 9);
+            $this->Cell($col_width - 25, 6, $this->normalize($venta['direccion']), 0, 0, 'L');
+            
+            $this->SetX(110);
+            $this->SetFont('Arial', 'B', 9);
+            $this->Cell(25, 6, $this->normalize('Teléfono:'), 0, 0, 'L');
+            $this->SetFont('Arial', '', 9);
+            $this->Cell($col_width - 25, 6, $this->normalize($venta['telefono']), 0, 1, 'L');
+            
+            // Tercera fila
+            $this->SetXY(15, $y + 16);
+            $this->SetFont('Arial', 'B', 9);
+            $this->Cell(25, 6, $this->normalize('Email:'), 0, 0, 'L');
+            $this->SetFont('Arial', '', 9);
+            $this->Cell(155, 6, $this->normalize($venta['email']), 0, 1, 'L');
+            
+            $this->Ln(12);
         }
 
         function TableHeader() {
-            $this->SetFont('Arial', 'B', 9);
+            // Encabezados de la tabla con mejor diseño
             $this->SetFillColor(240, 240, 240);
-            $this->Cell(15, 7, 'Cód.', 1, 0, 'C', true);
-            $this->Cell(85, 7, 'Descripción', 1, 0, 'L', true);
-            $this->Cell(20, 7, 'Cant.', 1, 0, 'C', true);
-            $this->Cell(25, 7, 'V.Unit', 1, 0, 'R', true);
-            $this->Cell(25, 7, 'Total', 1, 1, 'R', true);
+            $this->SetFont('Arial', 'B', 9);
+            $this->SetTextColor(50, 50, 50);
+            
+            // Encabezados con bordes más sutiles y mejor espaciado
+            $this->SetDrawColor(200, 200, 200);
+            $this->Cell(25, 8, $this->normalize('Código'), 'TB', 0, 'C', true);
+            $this->Cell(85, 8, $this->normalize('Descripción'), 'TB', 0, 'L', true);
+            $this->Cell(20, 8, $this->normalize('Cant.'), 'TB', 0, 'C', true);
+            $this->Cell(30, 8, $this->normalize('Precio'), 'TB', 0, 'R', true);
+            $this->Cell(30, 8, $this->normalize('Total'), 'TB', 1, 'R', true);
+            
+            $this->SetTextColor(0, 0, 0);
+            $this->SetDrawColor(220, 220, 220);
         }
 
-        function SetDocumentMargins() {
-            $this->SetMargins(15, 15, 15);
-            $this->SetAutoPageBreak(true, 25);
+        function RoundedRect($x, $y, $w, $h, $r, $style = '') {
+            $k = $this->k;
+            $hp = $this->h;
+            if($style=='F')
+                $op='f';
+            elseif($style=='FD' || $style=='DF')
+                $op='B';
+            else
+                $op='S';
+            $MyArc = 4/3 * (sqrt(2) - 1);
+            $this->_out(sprintf('%.2F %.2F m',($x+$r)*$k,($hp-$y)*$k ));
+            $xc = $x+$w-$r ;
+            $yc = $y+$r;
+            $this->_out(sprintf('%.2F %.2F l', $xc*$k,($hp-$y)*$k ));
+
+            $this->_Arc($xc + $r*$MyArc, $yc - $r, $xc + $r, $yc - $r*$MyArc, $xc + $r, $yc);
+            $xc = $x+$w-$r ;
+            $yc = $y+$h-$r;
+            $this->_out(sprintf('%.2F %.2F l',($x+$w)*$k,($hp-$yc)*$k));
+            $this->_Arc($xc + $r, $yc + $r*$MyArc, $xc + $r*$MyArc, $yc + $r, $xc, $yc + $r);
+            $xc = $x+$r ;
+            $yc = $y+$h-$r;
+            $this->_out(sprintf('%.2F %.2F l',$xc*$k,($hp-($y+$h))*$k));
+            $this->_Arc($xc - $r*$MyArc, $yc + $r, $xc - $r, $yc + $r*$MyArc, $xc - $r, $yc);
+            $xc = $x+$r ;
+            $yc = $y+$r;
+            $this->_out(sprintf('%.2F %.2F l',($x)*$k,($hp-$yc)*$k ));
+            $this->_Arc($xc - $r, $yc - $r*$MyArc, $xc - $r*$MyArc, $yc - $r, $xc, $yc - $r);
+            $this->_out($op);
+        }
+
+        function _Arc($x1, $y1, $x2, $y2, $x3, $y3) {
+            $h = $this->h;
+            $this->_out(sprintf('%.2F %.2F %.2F %.2F %.2F %.2F c ', $x1*$this->k, ($h-$y1)*$this->k,
+                $x2*$this->k, ($h-$y2)*$this->k, $x3*$this->k, ($h-$y3)*$this->k));
+        }
+
+        function Footer() {
+            global $venta;
+            $this->SetY(-60);
+            
+            // Notas y términos en un cuadro
+            $this->SetFillColor(250, 250, 250);
+            $this->RoundedRect(10, $this->GetY(), 190, 25, 2, 'F');
+            $this->SetFont('Arial', '', 8);
+            $this->SetXY(15, $this->GetY() + 2);
+            $this->MultiCell(180, 4, $this->normalize(
+                "Con esta factura de venta el comprador declara haber recibido de forma real y materialmente las mercancías y/o servicios descritos en este titulo valor.\n\n" .
+                "Esta factura se asimila en todos sus efectos a una letra de cambio de conformidad con el Art. 774 del código de comercio."), 0, 'L');
+            
+            // Línea para firmas
+            $this->Ln(8);
+            $this->SetDrawColor(200, 200, 200);
+            $this->Cell(95, 0, '', 'T', 0, 'C');
+            $this->Cell(10, 0, '', 0, 0);
+            $this->Cell(85, 0, '', 'T', 1, 'C');
+            
+            $this->SetFont('Arial', '', 8);
+            $this->Cell(95, 4, $this->normalize('ELABORADO POR'), 0, 0, 'C');
+            $this->Cell(10, 4, '', 0, 0);
+            $this->Cell(85, 4, $this->normalize('ACEPTADA, FIRMA Y/O SELLO'), 0, 1, 'C');
+            
+            // Pie de página
+            $this->SetY(-15);
+            $this->SetFont('Arial', 'I', 8);
+            $this->Cell(0, 5, $this->normalize('Página ' . $this->PageNo() . '/{nb}'), 0, 1, 'C');
+            $this->SetTextColor(100, 100, 100);
+            $this->Cell(0, 5, $this->normalize('Generado por www.johanrengifo.cloud'), 0, 1, 'C');
         }
     }
 
-    // Crear nuevo PDF
-    $pdf = new FacturaPDF();
-    $pdf->SetDocumentMargins();
-    $pdf->AliasNbPages();
-    $pdf->AddPage();
+    // Antes de generar el PDF
+    while (ob_get_level()) {
+        ob_end_clean();
+    }
 
-    // Información del Cliente
-    $pdf->InfoSection('INFORMACIÓN DEL CLIENTE');
-    $pdf->SetFont('Arial', '', 10);
-    $nombre_cliente = trim($venta['primer_nombre'] . ' ' . $venta['segundo_nombre'] . ' ' . $venta['apellidos']);
+    // Enviar headers
+    header('Content-Type: application/pdf');
+    header('Cache-Control: private, no-cache, no-store, must-revalidate');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+
+    // Crear y generar el PDF
+    $pdf = new FacturaPDF();
+    $pdf->AddPage();
     
-    // Organizar información del cliente en dos columnas
-    $pdf->Cell(95, 6, mb_convert_encoding('Cliente: ' . $nombre_cliente, 'ISO-8859-1', 'UTF-8'), 0, 0);
-    $pdf->Cell(95, 6, mb_convert_encoding('Identificación: ' . $venta['identificacion'], 'ISO-8859-1', 'UTF-8'), 0, 1);
-    $pdf->Cell(95, 6, mb_convert_encoding('Teléfono: ' . $venta['telefono'], 'ISO-8859-1', 'UTF-8'), 0, 0);
-    $pdf->Cell(95, 6, mb_convert_encoding('Fecha: ' . date('d/m/Y', strtotime($venta['fecha'])), 'ISO-8859-1', 'UTF-8'), 0, 1);
-    $pdf->Cell(0, 6, mb_convert_encoding('Dirección: ' . $venta['direccion'], 'ISO-8859-1', 'UTF-8'), 0, 1);
-    $pdf->Cell(0, 6, mb_convert_encoding('Email: ' . $venta['email'], 'ISO-8859-1', 'UTF-8'), 0, 1);
-        $pdf->Ln(5);
+    // Generar contenido
+    $pdf->InfoCliente();
 
     // Detalle de productos
-    $pdf->InfoSection('DETALLE DE PRODUCTOS');
-    $pdf->Ln(2);
-
-    // Tabla de Productos
     $pdf->TableHeader();
     $pdf->SetFont('Arial', '', 9);
     
@@ -165,47 +434,56 @@ try {
         $total_item = $detalle['cantidad'] * $detalle['precio_unitario'];
         $subtotal += $total_item;
 
-        $pdf->Cell(15, 6, substr($detalle['codigo_barras'], -4), 1, 0, 'C');
-        $pdf->Cell(85, 6, utf8_decode($detalle['nombre']), 1, 0, 'L');
-        $pdf->Cell(20, 6, $detalle['cantidad'], 1, 0, 'C');
-        $pdf->Cell(25, 6, '$' . number_format($detalle['precio_unitario'], 0, ',', '.'), 1, 0, 'R');
-        $pdf->Cell(25, 6, '$' . number_format($total_item, 0, ',', '.'), 1, 1, 'R');
+        // Descripción del producto con referencia
+        $descripcion = $detalle['nombre'];
+        if (!empty($detalle['codigo_barras'])) {
+            $descripcion .= ' (Ref: ' . $detalle['codigo_barras'] . ')';
+        }
+
+        $pdf->Cell(25, 6, substr($detalle['codigo_barras'], -6), 1, 0, 'C');
+        $pdf->Cell(85, 6, iconv('UTF-8', 'ISO-8859-1', $descripcion), 1, 0, 'L');
+        $pdf->Cell(20, 6, number_format($detalle['cantidad'], 0), 1, 0, 'C');
+        $pdf->Cell(30, 6, '$ ' . number_format($detalle['precio_unitario'], 0, ',', '.'), 1, 0, 'R');
+        $pdf->Cell(30, 6, '$ ' . number_format($total_item, 0, ',', '.'), 1, 1, 'R');
     }
 
     // Totales
     $pdf->Ln(5);
     $pdf->SetFont('Arial', '', 10);
     
-    // Alinear totales a la derecha con ancho fijo
-    $pdf->Cell(120, 6, '', 0, 0);
-    $pdf->Cell(25, 6, 'Subtotal:', 0, 0, 'R');
-    $pdf->Cell(25, 6, '$' . number_format($subtotal, 0, ',', '.'), 0, 1, 'R');
-    
-    if ($venta['descuento'] > 0) {
-        $pdf->Cell(120, 6, '', 0, 0);
-        $pdf->Cell(25, 6, 'Descuento:', 0, 0, 'R');
-        $pdf->Cell(25, 6, '$' . number_format($venta['descuento'], 0, ',', '.'), 0, 1, 'R');
-    }
-    
-    $pdf->Cell(120, 6, '', 0, 0);
-    $pdf->Cell(25, 6, 'IVA (19%):', 0, 0, 'R');
-    $pdf->Cell(25, 6, '$' . number_format($venta['total'] * 0.19, 0, ',', '.'), 0, 1, 'R');
-    
+    // Crear una tabla para los totales con mejor diseño
+    $width_label = 40;
+    $width_value = 40;
+    $x_position = $pdf->GetPageWidth() - $width_label - $width_value - 15;
+
+    // Subtotal
+    $pdf->SetX($x_position);
     $pdf->SetFont('Arial', 'B', 10);
-    $pdf->Cell(120, 6, '', 0, 0);
-    $pdf->Cell(25, 6, 'TOTAL:', 0, 0, 'R');
-    $pdf->Cell(25, 6, '$' . number_format($venta['total'] * 1.19, 0, ',', '.'), 0, 1, 'R');
+    $pdf->Cell($width_label, 7, $pdf->normalize('Subtotal:'), 'T', 0, 'R');
+    $pdf->Cell($width_value, 7, '$ ' . number_format($subtotal, 0, ',', '.'), 'T', 1, 'R');
+
+    // IVA
+    $pdf->SetX($x_position);
+    $pdf->Cell($width_label, 7, $pdf->normalize('IVA (19%):'), 0, 0, 'R');
+    $pdf->Cell($width_value, 7, '$ ' . number_format($venta['total'] * 0.19, 0, ',', '.'), 0, 1, 'R');
+
+    // Total
+    $pdf->SetX($x_position);
+    $pdf->SetFont('Arial', 'B', 12);
+    $pdf->Cell($width_label, 9, $pdf->normalize('TOTAL:'), 'T', 0, 'R');
+    $pdf->Cell($width_value, 9, '$ ' . number_format($venta['total'] * 1.19, 0, ',', '.'), 'T', 1, 'R');
+
+    // Valor en letras
+    $pdf->SetFont('Arial', 'I', 10);
+    $pdf->Cell(0, 8, $pdf->normalize('Son: ' . NumeroALetras::convertir($venta['total'] * 1.19, 'PESOS')), 0, 1, 'L');
 
     // Información legal y resolución DIAN
     $pdf->Ln(10);
     $pdf->SetFont('Arial', 'B', 9);
-    $pdf->Cell(0, 6, 'Información Legal:', 0, 1, 'L');
+    $pdf->Cell(0, 6, $pdf->normalize('Información Legal:'), 0, 1, 'L');
     $pdf->SetFont('Arial', '', 9);
-    $pdf->MultiCell(0, 5, mb_convert_encoding(
-        "• Esta factura se asimila en todos sus efectos a una letra de cambio según Art. 774 del Código de Comercio.\n" .
-        "• Resolución DIAN: " . ($venta['numero_inicial'] ?? '') . " al " . ($venta['numero_final'] ?? '') . "\n" .
-        "• Régimen Fiscal: " . ($venta['regimen_fiscal'] ?? 'No responsable de IVA'),
-        'ISO-8859-1', 'UTF-8'));
+    $pdf->MultiCell(0, 5, $pdf->normalize("• Resolución DIAN: " . ($venta['numero_inicial'] ?? '') . " al " . ($venta['numero_final'] ?? '') . "\n" .
+        "• Régimen Fiscal: " . ($venta['regimen_fiscal'] ?? 'No responsable de IVA')), 0, 'L');
 
     // Si es factura electrónica, agregar CUFE y QR
     if ($venta['numeracion'] === 'electronica' && !empty($venta['cufe'])) {
@@ -213,16 +491,16 @@ try {
         $pdf->SetFont('Arial', 'B', 9);
         $pdf->Cell(0, 6, 'CUFE:', 0, 1, 'L');
         $pdf->SetFont('Arial', '', 8);
-            $pdf->MultiCell(0, 4, $venta['cufe'], 0, 'L');
+        $pdf->MultiCell(0, 4, $venta['cufe'], 0, 'L');
 
-            if (!empty($venta['qr_code'])) {
-                $qrImage = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $venta['qr_code']));
-                $tmpfile = tempnam(sys_get_temp_dir(), 'qr_');
-                file_put_contents($tmpfile, $qrImage);
-                $pdf->Image($tmpfile, 15, $pdf->GetY() + 5, 30);
-                unlink($tmpfile);
-            }
+        if (!empty($venta['qr_code'])) {
+            $qrImage = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $venta['qr_code']));
+            $tmpfile = tempnam(sys_get_temp_dir(), 'qr_');
+            file_put_contents($tmpfile, $qrImage);
+            $pdf->Image($tmpfile, 15, $pdf->GetY() + 5, 30);
+            unlink($tmpfile);
         }
+    }
 
     // Espacios para firmas
     $pdf->Ln(20);
@@ -231,27 +509,41 @@ try {
     $pdf->Cell(95, 0, '', 'T', 1, 'C');
     
     $pdf->SetFont('Arial', '', 10);
-    $pdf->Cell(95, 5, 'VENDEDOR', 0, 0, 'C');
+    $pdf->Cell(95, 5, $pdf->normalize('VENDEDOR'), 0, 0, 'C');
     $pdf->Cell(20, 5, '', 0, 0);
-    $pdf->Cell(95, 5, 'CLIENTE', 0, 1, 'C');
+    $pdf->Cell(95, 5, $pdf->normalize('CLIENTE'), 0, 1, 'C');
     
     $pdf->SetFont('Arial', '', 8);
-    $pdf->Cell(95, 5, mb_convert_encoding($venta['nombre_empresa'], 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
+    $pdf->Cell(95, 5, $pdf->normalize($venta['nombre_empresa']), 0, 0, 'C');
     $pdf->Cell(20, 5, '', 0, 0);
-    $pdf->Cell(95, 5, mb_convert_encoding($nombre_cliente, 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
+    $pdf->Cell(95, 5, $pdf->normalize($nombre_cliente), 0, 1, 'C');
 
     // Pie de página personalizado
     $pdf->Ln(10);
     $pdf->SetFont('Arial', 'I', 8);
-    $pdf->Cell(0, 5, 'Generado en www.johanrengifo.cloud', 0, 1, 'C');
+    $pdf->Cell(0, 5, $pdf->normalize('Generado en www.johanrengifo.cloud'), 0, 1, 'C');
 
-    // Generar el PDF
-    $pdf->Output('I', 'factura_' . $venta['numero_factura'] . '_' . date('Y-m-d') . '.pdf');
+    try {
+        // Enviar el PDF
+        $pdf->Output('I', 'factura_' . $venta['numero_factura'] . '.pdf');
+    } catch (Exception $e) {
+        throw new Exception('Error al generar el PDF: ' . $e->getMessage());
+    }
     exit;
 
 } catch (Exception $e) {
-    error_log('Error generando factura: ' . $e->getMessage());
+    // Limpiar buffer en caso de error
+    while (ob_get_level()) {
+        ob_end_clean();
+    }
+    
     header('Content-Type: text/html; charset=UTF-8');
+    echo "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>Error</title></head><body>";
     echo "<h1>Error al generar la factura</h1>";
     echo "<p>Lo sentimos, ha ocurrido un error al generar la factura. Por favor, inténtelo de nuevo más tarde.</p>";
+    if (isset($_SESSION['user_id'])) {
+        echo "<p>Error técnico: " . htmlspecialchars($e->getMessage()) . "</p>";
+    }
+    echo "</body></html>";
+    exit;
 }

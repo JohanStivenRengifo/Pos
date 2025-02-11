@@ -37,83 +37,231 @@ try {
 
     // Crear clase personalizada de PDF
     class RemisionPDF extends FPDF {
+        function __construct() {
+            parent::__construct();
+            $this->SetFont('Arial', '', 10);
+            $this->SetAutoPageBreak(true, 50);
+            $this->SetMargins(15, 15, 15);
+            $this->AliasNbPages();
+            // Definir colores corporativos
+            $this->SetDrawColor(220, 220, 220); // Gris claro para bordes
+            $this->SetFillColor(245, 245, 245); // Gris más claro para fondos
+        }
+
         function Header() {
             global $venta;
             
-            // Logo
+            // Crear un rectángulo de fondo para el encabezado
+            $this->SetFillColor(250, 250, 250);
+            $this->Rect(0, 0, 210, 45, 'F');
+            
+            // Logo y encabezado principal
             if (!empty($venta['logo']) && file_exists('../../../' . $venta['logo'])) {
-                $this->Image('../../../' . $venta['logo'], 10, 10, 30);
+                $this->Image('../../../' . $venta['logo'], 15, 10, 40);
             }
             
-            // Título del documento
+            // Información de la empresa (centrada)
+            $this->SetY(10);
             $this->SetFont('Arial', 'B', 16);
-            $this->Cell(0, 10, mb_convert_encoding('REMISIÓN N° ' . $venta['numero_factura'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
-            
-            // Información de la empresa
+            $this->Cell(0, 8, $this->normalize('VendEasy'), 0, 1, 'C');
             $this->SetFont('Arial', '', 10);
-            $this->Cell(0, 6, mb_convert_encoding($venta['nombre_empresa'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
-            $this->Cell(0, 6, mb_convert_encoding('NIT: ' . $venta['nit'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
-            $this->Cell(0, 6, mb_convert_encoding($venta['empresa_direccion'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
-            $this->Cell(0, 6, mb_convert_encoding('Tel: ' . $venta['empresa_telefono'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
-            $this->Cell(0, 6, mb_convert_encoding('Email: ' . $venta['empresa_email'], 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
+            $this->Cell(0, 5, $this->normalize('NIT: ' . $venta['nit']), 0, 1, 'C');
+            $this->Cell(0, 5, $this->normalize($venta['empresa_direccion']), 0, 1, 'C');
+            $this->SetFont('Arial', '', 9);
+            $this->Cell(0, 5, $this->normalize('Tel: ' . $venta['empresa_telefono']), 0, 1, 'C');
+            $this->Cell(0, 5, $this->normalize($venta['empresa_email']), 0, 1, 'C');
+
+            // Número de remisión y tipo (lado derecho)
+            $this->SetXY(130, 10);
+            $this->SetFont('Arial', 'B', 14);
+            $this->SetTextColor(50, 50, 50);
+            $this->Cell(70, 8, $this->normalize('REMISIÓN'), 0, 1, 'R');
             
-            $this->Ln(5);
-        }
-
-        function Footer() {
-            $this->SetY(-15);
-            $this->SetFont('Arial', 'I', 8);
-            $this->Cell(0, 10, mb_convert_encoding('Página ' . $this->PageNo() . '/{nb}', 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
-        }
-
-        function InfoSection($title) {
+            $this->SetXY(130, 18);
             $this->SetFont('Arial', 'B', 12);
-            $this->SetFillColor(230, 230, 230);
-            $this->Cell(0, 8, mb_convert_encoding($title, 'ISO-8859-1', 'UTF-8'), 0, 1, 'L', true);
-            $this->Ln(4);
+            $this->Cell(70, 8, $this->normalize('No. ' . $venta['numero_factura']), 0, 1, 'R');
+            
+            // Fechas
+            $this->SetXY(130, 26);
+            $this->SetFont('Arial', '', 9);
+            $this->Cell(70, 5, $this->normalize('Fecha de emisión: ' . date('d/m/Y', strtotime($venta['fecha']))), 0, 1, 'R');
+            
+            $this->Ln(15);
+        }
+
+        function normalize($string) {
+            return iconv('UTF-8', 'ISO-8859-1//TRANSLIT', $string);
+        }
+
+        function InfoCliente() {
+            global $venta;
+            
+            // Rectángulo gris claro para la sección del cliente
+            $this->SetFillColor(248, 248, 248);
+            $this->RoundedRect(10, $this->GetY(), 190, 40, 2, 'F');
+            
+            // Título de la sección
+            $this->SetFont('Arial', 'B', 11);
+            $this->SetTextColor(50, 50, 50);
+            $this->Cell(190, 8, $this->normalize('INFORMACIÓN DEL CLIENTE'), 'B', 1, 'L');
+            
+            $this->SetTextColor(0, 0, 0);
+            $this->SetFont('Arial', '', 9);
+            $y = $this->GetY() + 2;
+            
+            $nombre_cliente = trim($venta['primer_nombre'] . ' ' . $venta['segundo_nombre'] . ' ' . $venta['apellidos']);
+            
+            // Diseño en dos columnas
+            $col_width = 90;
+            $this->SetFont('Arial', 'B', 9);
+            
+            // Primera columna
+            $this->SetXY(15, $y);
+            $this->SetFont('Arial', 'B', 9);
+            $this->Cell(25, 6, $this->normalize('Cliente:'), 0, 0, 'L');
+            $this->SetFont('Arial', '', 9);
+            $this->Cell($col_width - 25, 6, $this->normalize($nombre_cliente), 0, 0, 'L');
+            
+            // Segunda columna
+            $this->SetX(110);
+            $this->SetFont('Arial', 'B', 9);
+            $this->Cell(25, 6, $this->normalize('NIT/CC:'), 0, 0, 'L');
+            $this->SetFont('Arial', '', 9);
+            $this->Cell($col_width - 25, 6, $this->normalize($venta['identificacion']), 0, 1, 'L');
+            
+            // Segunda fila
+            $this->SetXY(15, $y + 8);
+            $this->SetFont('Arial', 'B', 9);
+            $this->Cell(25, 6, $this->normalize('Dirección:'), 0, 0, 'L');
+            $this->SetFont('Arial', '', 9);
+            $this->Cell($col_width - 25, 6, $this->normalize($venta['direccion']), 0, 0, 'L');
+            
+            $this->SetX(110);
+            $this->SetFont('Arial', 'B', 9);
+            $this->Cell(25, 6, $this->normalize('Teléfono:'), 0, 0, 'L');
+            $this->SetFont('Arial', '', 9);
+            $this->Cell($col_width - 25, 6, $this->normalize($venta['telefono']), 0, 1, 'L');
+            
+            // Tercera fila
+            $this->SetXY(15, $y + 16);
+            $this->SetFont('Arial', 'B', 9);
+            $this->Cell(25, 6, $this->normalize('Email:'), 0, 0, 'L');
+            $this->SetFont('Arial', '', 9);
+            $this->Cell(155, 6, $this->normalize($venta['empresa_email']), 0, 1, 'L');
+            
+            $this->Ln(12);
         }
 
         function TableHeader() {
-            $this->SetFont('Arial', 'B', 9);
+            // Encabezados de la tabla con mejor diseño
             $this->SetFillColor(240, 240, 240);
-            $this->Cell(15, 7, 'Cód.', 1, 0, 'C', true);
-            $this->Cell(85, 7, 'Descripción', 1, 0, 'L', true);
-            $this->Cell(20, 7, 'Cant.', 1, 0, 'C', true);
-            $this->Cell(25, 7, 'V.Unit', 1, 0, 'R', true);
-            $this->Cell(25, 7, 'Total', 1, 1, 'R', true);
+            $this->SetFont('Arial', 'B', 9);
+            $this->SetTextColor(50, 50, 50);
+            
+            // Encabezados con bordes más sutiles y mejor espaciado
+            $this->SetDrawColor(200, 200, 200);
+            $this->Cell(25, 8, $this->normalize('Código'), 'TB', 0, 'C', true);
+            $this->Cell(85, 8, $this->normalize('Descripción'), 'TB', 0, 'L', true);
+            $this->Cell(20, 8, $this->normalize('Cant.'), 'TB', 0, 'C', true);
+            $this->Cell(30, 8, $this->normalize('Precio'), 'TB', 0, 'R', true);
+            $this->Cell(30, 8, $this->normalize('Total'), 'TB', 1, 'R', true);
+            
+            $this->SetTextColor(0, 0, 0);
+            $this->SetDrawColor(220, 220, 220);
         }
 
-        // Agregar función para márgenes
-        function SetDocumentMargins() {
-            $this->SetMargins(15, 15, 15);
-            $this->SetAutoPageBreak(true, 25);
+        function RoundedRect($x, $y, $w, $h, $r, $style = '') {
+            $k = $this->k;
+            $hp = $this->h;
+            if($style=='F')
+                $op='f';
+            elseif($style=='FD' || $style=='DF')
+                $op='B';
+            else
+                $op='S';
+            $MyArc = 4/3 * (sqrt(2) - 1);
+            $this->_out(sprintf('%.2F %.2F m',($x+$r)*$k,($hp-$y)*$k ));
+            $xc = $x+$w-$r ;
+            $yc = $y+$r;
+            $this->_out(sprintf('%.2F %.2F l', $xc*$k,($hp-$y)*$k ));
+
+            $this->_Arc($xc + $r*$MyArc, $yc - $r, $xc + $r, $yc - $r*$MyArc, $xc + $r, $yc);
+            $xc = $x+$w-$r ;
+            $yc = $y+$h-$r;
+            $this->_out(sprintf('%.2F %.2F l',($x+$w)*$k,($hp-$yc)*$k));
+            $this->_Arc($xc + $r, $yc + $r*$MyArc, $xc + $r*$MyArc, $yc + $r, $xc, $yc + $r);
+            $xc = $x+$r ;
+            $yc = $y+$h-$r;
+            $this->_out(sprintf('%.2F %.2F l',$xc*$k,($hp-($y+$h))*$k));
+            $this->_Arc($xc - $r*$MyArc, $yc + $r, $xc - $r, $yc + $r*$MyArc, $xc - $r, $yc);
+            $xc = $x+$r ;
+            $yc = $y+$r;
+            $this->_out(sprintf('%.2F %.2F l',($x)*$k,($hp-$yc)*$k ));
+            $this->_Arc($xc - $r, $yc - $r*$MyArc, $xc - $r*$MyArc, $yc - $r, $xc, $yc - $r);
+            $this->_out($op);
+        }
+
+        function _Arc($x1, $y1, $x2, $y2, $x3, $y3) {
+            $h = $this->h;
+            $this->_out(sprintf('%.2F %.2F %.2F %.2F %.2F %.2F c ', $x1*$this->k, ($h-$y1)*$this->k,
+                $x2*$this->k, ($h-$y2)*$this->k, $x3*$this->k, ($h-$y3)*$this->k));
+        }
+
+        function Footer() {
+            global $venta;
+            $this->SetY(-60);
+            
+            // Observaciones en un cuadro
+            $this->SetFillColor(250, 250, 250);
+            $this->RoundedRect(10, $this->GetY(), 190, 25, 2, 'F');
+            $this->SetFont('Arial', '', 8);
+            $this->SetXY(15, $this->GetY() + 2);
+            $this->MultiCell(180, 4, $this->normalize(
+                "• Esta remisión no tiene validez como factura.\n" .
+                "• Los precios incluyen IVA cuando aplica.\n" .
+                "• Conserve este documento para cualquier reclamación.\n" .
+                "• La mercancía viaja por cuenta y riesgo del comprador."), 0, 'L');
+            
+            // Línea para firmas
+            $this->Ln(8);
+            $this->SetDrawColor(200, 200, 200);
+            $this->Cell(95, 0, '', 'T', 0, 'C');
+            $this->Cell(10, 0, '', 0, 0);
+            $this->Cell(85, 0, '', 'T', 1, 'C');
+            
+            $this->SetFont('Arial', '', 8);
+            $this->Cell(95, 4, $this->normalize('ENTREGADO POR'), 0, 0, 'C');
+            $this->Cell(10, 4, '', 0, 0);
+            $this->Cell(85, 4, $this->normalize('RECIBIDO POR'), 0, 1, 'C');
+            
+            // Pie de página
+            $this->SetY(-15);
+            $this->SetFont('Arial', 'I', 8);
+            $this->Cell(0, 5, $this->normalize('Página ' . $this->PageNo() . '/{nb}'), 0, 1, 'C');
+            $this->SetTextColor(100, 100, 100);
+            $this->Cell(0, 5, $this->normalize('Generado por www.johanrengifo.cloud'), 0, 1, 'C');
         }
     }
 
-    // Crear nuevo PDF
+    // Antes de generar el PDF
+    while (ob_get_level()) {
+        ob_end_clean();
+    }
+
+    // Enviar headers
+    header('Content-Type: application/pdf');
+    header('Cache-Control: private, no-cache, no-store, must-revalidate');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+
+    // Crear y generar el PDF
     $pdf = new RemisionPDF();
-    $pdf->SetDocumentMargins();
-    $pdf->AliasNbPages();
     $pdf->AddPage();
-
-    // Información del Cliente
-    $pdf->InfoSection('INFORMACIÓN DEL CLIENTE');
-    $pdf->SetFont('Arial', '', 10);
-    $nombre_cliente = trim($venta['primer_nombre'] . ' ' . $venta['segundo_nombre'] . ' ' . $venta['apellidos']);
     
-    // Organizar información del cliente en dos columnas
-    $pdf->Cell(95, 6, mb_convert_encoding('Cliente: ' . $nombre_cliente, 'ISO-8859-1', 'UTF-8'), 0, 0);
-    $pdf->Cell(95, 6, mb_convert_encoding('Identificación: ' . $venta['identificacion'], 'ISO-8859-1', 'UTF-8'), 0, 1);
-    $pdf->Cell(95, 6, mb_convert_encoding('Teléfono: ' . $venta['telefono'], 'ISO-8859-1', 'UTF-8'), 0, 0);
-    $pdf->Cell(95, 6, mb_convert_encoding('Fecha: ' . date('d/m/Y', strtotime($venta['fecha'])), 'ISO-8859-1', 'UTF-8'), 0, 1);
-    $pdf->Cell(0, 6, mb_convert_encoding('Dirección: ' . $venta['direccion'], 'ISO-8859-1', 'UTF-8'), 0, 1);
-    $pdf->Ln(5);
+    // Generar contenido
+    $pdf->InfoCliente();
 
-    // Información de la Remisión
-    $pdf->InfoSection('DETALLE DE PRODUCTOS');
-    $pdf->Ln(2);
-
-    // Tabla de Productos
+    // Detalle de productos
     $pdf->TableHeader();
     $pdf->SetFont('Arial', '', 9);
     
@@ -123,71 +271,53 @@ try {
         $total_item = $precio_final * $detalle['cantidad'];
         $subtotal += $total_item;
 
-        $pdf->Cell(15, 6, substr($detalle['codigo_barras'], -4), 1, 0, 'C');
-        $pdf->Cell(85, 6, utf8_decode($detalle['nombre']), 1, 0, 'L');
-        $pdf->Cell(20, 6, $detalle['cantidad'], 1, 0, 'C');
-        $pdf->Cell(25, 6, '$' . number_format($precio_final, 0, ',', '.'), 1, 0, 'R');
-        $pdf->Cell(25, 6, '$' . number_format($total_item, 0, ',', '.'), 1, 1, 'R');
+        $pdf->Cell(25, 6, substr($detalle['codigo_barras'], -6), 1, 0, 'C');
+        $pdf->Cell(85, 6, $pdf->normalize($detalle['nombre']), 1, 0, 'L');
+        $pdf->Cell(20, 6, number_format($detalle['cantidad'], 0), 1, 0, 'C');
+        $pdf->Cell(30, 6, '$ ' . number_format($precio_final, 0, ',', '.'), 1, 0, 'R');
+        $pdf->Cell(30, 6, '$ ' . number_format($total_item, 0, ',', '.'), 1, 1, 'R');
     }
 
     // Totales
     $pdf->Ln(5);
     $pdf->SetFont('Arial', '', 10);
     
-    // Alinear totales a la derecha con ancho fijo
-    $pdf->Cell(120, 6, '', 0, 0);
-    $pdf->Cell(25, 6, 'Subtotal:', 0, 0, 'R');
-    $pdf->Cell(25, 6, '$' . number_format($subtotal, 0, ',', '.'), 0, 1, 'R');
-    
-    if ($venta['descuento'] > 0) {
-        $pdf->Cell(120, 6, '', 0, 0);
-        $pdf->Cell(25, 6, 'Descuento:', 0, 0, 'R');
-        $pdf->Cell(25, 6, '$' . number_format($venta['descuento'], 0, ',', '.'), 0, 1, 'R');
-    }
-    
-    $pdf->Cell(120, 6, '', 0, 0);
-    $pdf->Cell(25, 6, 'IVA (19%):', 0, 0, 'R');
-    $pdf->Cell(25, 6, '$' . number_format($venta['total'] * 0.19, 0, ',', '.'), 0, 1, 'R');
-    
-    $pdf->SetFont('Arial', 'B', 10);
-    $pdf->Cell(120, 6, '', 0, 0);
-    $pdf->Cell(25, 6, 'TOTAL:', 0, 0, 'R');
-    $pdf->Cell(25, 6, '$' . number_format($venta['total'] * 1.19, 0, ',', '.'), 0, 1, 'R');
+    // Crear una tabla para los totales con mejor diseño
+    $width_label = 40;
+    $width_value = 40;
+    $x_position = $pdf->GetPageWidth() - $width_label - $width_value - 15;
 
-    // Observaciones
+    // Subtotal
+    $pdf->SetX($x_position);
+    $pdf->SetFont('Arial', 'B', 10);
+    $pdf->Cell($width_label, 7, $pdf->normalize('Subtotal:'), 'T', 0, 'R');
+    $pdf->Cell($width_value, 7, '$ ' . number_format($subtotal, 0, ',', '.'), 'T', 1, 'R');
+
+    // IVA
+    $pdf->SetX($x_position);
+    $pdf->Cell($width_label, 7, $pdf->normalize('IVA (19%):'), 0, 0, 'R');
+    $pdf->Cell($width_value, 7, '$ ' . number_format($venta['total'] * 0.19, 0, ',', '.'), 0, 1, 'R');
+
+    // Total
+    $pdf->SetX($x_position);
+    $pdf->SetFont('Arial', 'B', 12);
+    $pdf->Cell($width_label, 9, $pdf->normalize('TOTAL:'), 'T', 0, 'R');
+    $pdf->Cell($width_value, 9, '$ ' . number_format($venta['total'] * 1.19, 0, ',', '.'), 'T', 1, 'R');
+
+    // Información adicional
     $pdf->Ln(10);
     $pdf->SetFont('Arial', 'B', 9);
-    $pdf->Cell(0, 6, 'Observaciones:', 0, 1, 'L');
+    $pdf->Cell(0, 6, $pdf->normalize('Información Adicional:'), 0, 1, 'L');
     $pdf->SetFont('Arial', '', 9);
-    $pdf->MultiCell(0, 5, mb_convert_encoding(
-        "• Esta remisión no tiene validez como factura.\n" .
-        "• Los precios incluyen IVA cuando aplica.\n" .
-        "• Conserve este documento para cualquier reclamación.", 
-        'ISO-8859-1', 'UTF-8'));
+    $pdf->MultiCell(0, 5, $pdf->normalize(
+        "• Régimen Fiscal: " . ($venta['regimen_fiscal'] ?? 'No especificado')), 0, 'L');
 
-    // Espacios para firmas
-    $pdf->Ln(20);
-    $pdf->Cell(80, 0, '', 'T', 0, 'C');
-    $pdf->Cell(19, 0, '', 0, 0);
-    $pdf->Cell(80, 0, '', 'T', 1, 'C');
-    
-    $pdf->SetFont('Arial', '', 10);
-    $pdf->Cell(95, 5, 'ENTREGADO POR', 0, 0, 'C');
-    $pdf->Cell(20, 5, '', 0, 0);
-    $pdf->Cell(95, 5, 'RECIBIDO POR', 0, 1, 'C');
-    
-    $pdf->SetFont('Arial', '', 8);
-    $pdf->Cell(95, 5, mb_convert_encoding($venta['nombre_empresa'], 'ISO-8859-1', 'UTF-8'), 0, 0, 'C');
-    $pdf->Cell(20, 5, '', 0, 0);
-    $pdf->Cell(95, 5, mb_convert_encoding($nombre_cliente, 'ISO-8859-1', 'UTF-8'), 0, 1, 'C');
-
-    // Pie de página personalizado
-    $pdf->Ln(10);
-    $pdf->SetFont('Arial', 'I', 8);
-    $pdf->Cell(0, 5, 'Generado en www.johanrengifo.cloud', 0, 1, 'C');
-
-    // Generar el PDF
-    $pdf->Output('I', 'remision_' . $venta['numero_factura'] . '_' . date('Y-m-d') . '.pdf');
+    try {
+        // Enviar el PDF
+        $pdf->Output('I', 'remision_' . $venta['numero_factura'] . '.pdf');
+    } catch (Exception $e) {
+        throw new Exception('Error al generar el PDF: ' . $e->getMessage());
+    }
     exit;
 
 } catch (Exception $e) {
