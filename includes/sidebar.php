@@ -1,5 +1,6 @@
 <?php
 include 'check_subscription.php';
+include '../config/limiter.php';
 // Definir la ruta actual
 $current_page = basename(dirname($_SERVER['PHP_SELF']));
 if ($current_page === 'modules') {

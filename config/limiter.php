@@ -10,13 +10,30 @@ $PLANES = [
         'precio' => 29900,
         'limite_facturas' => 100,
         'limite_usuarios' => 1,
+        'limite_productos' => 100,
+        'limite_clientes' => 50,
+        'limite_proveedores' => 10,
         'caracteristicas' => [
             'reportes_basicos' => true,
             'soporte_email' => true,
             'control_inventario' => false,
             'api_personalizada' => false,
             'soporte_24_7' => false,
-            'personalizacion' => false
+            'personalizacion' => false,
+            'modulos' => [
+                'pos' => true,
+                'ventas' => true,
+                'cotizaciones' => false,
+                'creditos' => false,
+                'ingresos' => true,
+                'egresos' => true,
+                'turnos' => false,
+                'inventario' => true,
+                'departamentos' => false,
+                'bodegas' => false,
+                'prestamos' => false,
+                'reportes_avanzados' => false
+            ]
         ]
     ],
     PLAN_PROFESIONAL => [
@@ -24,86 +41,155 @@ $PLANES = [
         'precio' => 59900,
         'limite_facturas' => 500,
         'limite_usuarios' => 3,
+        'limite_productos' => 500,
+        'limite_clientes' => 200,
+        'limite_proveedores' => 50,
         'caracteristicas' => [
             'reportes_basicos' => true,
             'soporte_email' => true,
             'control_inventario' => true,
             'api_personalizada' => false,
             'soporte_24_7' => true,
-            'personalizacion' => false
+            'personalizacion' => false,
+            'modulos' => [
+                'pos' => true,
+                'ventas' => true,
+                'cotizaciones' => true,
+                'creditos' => true,
+                'ingresos' => true,
+                'egresos' => true,
+                'turnos' => true,
+                'inventario' => true,
+                'departamentos' => true,
+                'bodegas' => true,
+                'prestamos' => false,
+                'reportes_avanzados' => true
+            ]
         ]
     ],
     PLAN_EMPRESARIAL => [
         'nombre' => 'Empresarial',
         'precio' => 119900,
         'limite_facturas' => -1, // -1 significa ilimitado
-        'limite_usuarios' => -1, // -1 significa ilimitado
+        'limite_usuarios' => -1,
+        'limite_productos' => -1,
+        'limite_clientes' => -1,
+        'limite_proveedores' => -1,
         'caracteristicas' => [
             'reportes_basicos' => true,
             'soporte_email' => true,
             'control_inventario' => true,
             'api_personalizada' => true,
             'soporte_24_7' => true,
-            'personalizacion' => true
+            'personalizacion' => true,
+            'modulos' => [
+                'pos' => true,
+                'ventas' => true,
+                'cotizaciones' => true,
+                'creditos' => true,
+                'ingresos' => true,
+                'egresos' => true,
+                'turnos' => true,
+                'inventario' => true,
+                'departamentos' => true,
+                'bodegas' => true,
+                'prestamos' => true,
+                'reportes_avanzados' => true
+            ]
         ]
     ]
 ];
 
-function verificarLimitePlan($empresa_id, $tipo_operacion) {
-    global $pdo, $PLANES;
-    
-    // Obtener el plan actual de la empresa
-    $stmt = $pdo->prepare("SELECT plan_suscripcion FROM empresas WHERE id = ?");
-    $stmt->execute([$empresa_id]);
-    $empresa = $stmt->fetch();
-    
-    if (!$empresa) {
-        throw new Exception("Empresa no encontrada");
+// Función para verificar límites
+function verificarLimite($pdo, $empresa_id, $tipo_limite) {
+    $stmt = $pdo->prepare("
+        SELECT e.plan_suscripcion, 
+               (SELECT COUNT(*) FROM $tipo_limite WHERE empresa_id = ?) as total_actual
+        FROM empresas e 
+        WHERE e.id = ?
+    ");
+    $stmt->execute([$empresa_id, $empresa_id]);
+    $resultado = $stmt->fetch();
+
+    if (!$resultado) {
+        return false;
     }
-    
-    $plan = $PLANES[$empresa['plan_suscripcion']] ?? null;
-    if (!$plan) {
-        throw new Exception("Plan no válido");
+
+    global $PLANES;
+    $plan = $PLANES[$resultado['plan_suscripcion']];
+    $limite = $plan["limite_" . $tipo_limite];
+
+    // -1 significa ilimitado
+    if ($limite === -1) {
+        return true;
     }
-    
-    switch ($tipo_operacion) {
-        case 'factura':
-            if ($plan['limite_facturas'] === -1) return true;
-            
-            // Contar facturas del mes actual
-            $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM facturas 
-                                 WHERE empresa_id = ? 
-                                 AND MONTH(fecha_creacion) = MONTH(CURRENT_DATE())
-                                 AND YEAR(fecha_creacion) = YEAR(CURRENT_DATE())");
-            $stmt->execute([$empresa_id]);
-            $resultado = $stmt->fetch();
-            
-            return $resultado['total'] < $plan['limite_facturas'];
-            
-        case 'usuario':
-            if ($plan['limite_usuarios'] === -1) return true;
-            
-            // Contar usuarios activos
-            $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM users 
-                                 WHERE empresa_id = ? AND estado = 'activo'");
-            $stmt->execute([$empresa_id]);
-            $resultado = $stmt->fetch();
-            
-            return $resultado['total'] < $plan['limite_usuarios'];
-            
-        default:
-            throw new Exception("Tipo de operación no válida");
-    }
+
+    return $resultado['total_actual'] < $limite;
 }
 
+// Función para verificar acceso a módulo
+function tieneAccesoModulo($pdo, $empresa_id, $modulo) {
+    $stmt = $pdo->prepare("SELECT plan_suscripcion FROM empresas WHERE id = ?");
+    $stmt->execute([$empresa_id]);
+    $plan_actual = $stmt->fetchColumn();
+
+    global $PLANES;
+    return $PLANES[$plan_actual]['caracteristicas']['modulos'][$modulo] ?? false;
+}
+
+// Función para obtener mensaje de límite alcanzado
+function getMensajeLimite($tipo_limite, $plan_siguiente) {
+    return "Has alcanzado el límite de $tipo_limite en tu plan actual. " .
+           "Actualiza al plan $plan_siguiente para obtener más capacidad.";
+}
+
+// Función para verificar y notificar límite
+function verificarYNotificarLimite($pdo, $empresa_id, $tipo_limite) {
+    if (!verificarLimite($pdo, $empresa_id, $tipo_limite)) {
+        $stmt = $pdo->prepare("SELECT plan_suscripcion FROM empresas WHERE id = ?");
+        $stmt->execute([$empresa_id]);
+        $plan_actual = $stmt->fetchColumn();
+
+        $plan_siguiente = $plan_actual === PLAN_BASICO ? 'Profesional' : 'Empresarial';
+        
+        $_SESSION['error_message'] = getMensajeLimite($tipo_limite, $plan_siguiente);
+        return false;
+    }
+    return true;
+}
+
+// Función para verificar si necesita actualizar plan
+function necesitaActualizarPlan($pdo, $empresa_id) {
+    $limites = ['facturas', 'usuarios', 'productos', 'clientes', 'proveedores'];
+    $necesita_actualizar = false;
+    
+    foreach ($limites as $limite) {
+        if (!verificarLimite($pdo, $empresa_id, $limite)) {
+            $necesita_actualizar = true;
+            break;
+        }
+    }
+    
+    if ($necesita_actualizar) {
+        $stmt = $pdo->prepare("SELECT plan_suscripcion FROM empresas WHERE id = ?");
+        $stmt->execute([$empresa_id]);
+        $plan_actual = $stmt->fetchColumn();
+        
+        if ($plan_actual !== PLAN_EMPRESARIAL) {
+            $plan_siguiente = $plan_actual === PLAN_BASICO ? 'Profesional' : 'Empresarial';
+            $_SESSION['warning_message'] = "Tu plan actual está llegando a sus límites. " .
+                                         "Considera actualizar al plan $plan_siguiente para evitar interrupciones.";
+        }
+    }
+    
+    return $necesita_actualizar;
+}
+
+// Validar datos de empresa
 function validarDatosEmpresa($datos) {
     $errores = [];
     
-    // Validaciones básicas
-    if (empty($datos['nit'])) {
-        $errores[] = "El NIT es obligatorio";
-    }
-    
+    // Validaciones específicas según el tipo de persona
     if ($datos['tipo_persona'] === 'natural') {
         if (empty($datos['primer_nombre'])) {
             $errores[] = "El primer nombre es obligatorio para personas naturales";

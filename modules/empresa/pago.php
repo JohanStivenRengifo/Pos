@@ -62,7 +62,7 @@ $planes_info = [
 $order_id = 'SUB' . time() . rand(1000, 9999);
 
 // Generar hash de integridad
-$secret_key = 'srxZSHpl6H6usb1CVMQYeg';
+$secret_key = '2UOCeKb_5cwCa1eNFcK7Pg';
 $integrity_string = $order_id . $precios[$plan] . 'COP' . $secret_key;
 $integrity_hash = hash('sha256', $integrity_string);
 
@@ -172,7 +172,7 @@ try {
                 <!-- Botón de pago Bold -->
                 <script
                     data-bold-button
-                    data-api-key="LHrE5O4DWOy1U3Mof-KR0T8uOtI9LppLBbVpl-BuLs0"
+                    data-api-key="bzk3k0ktTyJJ_gt0b2JyREg63E_zu-55eL-ncNfnP5Y"
                     data-amount="<?= $precios[$plan] ?>"
                     data-currency="COP"
                     data-order-id="<?= $order_id ?>"
