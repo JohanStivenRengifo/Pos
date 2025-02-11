@@ -555,7 +555,7 @@ try {
 
     // Función para imprimir venta
     function imprimirVenta(id) {
-        window.open(`../pos/controllers/imprimir_factura.php?id=${id}`, '_blank');
+        window.open(`../pos/controllers/imprimir_factura_md.php?id=${id}`, '_blank');
     }
 
     // Función para editar venta

@@ -561,7 +561,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Función para imprimir ticket
     function imprimirTicket(ventaId) {
         localStorage.setItem('ultima_venta_id', ventaId);
-        window.open(`./controllers/imprimir_ticket_80mm.php?id=${ventaId}&formato=80mm`, '_blank');
+        mostrarDialogoImpresion(ventaId);
     }
 
     // Botón imprimir ticket
@@ -747,7 +747,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Event listener para el input de búsqueda con debounce
-    const timeoutId;
+    let timeoutId;
 
     buscarProductoInput.addEventListener('input', function(e) {
         const currentTime = new Date().getTime();

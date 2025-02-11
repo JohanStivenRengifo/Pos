@@ -213,29 +213,6 @@ function filtrarProductos(busqueda) {
     }
 }
 
-async function mostrarDialogoImpresion(ventaId) {
-    const { isConfirmed, isDenied } = await Swal.fire({
-        title: 'Imprimir Comprobante',
-        text: '¿En qué formato desea imprimir?',
-        icon: 'question',
-        showDenyButton: true,
-        showCancelButton: true,
-        confirmButtonText: 'Tirilla 80mm',
-        denyButtonText: 'Media Carta',
-        cancelButtonText: 'No imprimir',
-        confirmButtonColor: '#4F46E5',
-        denyButtonColor: '#10B981',
-        cancelButtonColor: '#6B7280',
-        reverseButtons: true
-    });
-
-    if (isConfirmed) { // Tirilla 80mm
-        window.open(`controllers/imprimir_ticket_80mm.php?id=${ventaId}&formato=80mm`, '_blank');
-    } else if (isDenied) { // Media Carta
-        window.open(`controllers/imprimir_ticket_80mm.php?id=${ventaId}&formato=carta`, '_blank');
-    }
-}
-
 document.addEventListener('DOMContentLoaded', function() {
     // Función para calcular el total
     function calcularTotal() {
@@ -293,278 +270,96 @@ document.addEventListener('DOMContentLoaded', function() {
         const tipoDocumento = document.getElementById('tipo-documento').value;
         const clienteId = document.getElementById('cliente-select').value;
         const metodoPago = document.getElementById('metodo-pago').value;
-        const total = calcularTotal();
+        const numeracion = document.getElementById('numeracion').value;
+        const descuentoPorcentaje = parseInt(document.getElementById('descuento').value) || 0;
+
+        // Calcular totales
+        let subtotal = 0;
+        carrito.items.forEach(item => {
+            subtotal += item.precio * item.cantidad;
+        });
+        
+        const descuentoMonto = (subtotal * descuentoPorcentaje) / 100;
+        const total = subtotal - descuentoMonto;
 
         try {
-            // Primero mostrar ventana de pago si es efectivo
-            if (metodoPago === 'efectivo') {
-                const { isConfirmed, value: pagoData } = await Swal.fire({
-                    title: 'Pago en Efectivo',
-                    html: `
-                        <div class="space-y-4">
-                            <div class="flex justify-between text-lg font-bold">
-                                <span>Total:</span>
-                                <span class="text-indigo-600">$${total.toLocaleString()}</span>
-                            </div>
-                            <div class="flex justify-between text-lg">
-                                <span>Por pagar:</span>
-                                <span id="swal-por-pagar" class="text-red-600">$${total.toLocaleString()}</span>
-                            </div>
-                            <div class="mt-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Efectivo recibido</label>
-                                <div class="relative">
-                                    <span class="absolute left-3 top-2 text-gray-500">$</span>
-                                    <input type="number" id="swal-efectivo" class="w-full pl-8 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" 
-                                        value="${total}" min="${total}">
-                                </div>
-                            </div>
-                            <div class="grid grid-cols-4 gap-2 mt-4">
-                                ${generarBotonesEfectivo(total)}
-                            </div>
-                            <div class="mt-4 text-lg font-bold flex justify-between">
-                                <span>Cambio:</span>
-                                <span id="swal-cambio" class="text-green-600">$0</span>
-                            </div>
-                        </div>
-                    `,
-                    confirmButtonText: 'Confirmar Pago',
-                    showCancelButton: true,
-                    cancelButtonText: 'Cancelar',
-                    didOpen: () => {
-                        const efectivoInput = document.getElementById('swal-efectivo');
-                        const cambioSpan = document.getElementById('swal-cambio');
-                        const porPagarSpan = document.getElementById('swal-por-pagar');
-
-                        // Manejar cambios en el input
-                        efectivoInput.addEventListener('input', () => {
-                            const efectivo = parseFloat(efectivoInput.value) || 0;
-                            const cambio = Math.max(0, efectivo - total);
-                            const porPagar = Math.max(0, total - efectivo);
-                            
-                            cambioSpan.textContent = `$${cambio.toLocaleString()}`;
-                            porPagarSpan.textContent = `$${porPagar.toLocaleString()}`;
-                        });
-
-                        // Manejar clicks en botones de efectivo
-                        document.querySelectorAll('.btn-efectivo').forEach(btn => {
-                            btn.addEventListener('click', () => {
-                                efectivoInput.value = btn.dataset.valor;
-                                efectivoInput.dispatchEvent(new Event('input'));
-                            });
-                        });
-                    }
-                });
-
-                if (!isConfirmed) return;
-            } else {
-                // Para otros métodos de pago, mostrar confirmación simple
-                const { isConfirmed } = await Swal.fire({
-                    title: `Pago con ${metodoPago}`,
-                    html: `
-                        <div class="text-lg font-bold mb-4">
-                            <div class="flex justify-between">
-                                <span>Total a pagar:</span>
-                                <span class="text-indigo-600">$${total.toLocaleString()}</span>
-                            </div>
-                        </div>
-                    `,
-                    confirmButtonText: 'Confirmar Pago',
-                    showCancelButton: true,
-                    cancelButtonText: 'Cancelar'
-                });
-
-                if (!isConfirmed) return;
-            }
-
-            // Continuar con el proceso de venta normal
-            // Si es factura electrónica, primero enviamos a Alegra
-            if (tipoDocumento === 'factura_electronica') {
-                const cliente = await obtenerDatosCliente(clienteId);
-                
-                const facturaAlegra = {
-                    date: new Date().toISOString().split('T')[0],
-                    dueDate: new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0],
-                    client: {
-                        name: cliente.nombre_completo || '',
-                        identification: cliente.identificacion || '',
-                        email: cliente.email || '',
-                        phonePrimary: cliente.telefono || cliente.celular || '',
-                        address: {
-                            address: cliente.direccion || '',
-                            city: cliente.ciudad || ''
-                        }
-                    },
-                    items: carrito.items.map(item => ({
-                        name: item.nombre || '',
-                        description: item.descripcion || item.nombre || '',
-                        price: parseFloat(item.precio) || 0,
-                        quantity: parseInt(item.cantidad) || 0,
-                        tax: [{
-                            id: parseInt(item.impuesto_id) || 6,
-                            name: "IVA",
-                            percentage: parseFloat(item.porcentaje_impuesto) || 19
-                        }]
-                    })),
-                    paymentForm: {
-                        paymentMethod: convertirMetodoPago(metodoPago),
-                        paymentDueDate: new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0]
-                    },
-                    numberTemplate: {
-                        id: 1
-                    }
-                };
-
-                // Validar que el objeto sea serializable
-                try {
-                    JSON.stringify(facturaAlegra);
-                } catch (e) {
-                    console.error('Error al serializar datos:', e);
-                    throw new Error('Error al preparar los datos de la factura');
-                }
-
-                // Enviar a Alegra
-                const responseAlegra = await fetch('api/alegra/facturar.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(facturaAlegra)
-                });
-
-                if (!responseAlegra.ok) {
-                    throw new Error('Error al generar factura electrónica');
-                }
-
-                const dataAlegra = await responseAlegra.json();
-                
-                // Agregamos el ID de Alegra a los datos de la venta
-                const ventaData = {
+            const response = await fetch('api/ventas/procesar.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
                     items: carrito.items,
                     cliente_id: clienteId,
                     tipo_documento: tipoDocumento,
+                    numeracion: numeracion,
                     metodo_pago: metodoPago,
-                    descuento: carrito.descuento,
-                    alegra_id: dataAlegra.id
-                };
+                    descuento: descuentoPorcentaje,
+                    subtotal: subtotal,
+                    total: total
+                })
+            });
 
-                // Continuar con el proceso normal de venta
-                const response = await fetch('api/ventas/procesar.php', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(ventaData)
+            const data = await response.json();
+            
+            if (data.success) {
+                // Primero mostrar el mensaje de éxito
+                await Swal.fire({
+                    icon: 'success',
+                    title: '¡Venta realizada!',
+                    text: 'La venta se ha procesado correctamente',
+                    confirmButtonText: 'Continuar'
                 });
 
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.message || 'Error en el servidor');
-                }
+                // Luego preguntar por la remisión si no es cotización
+                if (tipoDocumento !== 'cotizacion') {
+                    const { isConfirmed: imprimirRemision } = await Swal.fire({
+                        title: '¿Generar remisión?',
+                        text: 'La remisión es el documento para despacho de bodega',
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonText: 'Sí, generar remisión',
+                        cancelButtonText: 'No, solo ticket',
+                        confirmButtonColor: '#4F46E5',
+                        cancelButtonColor: '#9CA3AF'
+                    });
 
-                const data = await response.json();
-
-                if (data.success) {
-                    // Preguntar por la remisión solo si es una venta (no cotización)
-                    if (tipoDocumento !== 'cotizacion') {
-                        const { isConfirmed: imprimirRemision } = await Swal.fire({
-                            title: '¿Generar remisión?',
-                            text: 'La remisión es el documento para despacho de bodega',
-                            icon: 'question',
-                            showCancelButton: true,
-                            confirmButtonText: 'Sí, generar remisión',
-                            cancelButtonText: 'No, solo ticket',
-                            confirmButtonColor: '#4F46E5',
-                            cancelButtonColor: '#9CA3AF'
-                        });
-
-                        if (imprimirRemision) {
-                            window.open(`controllers/imprimir_remision.php?id=${data.venta_id}`, '_blank');
-                        }
-
-                        // Después de la remisión o si no se quiso remisión, preguntar por el ticket
-                        await mostrarDialogoImpresion(data.venta_id);
-                    } else {
-                        // Si es cotización, mantener el comportamiento actual
-                        let imprimirUrl = `controllers/imprimir_cotizacion.php?id=${data.cotizacion_id}`;
-                        window.open(imprimirUrl, '_blank');
+                    if (imprimirRemision) {
+                        window.open(`controllers/imprimir_remision.php?id=${data.venta_id}`, '_blank');
                     }
 
-                    // Reiniciar carrito
-                    carrito.items = [];
-                    actualizarCarritoUI();
-                    // Recargar productos
-                    location.reload();
+                    // Finalmente preguntar por la impresión del ticket
+                    const { isConfirmed: imprimirTicket } = await Swal.fire({
+                        title: 'Imprimir ticket',
+                        text: '¿Desea imprimir el ticket de venta?',
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonText: 'Sí, imprimir',
+                        cancelButtonText: 'No, finalizar',
+                        confirmButtonColor: '#4F46E5',
+                        cancelButtonColor: '#6B7280'
+                    });
+
+                    if (imprimirTicket) {
+                        window.open(`controllers/imprimir_ticket_80mm.php?id=${data.venta_id}`, '_blank');
+                    }
                 } else {
-                    throw new Error(data.message);
+                    // Si es cotización, mantener el comportamiento actual
+                    window.open(`controllers/imprimir_cotizacion.php?id=${data.cotizacion_id}`, '_blank');
                 }
+
+                // Limpiar carrito y recargar
+                carrito.items = [];
+                actualizarCarritoUI();
+                location.reload();
             } else {
-                // Proceso normal para otros tipos de documentos
-                const endpoint = tipoDocumento === 'cotizacion' ? 'api/cotizaciones/procesar.php' : 'api/ventas/procesar.php';
-
-                const response = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    body: JSON.stringify({
-                        items: carrito.items,
-                        cliente_id: clienteId,
-                        tipo_documento: tipoDocumento,
-                        numeracion: document.getElementById('numeracion').value,
-                        metodo_pago: metodoPago,
-                        descuento: carrito.descuento
-                    })
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.message || 'Error en el servidor');
-                }
-
-                const data = await response.json();
-
-                if (data.success) {
-                    // Preguntar por la remisión solo si es una venta (no cotización)
-                    if (tipoDocumento !== 'cotizacion') {
-                        const { isConfirmed: imprimirRemision } = await Swal.fire({
-                            title: '¿Generar remisión?',
-                            text: 'La remisión es el documento para despacho de bodega',
-                            icon: 'question',
-                            showCancelButton: true,
-                            confirmButtonText: 'Sí, generar remisión',
-                            cancelButtonText: 'No, solo ticket',
-                            confirmButtonColor: '#4F46E5',
-                            cancelButtonColor: '#9CA3AF'
-                        });
-
-                        if (imprimirRemision) {
-                            window.open(`controllers/imprimir_remision.php?id=${data.venta_id}`, '_blank');
-                        }
-
-                        // Después de la remisión o si no se quiso remisión, preguntar por el ticket
-                        await mostrarDialogoImpresion(data.venta_id);
-                    } else {
-                        // Si es cotización, mantener el comportamiento actual
-                        let imprimirUrl = `controllers/imprimir_cotizacion.php?id=${data.cotizacion_id}`;
-                        window.open(imprimirUrl, '_blank');
-                    }
-
-                    // Reiniciar carrito
-                    carrito.items = [];
-                    actualizarCarritoUI();
-                    // Recargar productos
-                    location.reload();
-                } else {
-                    throw new Error(data.message);
-                }
+                throw new Error(data.message || 'Error al procesar la venta');
             }
         } catch (error) {
-            console.error('Error completo:', error);
             Swal.fire({
+                icon: 'error',
                 title: 'Error',
-                text: error.message || 'Error al procesar la operación',
-                icon: 'error'
+                text: error.message
             });
         }
     }
@@ -684,7 +479,7 @@ function enviarFacturaPorCorreo(email) {
         },
         body: JSON.stringify({
             email: email,
-            facturaId: window.ultimaFacturaId // Asegúrate de tener esta variable disponible
+            facturaId: window.ultimaFacturaId
         })
     })
     .then(response => response.json())
@@ -708,9 +503,4 @@ function enviarFacturaPorCorreo(email) {
             confirmButtonColor: '#EF4444'
         });
     });
-}
-
-function imprimirTicket(ventaId) {
-    localStorage.setItem('ultima_venta_id', ventaId);
-    mostrarDialogoImpresion(ventaId);
 } 
