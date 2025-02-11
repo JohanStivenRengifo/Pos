@@ -1,5 +1,7 @@
 <?php
 session_start();
+require_once '../../../config/db.php';
+require_once '../../../config/limiter.php';
 header('Content-Type: application/json');
 
 try {
@@ -102,3 +104,15 @@ try {
         'message' => $e->getMessage()
     ]);
 } 
+
+$verificacion = verificarLimiteFacturasMensuales($pdo, $_SESSION['empresa_id']);
+
+if (!$verificacion['puede_facturar']) {
+    http_response_code(403);
+    echo json_encode([
+        'success' => false,
+        'message' => "Has alcanzado el límite de facturas mensuales de tu plan. Por favor, actualiza tu plan para continuar.",
+        'redirect_to' => '/modules/empresa/planes.php'
+    ]);
+    exit();
+}

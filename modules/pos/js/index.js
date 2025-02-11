@@ -561,7 +561,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Función para imprimir ticket
     function imprimirTicket(ventaId) {
         localStorage.setItem('ultima_venta_id', ventaId);
-        window.open(`./controllers/imprimir_factura.php?venta_id=${ventaId}`, '_blank');
+        window.open(`./controllers/imprimir_ticket_80mm.php?id=${ventaId}&formato=80mm`, '_blank');
     }
 
     // Botón imprimir ticket

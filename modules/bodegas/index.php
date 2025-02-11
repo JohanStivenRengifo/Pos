@@ -2,9 +2,6 @@
 session_start();
 require_once '../../config/db.php';
 
-// Activar reporte de errores para debug
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
 
 // Asignar $pdo a $conn para mantener consistencia
 $conn = $pdo;

@@ -1,18 +1,52 @@
 <?php
 session_start();
+require_once '../../config/db.php';
+require_once '../../config/limiter.php';
+require_once '../../includes/functions.php';
 
-// Verificar si el usuario está logueado
+// Verificar si el usuario está logueado primero
 if (!isset($_SESSION['user_id'])) {
-    header('Location: index.php');
+    header('Location: /auth/login.php');
     exit;
 }
 
-require_once '../../config/db.php';
+// Verificar límite de facturas
+try {
+    $verificacion = verificarLimiteFacturasMensuales($pdo, $_SESSION['empresa_id']);
+
+    if (is_array($verificacion) && !$verificacion['puede_facturar']) {
+        // Obtener información del plan actual
+        $stmt = $pdo->prepare("SELECT plan_suscripcion FROM empresas WHERE id = ?");
+        $stmt->execute([$_SESSION['empresa_id']]);
+        $plan_actual = $stmt->fetchColumn();
+        
+        $plan_siguiente = $plan_actual === PLAN_BASICO ? 'Profesional' : 'Empresarial';
+        
+        $_SESSION['error_message'] = "Has alcanzado el límite de facturas mensuales de tu plan actual (" . 
+                                    $verificacion['facturas_actuales'] . " de " . 
+                                    $verificacion['limite_facturas'] . "). " .
+                                    "Actualiza al plan $plan_siguiente para continuar facturando.";
+        
+        header('Location: /modules/empresa/planes.php');
+        exit();
+    }
+
+    // Si está cerca del límite (90% o más), mostrar advertencia
+    if (isset($verificacion['facturas_disponibles']) && 
+        $verificacion['facturas_disponibles'] !== -1 && 
+        $verificacion['facturas_actuales'] >= ($verificacion['limite_facturas'] * 0.9)) {
+        $_SESSION['warning_message'] = "¡Atención! Te quedan " . $verificacion['facturas_disponibles'] . 
+                                      " facturas disponibles este mes. Considera actualizar tu plan para evitar interrupciones.";
+    }
+} catch (Exception $e) {
+    error_log("Error al verificar límite de facturas: " . $e->getMessage());
+    // Continuar con la ejecución normal incluso si hay un error en la verificación
+}
 
 // Obtener información del usuario
 $user_id = $_SESSION['user_id'];
 $user_name = $_SESSION['user_name'];
-$user_role = isset($_SESSION['user_role']) ? $_SESSION['user_role'] : 'Usuario'; // Valor por defecto
+$user_role = isset($_SESSION['user_role']) ? $_SESSION['user_role'] : 'Usuario';
 $user_email = $_SESSION['user_email'];
 $empresa_id = $_SESSION['empresa_id'];
 
@@ -128,9 +162,29 @@ if (
     <link rel="icon" type="image/png" href="./favicon/favicon.ico" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 
 <body class="h-full font-sans antialiased">
+    <?php if (isset($_SESSION['warning_message'])): ?>
+    <script>
+        Swal.fire({
+            icon: 'warning',
+            title: 'Límite de Facturas',
+            text: '<?= htmlspecialchars($_SESSION['warning_message']) ?>',
+            showConfirmButton: true,
+            confirmButtonText: 'Entendido',
+            showCancelButton: true,
+            cancelButtonText: 'Ver Planes',
+            cancelButtonColor: '#3085d6'
+        }).then((result) => {
+            if (result.dismiss === Swal.DismissReason.cancel) {
+                window.location.href = '/modules/empresa/planes.php';
+            }
+        });
+    </script>
+    <?php unset($_SESSION['warning_message']); endif; ?>
+
     <!-- Barra superior moderna -->
     <nav class="bg-white border-b border-gray-200 h-16 fixed w-full top-0 z-50">
         <div class="h-full px-4">

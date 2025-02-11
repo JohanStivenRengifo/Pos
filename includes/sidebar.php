@@ -1,11 +1,24 @@
 <?php
 include 'check_subscription.php';
 include '../config/limiter.php';
+
 // Definir la ruta actual
 $current_page = basename(dirname($_SERVER['PHP_SELF']));
 if ($current_page === 'modules') {
     $current_page = basename(dirname(dirname($_SERVER['PHP_SELF'])));
 }
+
+// Obtener el plan actual y acceso a módulos
+$stmt = $pdo->prepare("SELECT plan_suscripcion FROM empresas WHERE id = ?");
+$stmt->execute([$_SESSION['empresa_id']]);
+$plan_actual = $stmt->fetchColumn();
+
+// Función para verificar acceso al módulo
+function tieneAccesoSidebar($modulo) {
+    global $PLANES, $plan_actual;
+    return $PLANES[$plan_actual]['caracteristicas']['modulos'][$modulo] ?? false;
+}
+
 // Definir las categorías y sus módulos
 $menu_categories = [
     'operaciones' => [
@@ -15,12 +28,14 @@ $menu_categories = [
             'dashboard' => [
                 'name' => 'Dashboard',
                 'url' => '/welcome.php',
-                'icon' => 'fas fa-tachometer-alt'
+                'icon' => 'fas fa-tachometer-alt',
+                'always_show' => true
             ],
             'pos' => [
                 'name' => 'POS',
                 'url' => '/modules/pos/index.php',
-                'icon' => 'fas fa-cash-register'
+                'icon' => 'fas fa-cash-register',
+                'always_show' => true  // Aseguramos que POS siempre se muestre
             ]
         ]
     ],
@@ -152,6 +167,17 @@ $menu_categories = [
     ]
 ];
 
+// Función para verificar si un módulo debe mostrarse
+function shouldShowModule($module) {
+    // Si el módulo tiene always_show en true, siempre mostrarlo
+    if (isset($module['always_show']) && $module['always_show']) {
+        return true;
+    }
+    
+    // Si no tiene module_key definido o tiene acceso al módulo
+    return !isset($module['module_key']) || tieneAccesoSidebar($module['module_key']);
+}
+
 // Función para verificar si un módulo está activo
 function isActive($itemUrl) {
     $currentUrl = $_SERVER['REQUEST_URI'];
@@ -177,7 +203,12 @@ function getNotificationCount($module) {
     <div class="flex-1 overflow-y-auto h-full pt-16">
         <!-- Navegación principal con categorías -->
         <nav class="px-3 py-4">
-            <?php foreach ($menu_categories as $cat_key => $category): ?>
+            <?php foreach ($menu_categories as $cat_key => $category): 
+                // Filtrar módulos accesibles
+                $accessible_modules = array_filter($category['modules'], 'shouldShowModule');
+                // Solo mostrar categoría si tiene módulos accesibles
+                if (empty($accessible_modules)) continue;
+            ?>
                 <div class="mb-4 category-container">
                     <!-- Encabezado de categoría -->
                     <button class="w-full flex items-center justify-between px-4 py-2.5 text-sm font-semibold text-gray-600 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-all duration-200 category-header group">
@@ -190,14 +221,21 @@ function getNotificationCount($module) {
 
                     <!-- Módulos de la categoría -->
                     <div class="space-y-1 mt-1 category-content">
-                        <?php foreach ($category['modules'] as $mod_key => $module): ?>
-                            <a href="<?= $module['url'] ?>" 
+                        <?php foreach ($accessible_modules as $mod_key => $module): ?>
+                            <?php
+                            $isLocked = isset($module['module_key']) && !tieneAccesoSidebar($module['module_key']);
+                            $moduleUrl = $isLocked ? '/modules/empresa/planes.php' : $module['url'];
+                            ?>
+                            <a href="<?= $moduleUrl ?>" 
                                class="flex items-center px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ml-2
                                       <?= isActive($module['url']) 
                                           ? 'text-indigo-700 bg-indigo-50 border-l-4 border-indigo-600' 
                                           : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900' ?>">
                                 <i class="<?= $module['icon'] ?> w-5 h-5 mr-3 transition-transform duration-200 hover:scale-110"></i>
                                 <span class="flex-1"><?= $module['name'] ?></span>
+                                <?php if ($isLocked): ?>
+                                    <i class="fas fa-lock text-gray-400 ml-2" title="Actualiza tu plan para acceder a este módulo"></i>
+                                <?php endif; ?>
                                 <?php if ($notificationCount = getNotificationCount($mod_key)): ?>
                                     <span class="inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-indigo-100 bg-indigo-600 rounded-full ml-2">
                                         <?= $notificationCount ?>

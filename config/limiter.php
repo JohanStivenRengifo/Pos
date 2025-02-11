@@ -129,6 +129,11 @@ function verificarLimite($pdo, $empresa_id, $tipo_limite) {
 
 // Función para verificar acceso a módulo
 function tieneAccesoModulo($pdo, $empresa_id, $modulo) {
+    // POS siempre disponible en todos los planes
+    if ($modulo === 'pos') {
+        return true;
+    }
+    
     $stmt = $pdo->prepare("SELECT plan_suscripcion FROM empresas WHERE id = ?");
     $stmt->execute([$empresa_id]);
     $plan_actual = $stmt->fetchColumn();
@@ -222,5 +227,59 @@ function validarDatosEmpresa($datos) {
         'valido' => empty($errores),
         'errores' => $errores
     ];
+}
+
+// Añadir o modificar la función verificarLimiteFacturasMensuales
+function verificarLimiteFacturasMensuales($pdo, $empresa_id) {
+    try {
+        // Obtener el plan actual y sus límites
+        $stmt = $pdo->prepare("
+            SELECT e.plan_suscripcion,
+                   (SELECT COUNT(*) 
+                    FROM ventas v 
+                    WHERE v.empresa_id = e.id 
+                    AND MONTH(v.fecha) = MONTH(CURRENT_DATE)
+                    AND YEAR(v.fecha) = YEAR(CURRENT_DATE)) as facturas_mes_actual
+            FROM empresas e
+            WHERE e.id = ?
+        ");
+        
+        $stmt->execute([$empresa_id]);
+        $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$resultado) {
+            throw new Exception("No se encontró la empresa");
+        }
+
+        global $PLANES;
+        $limite_facturas = $PLANES[$resultado['plan_suscripcion']]['limite_facturas'];
+        $facturas_actuales = (int)$resultado['facturas_mes_actual'];
+
+        // Si el límite es -1, significa ilimitado
+        if ($limite_facturas === -1) {
+            return [
+                'puede_facturar' => true,
+                'facturas_disponibles' => -1,
+                'facturas_actuales' => $facturas_actuales,
+                'limite_facturas' => $limite_facturas
+            ];
+        }
+
+        return [
+            'puede_facturar' => $facturas_actuales < $limite_facturas,
+            'facturas_disponibles' => $limite_facturas - $facturas_actuales,
+            'facturas_actuales' => $facturas_actuales,
+            'limite_facturas' => $limite_facturas
+        ];
+    } catch (Exception $e) {
+        error_log("Error en verificarLimiteFacturasMensuales: " . $e->getMessage());
+        // Retornar un valor por defecto que permita continuar
+        return [
+            'puede_facturar' => true,
+            'facturas_disponibles' => -1,
+            'facturas_actuales' => 0,
+            'limite_facturas' => -1
+        ];
+    }
 }
 ?>

@@ -213,6 +213,29 @@ function filtrarProductos(busqueda) {
     }
 }
 
+async function mostrarDialogoImpresion(ventaId) {
+    const { isConfirmed, isDenied } = await Swal.fire({
+        title: 'Imprimir Comprobante',
+        text: '¿En qué formato desea imprimir?',
+        icon: 'question',
+        showDenyButton: true,
+        showCancelButton: true,
+        confirmButtonText: 'Tirilla 80mm',
+        denyButtonText: 'Media Carta',
+        cancelButtonText: 'No imprimir',
+        confirmButtonColor: '#4F46E5',
+        denyButtonColor: '#10B981',
+        cancelButtonColor: '#6B7280',
+        reverseButtons: true
+    });
+
+    if (isConfirmed) { // Tirilla 80mm
+        window.open(`controllers/imprimir_ticket_80mm.php?id=${ventaId}&formato=80mm`, '_blank');
+    } else if (isDenied) { // Media Carta
+        window.open(`controllers/imprimir_ticket_80mm.php?id=${ventaId}&formato=carta`, '_blank');
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // Función para calcular el total
     function calcularTotal() {
@@ -455,25 +478,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         });
 
                         if (imprimirRemision) {
-                            // Imprimir remisión
                             window.open(`controllers/imprimir_remision.php?id=${data.venta_id}`, '_blank');
                         }
 
                         // Después de la remisión o si no se quiso remisión, preguntar por el ticket
-                        const { isConfirmed: imprimirTicket } = await Swal.fire({
-                            title: 'Imprimir ticket',
-                            text: '¿Desea imprimir el ticket de venta?',
-                            icon: 'question',
-                            showCancelButton: true,
-                            confirmButtonText: 'Sí, imprimir',
-                            cancelButtonText: 'No, finalizar',
-                            confirmButtonColor: '#4F46E5',
-                            cancelButtonColor: '#9CA3AF'
-                        });
-
-                        if (imprimirTicket) {
-                            window.open(`controllers/imprimir_factura.php?id=${data.venta_id}`, '_blank');
-                        }
+                        await mostrarDialogoImpresion(data.venta_id);
                     } else {
                         // Si es cotización, mantener el comportamiento actual
                         let imprimirUrl = `controllers/imprimir_cotizacion.php?id=${data.cotizacion_id}`;
@@ -530,25 +539,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         });
 
                         if (imprimirRemision) {
-                            // Imprimir remisión
                             window.open(`controllers/imprimir_remision.php?id=${data.venta_id}`, '_blank');
                         }
 
                         // Después de la remisión o si no se quiso remisión, preguntar por el ticket
-                        const { isConfirmed: imprimirTicket } = await Swal.fire({
-                            title: 'Imprimir ticket',
-                            text: '¿Desea imprimir el ticket de venta?',
-                            icon: 'question',
-                            showCancelButton: true,
-                            confirmButtonText: 'Sí, imprimir',
-                            cancelButtonText: 'No, finalizar',
-                            confirmButtonColor: '#4F46E5',
-                            cancelButtonColor: '#9CA3AF'
-                        });
-
-                        if (imprimirTicket) {
-                            window.open(`controllers/imprimir_factura.php?id=${data.venta_id}`, '_blank');
-                        }
+                        await mostrarDialogoImpresion(data.venta_id);
                     } else {
                         // Si es cotización, mantener el comportamiento actual
                         let imprimirUrl = `controllers/imprimir_cotizacion.php?id=${data.cotizacion_id}`;
@@ -713,4 +708,9 @@ function enviarFacturaPorCorreo(email) {
             confirmButtonColor: '#EF4444'
         });
     });
+}
+
+function imprimirTicket(ventaId) {
+    localStorage.setItem('ultima_venta_id', ventaId);
+    mostrarDialogoImpresion(ventaId);
 } 
