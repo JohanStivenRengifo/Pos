@@ -400,8 +400,8 @@ if (isset($_SESSION['user_id'])) {
             <div class="mt-16 text-center">
                 <p class="text-gray-500">
                     ¿Tienes preguntas sobre nuestros planes? 
-                    <a href="#" class="text-primary hover:text-secondary">Consulta nuestras FAQs</a> 
-                    o <a href="#" class="text-primary hover:text-secondary">contáctanos</a>
+                    <a href="#FAQs" class="text-primary hover:text-secondary">Consulta nuestras FAQs</a> 
+                    o <a href="./contacto.php" class="text-primary hover:text-secondary">contáctanos</a>
                 </p>
             </div>
         </div>
@@ -449,6 +449,154 @@ if (isset($_SESSION['user_id'])) {
                     <p class="mt-2 text-gray-500">
                         Desarrollo ágil con mejoras semanales
                     </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FAQs Section -->
+    <section id="FAQs" class="py-20 bg-gradient-to-br from-white to-blue-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-16 relative">
+                <span class="absolute -top-6 left-1/2 transform -translate-x-1/2 text-5xl opacity-10">❓</span>
+                <h2 class="text-4xl font-extrabold text-gray-900 sm:text-5xl bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
+                    Preguntas Frecuentes
+                </h2>
+                <p class="mt-4 text-xl text-gray-600 max-w-2xl mx-auto">
+                    Encuentra respuestas a las preguntas más comunes sobre VendEasy
+                </p>
+            </div>
+
+            <div class="mt-12 max-w-4xl mx-auto">
+                <div class="space-y-6">
+
+                    <div class="group bg-white rounded-xl p-6 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100">
+                        <button class="w-full flex justify-between items-center focus:outline-none">
+                            <h3 class="text-lg font-semibold text-gray-900 group-hover:text-primary transition-colors duration-300 flex items-center">
+                                <span class="bg-blue-100 text-primary p-2 rounded-lg mr-4 group-hover:bg-primary group-hover:text-white transition-colors duration-300">
+                                    <i class="fas fa-credit-card"></i>
+                                </span>
+                                ¿Qué métodos de pago aceptan?
+                            </h3>
+                            <span class="transform group-hover:rotate-180 transition-transform duration-300">
+                                <i class="fas fa-chevron-down text-gray-400 group-hover:text-primary"></i>
+                            </span>
+                        </button>
+                        <div class="mt-4 text-gray-600 pl-16">
+                            <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                <div class="flex items-center space-x-2 bg-gray-50 p-3 rounded-lg">
+                                    <i class="fab fa-cc-visa text-blue-600"></i>
+                                    <span>Visa</span>
+                                </div>
+                                <div class="flex items-center space-x-2 bg-gray-50 p-3 rounded-lg">
+                                    <i class="fab fa-cc-mastercard text-red-600"></i>
+                                    <span>MasterCard</span>
+                                </div>
+                                <div class="flex items-center space-x-2 bg-gray-50 p-3 rounded-lg">
+                                    <i class="fab fa-cc-amex text-blue-800"></i>
+                                    <span>American Express</span>
+                                </div>
+                                <div class="flex items-center space-x-2 bg-gray-50 p-3 rounded-lg">
+                                    <i class="fas fa-university text-gray-600"></i>
+                                    <span>PSE</span>
+                                </div>
+                                <div class="flex items-center space-x-2 bg-gray-50 p-3 rounded-lg">
+                                    <i class="fas fa-exchange-alt text-green-600"></i>
+                                    <span>Transferencia</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="group bg-white rounded-xl p-6 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100">
+                        <button class="w-full flex justify-between items-center focus:outline-none">
+                            <h3 class="text-lg font-semibold text-gray-900 group-hover:text-primary transition-colors duration-300 flex items-center">
+                                <span class="bg-blue-100 text-primary p-2 rounded-lg mr-4 group-hover:bg-primary group-hover:text-white transition-colors duration-300">
+                                    <i class="fas fa-shield-alt"></i>
+                                </span>
+                                ¿Mis datos están seguros?
+                            </h3>
+                            <span class="transform group-hover:rotate-180 transition-transform duration-300">
+                                <i class="fas fa-chevron-down text-gray-400 group-hover:text-primary"></i>
+                            </span>
+                        </button>
+                        <div class="mt-4 text-gray-600 pl-16">
+                            <div class="space-y-4">
+                                <p>Absolutamente. Tu seguridad es nuestra prioridad:</p>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div class="bg-gray-50 p-4 rounded-lg">
+                                        <div class="flex items-center text-primary mb-2">
+                                            <i class="fas fa-lock mr-2"></i>
+                                            <span class="font-medium">Encriptación</span>
+                                        </div>
+                                        <p class="text-sm">Nivel bancario SSL/TLS</p>
+                                    </div>
+                                    <div class="bg-gray-50 p-4 rounded-lg">
+                                        <div class="flex items-center text-primary mb-2">
+                                            <i class="fas fa-database mr-2"></i>
+                                            <span class="font-medium">Backups</span>
+                                        </div>
+                                        <p class="text-sm">Copias diarias automatizadas</p>
+                                    </div>
+                                    <div class="bg-gray-50 p-4 rounded-lg">
+                                        <div class="flex items-center text-primary mb-2">
+                                            <i class="fas fa-user-shield mr-2"></i>
+                                            <span class="font-medium">Privacidad</span>
+                                        </div>
+                                        <p class="text-sm">Cumplimiento GDPR</p>
+                                    </div>
+                                    <div class="bg-gray-50 p-4 rounded-lg">
+                                        <div class="flex items-center text-primary mb-2">
+                                            <i class="fas fa-server mr-2"></i>
+                                            <span class="font-medium">Servidores</span>
+                                        </div>
+                                        <p class="text-sm">Infraestructura redundante</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="group bg-white rounded-xl p-6 shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100">
+                        <button class="w-full flex justify-between items-center focus:outline-none">
+                            <h3 class="text-lg font-semibold text-gray-900 group-hover:text-primary transition-colors duration-300 flex items-center">
+                                <span class="bg-blue-100 text-primary p-2 rounded-lg mr-4 group-hover:bg-primary group-hover:text-white transition-colors duration-300">
+                                    <i class="fas fa-file-export"></i>
+                                </span>
+                                ¿Puedo exportar mis datos?
+                            </h3>
+                            <span class="transform group-hover:rotate-180 transition-transform duration-300">
+                                <i class="fas fa-chevron-down text-gray-400 group-hover:text-primary"></i>
+                            </span>
+                        </button>
+                        <div class="mt-4 text-gray-600 pl-16">
+                            <p>Sí, tienes control total sobre tus datos:</p>
+                            <div class="mt-4 grid grid-cols-2 gap-4">
+                                <div class="bg-gray-50 p-4 rounded-lg text-center">
+                                    <i class="fas fa-file-excel text-green-600 text-2xl mb-2"></i>
+                                    <p class="font-medium">Excel</p>
+                                </div>
+                                <div class="bg-gray-50 p-4 rounded-lg text-center">
+                                    <i class="fas fa-file-csv text-blue-600 text-2xl mb-2"></i>
+                                    <p class="font-medium">CSV</p>
+                                </div>
+                            </div>
+                            <p class="mt-4 text-sm bg-green-50 text-green-700 p-3 rounded-lg">
+                                <i class="fas fa-info-circle mr-2"></i>
+                                Exporta en cualquier momento sin costo adicional
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Contacto adicional -->
+                <div class="mt-16 text-center bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl p-8 shadow-lg">
+                    <h3 class="text-white text-xl font-semibold mb-4">¿No encontraste lo que buscabas?</h3>
+                    <p class="text-blue-100 mb-6">Nuestro equipo está listo para ayudarte</p>
+                    <a href="./contacto.php" class="inline-flex items-center px-6 py-3 bg-white text-primary hover:bg-blue-50 rounded-lg transition-colors duration-300 font-medium">
+                        <i class="fas fa-envelope mr-2"></i>
+                        Contáctanos directamente
+                    </a>
                 </div>
             </div>
         </div>
