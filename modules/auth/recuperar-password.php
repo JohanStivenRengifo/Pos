@@ -33,6 +33,7 @@ function sendRecoveryEmail($email, $token) {
         $mail = new PHPMailer(true);
         
         // Configuración del servidor SMTP
+        $mail->SMTPDebug = 0;  // 0 = off, 1 = client messages, 2 = client and server messages
         $mail->isSMTP();
         $mail->Host = 'smtp.hostinger.com';
         $mail->SMTPAuth = true;
@@ -42,6 +43,15 @@ function sendRecoveryEmail($email, $token) {
         $mail->Port = 465;
         $mail->CharSet = 'UTF-8';
         $mail->Timeout = 30;
+        
+        // Habilitar debug en modo producción
+        $mail->SMTPOptions = array(
+            'ssl' => array(
+                'verify_peer' => false,
+                'verify_peer_name' => false,
+                'allow_self_signed' => true
+            )
+        );
 
         // Configuración del remitente y destinatario
         $mail->setFrom('noreply@johanrengifo.cloud', 'VendEasy');
@@ -148,10 +158,16 @@ function sendRecoveryEmail($email, $token) {
         $mail->Body = $template;
         $mail->AltBody = strip_tags($emailContent);
 
-        return $mail->send();
+        $result = $mail->send();
+        if (!$result) {
+            error_log("Error PHPMailer: " . $mail->ErrorInfo);
+            throw new Exception("Error al enviar el correo: " . $mail->ErrorInfo);
+        }
+        return true;
+
     } catch (Exception $e) {
-        error_log("Error al enviar correo de recuperación: " . $e->getMessage());
-        return false;
+        error_log("Error detallado al enviar correo de recuperación: " . $e->getMessage());
+        throw new Exception('Error al enviar el correo de recuperación. Por favor, inténtalo más tarde.');
     }
 }
 
