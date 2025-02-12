@@ -7,12 +7,13 @@ define('PLAN_EMPRESARIAL', 'empresarial');
 $PLANES = [
     PLAN_BASICO => [
         'nombre' => 'Básico',
-        'precio' => 29900,
-        'limite_facturas' => 100,
+        'precio' => 19900,
+        'limite_facturas' => -1, // ilimitado
         'limite_usuarios' => 1,
         'limite_productos' => 100,
         'limite_clientes' => 50,
         'limite_proveedores' => 10,
+        'limite_ingresos_mensual' => 10000000, // 10M
         'caracteristicas' => [
             'reportes_basicos' => true,
             'soporte_email' => true,
@@ -38,12 +39,13 @@ $PLANES = [
     ],
     PLAN_PROFESIONAL => [
         'nombre' => 'Profesional',
-        'precio' => 59900,
-        'limite_facturas' => 500,
+        'precio' => 39900,
+        'limite_facturas' => -1, // ilimitado
         'limite_usuarios' => 3,
         'limite_productos' => 500,
         'limite_clientes' => 200,
         'limite_proveedores' => 50,
+        'limite_ingresos_mensual' => 40000000, // 40M
         'caracteristicas' => [
             'reportes_basicos' => true,
             'soporte_email' => true,
@@ -69,12 +71,13 @@ $PLANES = [
     ],
     PLAN_EMPRESARIAL => [
         'nombre' => 'Empresarial',
-        'precio' => 119900,
-        'limite_facturas' => -1, // -1 significa ilimitado
-        'limite_usuarios' => -1,
-        'limite_productos' => -1,
-        'limite_clientes' => -1,
-        'limite_proveedores' => -1,
+        'precio' => 69900,
+        'limite_facturas' => -1, // ilimitado
+        'limite_usuarios' => -1, // ilimitado
+        'limite_productos' => -1, // ilimitado
+        'limite_clientes' => -1, // ilimitado
+        'limite_proveedores' => -1, // ilimitado
+        'limite_ingresos_mensual' => 180000000, // 180M
         'caracteristicas' => [
             'reportes_basicos' => true,
             'soporte_email' => true,
@@ -163,15 +166,66 @@ function verificarYNotificarLimite($pdo, $empresa_id, $tipo_limite) {
     return true;
 }
 
-// Función para verificar si necesita actualizar plan
+// Función para verificar límite de ingresos mensuales
+function verificarLimiteIngresosMensuales($pdo, $empresa_id) {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT e.plan_suscripcion,
+                   (SELECT COALESCE(SUM(monto), 0)
+                    FROM ventas v 
+                    WHERE v.empresa_id = e.id 
+                    AND MONTH(v.fecha) = MONTH(CURRENT_DATE)
+                    AND YEAR(v.fecha) = YEAR(CURRENT_DATE)) as ingresos_mes_actual
+            FROM empresas e
+            WHERE e.id = ?
+        ");
+        
+        $stmt->execute([$empresa_id]);
+        $resultado = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$resultado) {
+            throw new Exception("No se encontró la empresa");
+        }
+
+        global $PLANES;
+        $limite_ingresos = $PLANES[$resultado['plan_suscripcion']]['limite_ingresos_mensual'];
+        $ingresos_actuales = (float)$resultado['ingresos_mes_actual'];
+
+        return [
+            'puede_facturar' => $ingresos_actuales < $limite_ingresos,
+            'ingresos_disponibles' => $limite_ingresos - $ingresos_actuales,
+            'ingresos_actuales' => $ingresos_actuales,
+            'limite_ingresos' => $limite_ingresos
+        ];
+    } catch (Exception $e) {
+        error_log("Error en verificarLimiteIngresosMensuales: " . $e->getMessage());
+        return [
+            'puede_facturar' => true,
+            'ingresos_disponibles' => -1,
+            'ingresos_actuales' => 0,
+            'limite_ingresos' => -1
+        ];
+    }
+}
+
+// Función para verificar si necesita actualizar plan (actualizada)
 function necesitaActualizarPlan($pdo, $empresa_id) {
     $limites = ['facturas', 'usuarios', 'productos', 'clientes', 'proveedores'];
     $necesita_actualizar = false;
     
+    // Verificar límites básicos
     foreach ($limites as $limite) {
         if (!verificarLimite($pdo, $empresa_id, $limite)) {
             $necesita_actualizar = true;
             break;
+        }
+    }
+    
+    // Verificar límite de ingresos mensuales
+    if (!$necesita_actualizar) {
+        $resultado_ingresos = verificarLimiteIngresosMensuales($pdo, $empresa_id);
+        if (!$resultado_ingresos['puede_facturar']) {
+            $necesita_actualizar = true;
         }
     }
     

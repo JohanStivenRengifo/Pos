@@ -285,13 +285,13 @@ if (isset($_SESSION['user_id'])) {
                         <h3 class="text-xl font-semibold text-gray-900">Básico</h3>
                         <p class="mt-4 text-gray-500">Ideal para emprendedores y pequeños negocios</p>
                         <div class="mt-6">
-                            <span class="text-4xl font-bold text-gray-900">$29.900</span>
+                            <span class="text-4xl font-bold text-gray-900">$19.900</span>
                             <span class="text-gray-500">/mes</span>
                         </div>
                         <ul class="mt-8 space-y-4">
                             <li class="flex items-center">
                                 <i class="fas fa-check text-green-500 mr-3"></i>
-                                <span>Hasta 100 facturas mensuales</span>
+                                <span>Facturas ilimitadas</span>
                             </li>
                             <li class="flex items-center">
                                 <i class="fas fa-check text-green-500 mr-3"></i>
@@ -299,11 +299,11 @@ if (isset($_SESSION['user_id'])) {
                             </li>
                             <li class="flex items-center">
                                 <i class="fas fa-check text-green-500 mr-3"></i>
-                                <span>Reportes básicos</span>
+                                <span>Facturación electrónica</span>
                             </li>
                             <li class="flex items-center">
                                 <i class="fas fa-check text-green-500 mr-3"></i>
-                                <span>Soporte por email</span>
+                                <span>Ingresos hasta $10M/mes</span>
                             </li>
                         </ul>
                     </div>
@@ -323,13 +323,13 @@ if (isset($_SESSION['user_id'])) {
                         <h3 class="text-xl font-semibold text-white">Profesional</h3>
                         <p class="mt-4 text-blue-100">Perfecto para negocios en crecimiento</p>
                         <div class="mt-6">
-                            <span class="text-4xl font-bold text-white">$59.900</span>
+                            <span class="text-4xl font-bold text-white">$39.900</span>
                             <span class="text-blue-100">/mes</span>
                         </div>
                         <ul class="mt-8 space-y-4 text-white">
                             <li class="flex items-center">
                                 <i class="fas fa-check text-green-400 mr-3"></i>
-                                <span>Hasta 500 facturas mensuales</span>
+                                <span>Facturas ilimitadas</span>
                             </li>
                             <li class="flex items-center">
                                 <i class="fas fa-check text-green-400 mr-3"></i>
@@ -337,11 +337,11 @@ if (isset($_SESSION['user_id'])) {
                             </li>
                             <li class="flex items-center">
                                 <i class="fas fa-check text-green-400 mr-3"></i>
-                                <span>Reportes avanzados</span>
+                                <span>Facturación electrónica</span>
                             </li>
                             <li class="flex items-center">
                                 <i class="fas fa-check text-green-400 mr-3"></i>
-                                <span>Soporte prioritario 24/7</span>
+                                <span>Ingresos hasta $40M/mes</span>
                             </li>
                             <li class="flex items-center">
                                 <i class="fas fa-check text-green-400 mr-3"></i>
@@ -362,7 +362,7 @@ if (isset($_SESSION['user_id'])) {
                         <h3 class="text-xl font-semibold text-gray-900">Empresarial</h3>
                         <p class="mt-4 text-gray-500">Para grandes empresas y corporaciones</p>
                         <div class="mt-6">
-                            <span class="text-4xl font-bold text-gray-900">$119.900</span>
+                            <span class="text-4xl font-bold text-gray-900">$69.900</span>
                             <span class="text-gray-500">/mes</span>
                         </div>
                         <ul class="mt-8 space-y-4">
@@ -376,11 +376,11 @@ if (isset($_SESSION['user_id'])) {
                             </li>
                             <li class="flex items-center">
                                 <i class="fas fa-check text-green-500 mr-3"></i>
-                                <span>API personalizada</span>
+                                <span>Facturación electrónica</span>
                             </li>
                             <li class="flex items-center">
                                 <i class="fas fa-check text-green-500 mr-3"></i>
-                                <span>Soporte VIP</span>
+                                <span>Ingresos hasta $180M/mes</span>
                             </li>
                             <li class="flex items-center">
                                 <i class="fas fa-check text-green-500 mr-3"></i>

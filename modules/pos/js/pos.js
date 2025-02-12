@@ -341,7 +341,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
 
                     if (imprimirTicket) {
-                        window.open(`controllers/imprimir_ticket_80mm.php?id=${data.venta_id}`, '_blank');
+                        window.open(`controllers/imprimir_factura.php?id=${data.venta_id}`, '_blank');
                     }
                 } else {
                     // Si es cotización, mantener el comportamiento actual

@@ -66,8 +66,8 @@ try {
     
     // Determinar la URL de impresión según el tipo de factura
     $print_url = $numeracion === 'electronica' 
-        ? 'controllers/imprimir_ticket_80mm.php?id=' . $venta_id 
-        : 'controllers/imprimir_ticket_80mm.php?id=' . $venta_id;
+        ? 'controllers/imprimir_factura.php?id=' . $venta_id 
+        : 'controllers/imprimir_factura.php?id=' . $venta_id;
 
     echo json_encode([
         'success' => true,
