@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once '../../../config/db.php';
+require_once '../../../config/mail.php';
 
 // Verificar si el usuario está autenticado
 if (!isset($_SESSION['user_id'])) {
@@ -102,14 +103,7 @@ function sendOTPEmail($email, $otp, $nombre) {
     </body>
     </html>';
 
-    // Headers para enviar HTML
-    $headers = "MIME-Version: 1.0\r\n";
-    $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
-    $headers .= "From: VendEasy <noreply@vendeasy.com>\r\n";
-    $headers .= "Reply-To: noreply@vendeasy.com\r\n";
-    $headers .= "X-Mailer: PHP/" . phpversion();
-
-    return mail($email, $subject, $message, $headers);
+    return sendEmail($email, $subject, $message);
 }
 
 // Obtener información del usuario

@@ -2,6 +2,7 @@
 session_start();
 require_once '../../config/db.php';
 require_once '../../includes/functions.php';
+require_once '../../config/mail.php';
 
 // Clase para manejar respuestas JSON
 class ApiResponse {
@@ -89,7 +90,7 @@ function registerUser($pdo, $email, $password, $nombre = '') {
             '110111' // Código postal de Bogotá
         ]);
 
-        // Registrar el evento con created_at
+        // Registrar el evento
         $stmt = $pdo->prepare("
             INSERT INTO user_events (
                 user_id, 
@@ -114,6 +115,15 @@ function registerUser($pdo, $email, $password, $nombre = '') {
         ]);
 
         $pdo->commit();
+        
+        // Enviar correo de bienvenida
+        try {
+            $mailer = new MailController();
+            $mailer->sendWelcomeEmail($email, $nombre);
+        } catch (Exception $e) {
+            error_log("Error enviando correo de bienvenida: " . $e->getMessage());
+            // No interrumpimos el registro si falla el envío del correo
+        }
         
         // Iniciar sesión automáticamente después del registro
         $_SESSION['user_id'] = $user_id;

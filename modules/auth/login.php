@@ -5,6 +5,7 @@ date_default_timezone_set('America/Bogota');
 session_start();
 require_once '../../config/db.php';
 require_once '../../includes/functions.php';
+require_once '../../config/mail.php';
 
 // Clase para manejar respuestas JSON
 class ApiResponse
@@ -137,6 +138,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         // Registrar el inicio de sesión exitoso
         logLoginAttempt($pdo, $user['id'], true, 'Login exitoso');
+
+        // Enviar correo de notificación de inicio de sesión
+        $mailer = new MailController();
+        $deviceInfo = $_SERVER['HTTP_USER_AGENT'] ?? 'Dispositivo desconocido';
+        $location = $_SERVER['REMOTE_ADDR'] ?? 'Ubicación desconocida';
+        $mailer->sendSecurityAlert($user['email'], $user['nombre'], $deviceInfo, $location);
 
         if (isAjaxRequest()) {
             ApiResponse::send(true, '¡Bienvenido ' . ($user['nombre'] ?? '') . '!', [
