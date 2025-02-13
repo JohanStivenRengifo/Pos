@@ -519,44 +519,47 @@ if (isset($_POST['logout'])) {
         <?php include 'includes/sidebar.php'; ?>
 
         <main class="flex-1 p-6">
-            <!-- Encabezado Principal -->
-            <div class="mb-6 p-4 rounded-xl gradient-primary text-white shadow-sm" data-aos="fade-up">
-                <div class="flex justify-between items-center">
-                    <div>
-                        <h1 class="text-2xl font-semibold mb-1">
-                            Panel de Control
-                        </h1>
-                        <p class="text-sm text-gray-100">
-                            <?= htmlspecialchars($empresa_info['nombre_empresa'] ?? '') ?>
-                        </p>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-sm opacity-90"><?= date('d M Y') ?></p>
-                        <p class="text-xs opacity-75">v3.1.0</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Banner Portal de Clientes -->
-            <div class="mb-8 p-6 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl shadow-lg text-white" data-aos="fade-up" data-aos-delay="100">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0 p-3 bg-white/20 rounded-full">
-                            <i class="fas fa-bullhorn text-2xl text-white"></i>
-                        </div>
-                        <div class="ml-4">
-                            <h3 class="text-xl font-bold">¡Nuevo Portal de Clientes!</h3>
-                            <p class="text-sm text-gray-100 mt-1">
-                                Acceso a facturas, historial de compras y estado de cuenta en línea
-                            </p>
+            <!-- Banner Principal Combinado -->
+            <div class="mb-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl shadow-lg overflow-hidden" data-aos="fade-up">
+                <div class="grid grid-cols-2">
+                    <!-- Mitad Izquierda - Panel de Control -->
+                    <div class="p-6 text-white border-r border-white/20">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <h1 class="text-2xl font-semibold mb-1">
+                                    Panel de Control
+                                </h1>
+                                <p class="text-sm text-gray-100">
+                                    <?= htmlspecialchars($empresa_info['nombre_empresa'] ?? '') ?>
+                                </p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-sm opacity-90"><?= date('d M Y') ?></p>
+                            </div>
                         </div>
                     </div>
-                    <a href="https://portal.johanrengifo.cloud" target="_blank" 
-                       class="inline-flex items-center px-4 py-2 bg-white text-indigo-600 text-sm font-medium rounded-xl 
-                              transition-all hover:bg-indigo-50 hover:scale-105">
-                        Visitar Portal
-                        <i class="fas fa-external-link-alt ml-2"></i>
-                    </a>
+                    <!-- Mitad Derecha - Portal de Clientes -->
+                    <div class="p-6 text-white">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 p-3 bg-white/20 rounded-full">
+                                    <i class="fas fa-bullhorn text-2xl text-white"></i>
+                                </div>
+                                <div class="ml-4">
+                                    <h3 class="text-xl font-bold">¡Nuevo Portal de Clientes!</h3>
+                                    <p class="text-sm text-gray-100 mt-1">
+                                        Acceso a facturas, historial de compras y estado de cuenta en línea
+                                    </p>
+                                </div>
+                            </div>
+                            <a href="https://portal.johanrengifo.cloud" target="_blank" 
+                               class="inline-flex items-center px-4 py-2 bg-white text-indigo-600 text-sm font-medium rounded-xl 
+                                      transition-all hover:bg-indigo-50 hover:scale-105">
+                                Visitar Portal
+                                <i class="fas fa-external-link-alt ml-2"></i>
+                            </a>
+                        </div>
+                    </div>
                 </div>
             </div>
 

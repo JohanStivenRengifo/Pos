@@ -89,35 +89,39 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Detalles - <?php echo htmlspecialchars($tipo); ?></title>
+    <title>Detalles - <?php echo htmlspecialchars($tipo); ?> - VendEasy</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="shortcut icon" href="./favicon/favicon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="../favicon/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
         }
         .detail-card {
             transition: all 0.3s ease;
         }
         .detail-card:hover {
             transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
         }
     </style>
 </head>
 <body class="bg-gray-50">
     <div class="min-h-screen">
-        <!-- Navbar mejorado -->
-        <nav class="bg-gradient-to-r from-blue-600 to-blue-800 shadow-lg">
+        <!-- Navbar simplificado -->
+        <nav class="bg-white border-b border-gray-200">
             <div class="max-w-7xl mx-auto px-4">
                 <div class="flex justify-between h-16">
-                    <div class="flex items-center">
-                        <i class="fas fa-file-alt text-white text-2xl mr-3"></i>
-                        <h1 class="text-2xl font-bold text-white">Detalles de <?php echo htmlspecialchars($tipo); ?></h1>
-                    </div>
-                    <div class="flex items-center">
-                        <a href="index.php" class="text-white hover:text-gray-200 transition-colors duration-200">
+                <div class="flex items-center">
+                    <a href="/" class="flex items-center space-x-2">
+                        <i class="fas fa-calculator text-primary text-2xl"></i>
+                        <span class="text-xl font-bold text-gray-900">VendEasy</span>
+                    </a>
+                </div>
+                    <div class="flex items-center space-x-4">
+                        <a href="index.php" class="text-gray-600 hover:text-gray-900 transition-colors duration-200">
                             <i class="fas fa-arrow-left mr-2"></i>Volver
                         </a>
                     </div>
@@ -125,7 +129,7 @@ try {
             </div>
         </nav>
 
-        <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <main class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
             <?php if (!empty($error)): ?>
                 <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg shadow" role="alert">
                     <div class="flex">
