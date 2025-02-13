@@ -28,12 +28,12 @@ $usuario = $stmt->fetch();
     
     <div class="container mx-auto px-4 py-8">
         <div class="flex flex-wrap -mx-4">
-            <?php include '../../includes/sidebar.php'; ?>
+        <?php include '../../includes/sidebar.php'; ?>
 
             <!-- Contenido Principal -->
             <div class="w-full lg:w-3/4 px-4">
-                <!-- Encabezado de la página -->
-                <div class="mb-8">
+            <!-- Encabezado de la página -->
+            <div class="mb-8">
                     <h1 class="text-3xl font-bold text-gray-900">
                         <i class="fas fa-cogs text-indigo-600 mr-3"></i>Panel de Configuración
                     </h1>
@@ -46,23 +46,23 @@ $usuario = $stmt->fetch();
                         <i class="fas fa-user-cog text-indigo-500 mr-2"></i>
                         Configuraciones Personales
                     </h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <!-- Perfil -->
                         <a href="perfil/" class="transform transition-all duration-300 hover:scale-105">
                             <div class="bg-white rounded-xl shadow-sm hover:shadow-md p-6 border border-gray-100">
                                 <div class="flex items-center">
                                     <div class="flex-shrink-0 w-14 h-14 bg-indigo-100 rounded-xl flex items-center justify-center">
                                         <i class="fas fa-user-circle text-2xl text-indigo-600"></i>
-                                    </div>
+                    </div>
                                     <div class="ml-4">
                                         <h3 class="text-lg font-semibold text-gray-900">Mi Perfil</h3>
                                         <p class="text-sm text-gray-600">Gestiona tu información personal y preferencias</p>
-                                    </div>
+                        </div>
                                     <div class="ml-auto">
                                         <i class="fas fa-chevron-right text-gray-400"></i>
-                                    </div>
-                                </div>
-                            </div>
+                        </div>
+                        </div>
+                </div>
                         </a>
 
                         <!-- Seguridad -->
@@ -71,16 +71,16 @@ $usuario = $stmt->fetch();
                                 <div class="flex items-center">
                                     <div class="flex-shrink-0 w-14 h-14 bg-green-100 rounded-xl flex items-center justify-center">
                                         <i class="fas fa-lock text-2xl text-green-600"></i>
-                                    </div>
+                    </div>
                                     <div class="ml-4">
                                         <h3 class="text-lg font-semibold text-gray-900">Seguridad</h3>
                                         <p class="text-sm text-gray-600">Contraseña y sesiones activas</p>
-                                    </div>
+                        </div>
                                     <div class="ml-auto">
                                         <i class="fas fa-chevron-right text-gray-400"></i>
-                                    </div>
-                                </div>
-                            </div>
+                        </div>
+                        </div>
+                </div>
                         </a>
                     </div>
                 </div>
@@ -91,7 +91,7 @@ $usuario = $stmt->fetch();
                     <h2 class="text-xl font-semibold text-gray-800 mb-4 flex items-center">
                         <i class="fas fa-building text-indigo-500 mr-2"></i>
                         Configuraciones de Empresa
-                    </h2>
+                        </h2>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <!-- Empresa -->
                         <a href="../empresas/" class="transform transition-all duration-300 hover:scale-105">

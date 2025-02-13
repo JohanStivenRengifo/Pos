@@ -189,12 +189,18 @@ function sendEmail($to, $subject, $message, $from = SMTP_FROM, $fromName = SMTP_
     $mail = new PHPMailer\PHPMailer\PHPMailer(true);
     
     try {
+        // Debug mode
+        $mail->SMTPDebug = 2;
+        $mail->Debugoutput = function($str, $level) {
+            error_log("PHPMailer debug: $str");
+        };
+
         $mail->isSMTP();
         $mail->Host = SMTP_HOST;
         $mail->SMTPAuth = true;
         $mail->Username = SMTP_USER;
         $mail->Password = SMTP_PASS;
-        $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
+        $mail->SMTPSecure = 'ssl';
         $mail->Port = SMTP_PORT;
         
         $mail->setFrom($from, $fromName);
@@ -205,10 +211,15 @@ function sendEmail($to, $subject, $message, $from = SMTP_FROM, $fromName = SMTP_
         $mail->Subject = $subject;
         $mail->Body = $message;
         
-        return $mail->send();
+        if (!$mail->send()) {
+            error_log("Mailer Error: " . $mail->ErrorInfo);
+            throw new Exception($mail->ErrorInfo);
+        }
+        
+        return true;
     } catch (Exception $e) {
-        error_log("Error enviando correo: " . $e->getMessage());
-        return false;
+        error_log("Error detallado enviando correo: " . $e->getMessage());
+        throw new Exception('Error al enviar el correo: ' . $e->getMessage());
     }
 }
 ?> 

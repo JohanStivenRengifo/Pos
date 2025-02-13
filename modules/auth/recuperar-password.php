@@ -99,16 +99,25 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                             <p>Si no solicitaste restablecer tu contraseña, ignora este mensaje o contacta a soporte técnico.</p>
                         </div>';
 
-                    if (!$mailer->sendEmail($email, "Recuperación de Contraseña - VendEasy", $content)) {
-                        throw new Exception('Error al enviar el correo. Por favor, intenta más tarde.');
-                    }
+                    try {
+                        if (!$mailer->sendEmail($email, "Recuperación de Contraseña - VendEasy", $content)) {
+                            throw new Exception('Error al enviar el correo. Por favor, intenta más tarde.');
+                        }
 
-                    if (isAjaxRequest()) {
-                        ApiResponse::send(true, 'Si el correo existe en nuestro sistema, recibirás las instrucciones para restablecer tu contraseña.');
-                    } else {
-                        $_SESSION['success_message'] = 'Si el correo existe en nuestro sistema, recibirás las instrucciones para restablecer tu contraseña.';
-                        header("Location: " . $_SERVER['PHP_SELF']);
-                        exit;
+                        if (isAjaxRequest()) {
+                            ApiResponse::send(true, 'Si el correo existe en nuestro sistema, recibirás las instrucciones para restablecer tu contraseña.');
+                        } else {
+                            $_SESSION['success_message'] = 'Si el correo existe en nuestro sistema, recibirás las instrucciones para restablecer tu contraseña.';
+                            header("Location: " . $_SERVER['PHP_SELF']);
+                            exit;
+                        }
+                    } catch (Exception $e) {
+                        error_log("Error en recuperación de contraseña: " . $e->getMessage());
+                        if (isAjaxRequest()) {
+                            ApiResponse::send(false, 'Error al enviar el correo: ' . $e->getMessage());
+                        } else {
+                            $error = 'Error al enviar el correo: ' . $e->getMessage();
+                        }
                     }
                     break;
             }
