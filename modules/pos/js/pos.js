@@ -51,10 +51,27 @@ window.modificarCantidad = function(id, delta) {
     const item = carrito.items.find(i => i.id === id);
     if (item) {
         const nuevaCantidad = item.cantidad + delta;
-        if (nuevaCantidad > 0 && nuevaCantidad <= item.stock) {
+        
+        // Verificar límites de stock
+        if (nuevaCantidad <= 0) {
+            // Si la cantidad llega a 0, eliminar el item
+            carrito.items = carrito.items.filter(i => i.id !== id);
+        } else if (nuevaCantidad <= item.stock) {
+            // Solo actualizar si no excede el stock
             item.cantidad = nuevaCantidad;
-            actualizarCarritoUI();
+        } else {
+            // Mostrar mensaje de error si excede el stock
+            Swal.fire({
+                title: 'Stock insuficiente',
+                text: `Solo hay ${item.stock} unidades disponibles`,
+                icon: 'warning',
+                timer: 1500,
+                showConfirmButton: false
+            });
+            return;
         }
+        
+        actualizarCarritoUI();
     }
 };
 
@@ -115,6 +132,13 @@ function actualizarCarritoUI() {
     const totalElement = document.getElementById('venta-total');
     const btnProcesar = document.getElementById('procesar-venta');
 
+    // Verificar stock antes de actualizar UI
+    carrito.items.forEach(item => {
+        if (item.cantidad > item.stock) {
+            item.cantidad = item.stock;
+        }
+    });
+
     if (!carrito.items.length) {
         listaCarrito.innerHTML = '';
         listaVacia.style.display = 'block';
@@ -130,6 +154,12 @@ function actualizarCarritoUI() {
     listaCarrito.innerHTML = carrito.items.map(item => {
         const total = item.precio * item.cantidad;
         subtotal += total;
+
+        // Determinar el estado del stock
+        const stockBajo = item.cantidad >= item.stock;
+        const stockClass = stockBajo ? 'text-red-500' : 'text-gray-400';
+        const stockText = stockBajo ? 'Stock máximo alcanzado' : `Stock: ${item.stock}`;
+
         return `
             <tr class="border-b border-gray-100">
                 <td class="py-2 px-2">
@@ -137,27 +167,31 @@ function actualizarCarritoUI() {
                 </td>
                 <td class="text-center">
                     <div class="flex items-center justify-center gap-1">
-                        <button onclick="window.modificarCantidad(${item.id}, -1)" class="text-gray-500 hover:text-red-500">
-                            <i class="fas fa-minus-circle"></i>
+                        <button onclick="window.modificarCantidad(${item.id}, -1)" 
+                            class="text-gray-500 hover:text-red-500 p-1 rounded-full hover:bg-red-50 transition-colors">
+                            <i class="fas fa-minus"></i>
                         </button>
-                        <span class="text-sm">${item.cantidad}</span>
-                        <button onclick="window.modificarCantidad(${item.id}, 1)" class="text-gray-500 hover:text-green-500">
-                            <i class="fas fa-plus-circle"></i>
+                        <span class="text-sm font-medium min-w-[1.5rem] text-center">${item.cantidad}</span>
+                        <button onclick="window.modificarCantidad(${item.id}, 1)" 
+                            class="text-gray-500 hover:text-green-500 p-1 rounded-full hover:bg-green-50 transition-colors ${item.cantidad >= item.stock ? 'opacity-50 cursor-not-allowed' : ''}"
+                            ${item.cantidad >= item.stock ? 'disabled' : ''}>
+                            <i class="fas fa-plus"></i>
                         </button>
+                    </div>
+                    <div class="text-xs ${stockClass} mt-1">
+                        ${stockText}
                     </div>
                 </td>
                 <td class="text-right">
-                    <div class="flex items-center justify-end gap-2">
-                        <span>$${item.precio.toLocaleString()}</span>
-                        <button onclick="window.editarPrecio(${item.id})" class="text-gray-500 hover:text-blue-500">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                    </div>
+                    <span class="text-sm text-gray-600">$${item.precio.toLocaleString()}</span>
                 </td>
-                <td class="text-right">$${total.toLocaleString()}</td>
+                <td class="text-right">
+                    <span class="text-sm font-medium text-gray-900">$${total.toLocaleString()}</span>
+                </td>
                 <td class="text-center">
-                    <button onclick="window.eliminarItem(${item.id})" class="text-red-500 hover:text-red-700">
-                        <i class="fas fa-trash"></i>
+                    <button onclick="window.eliminarItem(${item.id})" 
+                        class="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50 transition-colors">
+                        <i class="fas fa-times"></i>
                     </button>
                 </td>
             </tr>
@@ -223,27 +257,34 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Función para agregar producto al carrito
     function agregarAlCarrito(producto) {
-        const existente = carrito.items.find(item => item.id === producto.id);
-        
-        if (producto.stock <= 0) {
+        // Verificar stock antes de cualquier operación
+        if (!producto.stock || producto.stock <= 0) {
             Swal.fire({
                 title: 'Producto agotado',
                 text: 'Este producto no tiene existencias disponibles',
-                icon: 'error'
+                icon: 'error',
+                timer: 1500,
+                showConfirmButton: false
             });
             return;
         }
 
+        const existente = carrito.items.find(item => item.id === parseInt(producto.id));
+        
         if (existente) {
-            if (existente.cantidad >= producto.stock) {
+            // Verificar que la nueva cantidad no exceda el stock
+            const nuevaCantidad = existente.cantidad + 1;
+            if (nuevaCantidad > producto.stock) {
                 Swal.fire({
                     title: 'Stock insuficiente',
-                    text: 'No hay más unidades disponibles de este producto',
-                    icon: 'warning'
+                    text: `Solo hay ${producto.stock} unidades disponibles`,
+                    icon: 'warning',
+                    timer: 1500,
+                    showConfirmButton: false
                 });
                 return;
             }
-            existente.cantidad++;
+            existente.cantidad = nuevaCantidad;
         } else {
             carrito.items.push({
                 id: parseInt(producto.id),
@@ -253,6 +294,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 stock: parseInt(producto.stock)
             });
         }
+
+        // Verificación final de stock
+        const itemActual = carrito.items.find(item => item.id === parseInt(producto.id));
+        if (itemActual && itemActual.cantidad > itemActual.stock) {
+            itemActual.cantidad = itemActual.stock;
+            Swal.fire({
+                title: 'Ajuste de stock',
+                text: `La cantidad se ha ajustado al máximo disponible: ${itemActual.stock} unidades`,
+                icon: 'info',
+                timer: 1500,
+                showConfirmButton: false
+            });
+        }
+
         actualizarCarritoUI();
     }
 
@@ -263,6 +318,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 title: 'Carrito vacío o cliente no seleccionado',
                 text: 'Agregue productos al carrito y seleccione un cliente antes de continuar',
                 icon: 'warning'
+            });
+            return;
+        }
+
+        // Verificar stock antes de procesar
+        let stockExcedido = false;
+        let mensajeError = '';
+
+        for (const item of carrito.items) {
+            if (item.cantidad > item.stock) {
+                stockExcedido = true;
+                mensajeError += `${item.nombre}: ${item.cantidad} (pedido) > ${item.stock} (disponible)\n`;
+            }
+        }
+
+        if (stockExcedido) {
+            Swal.fire({
+                title: 'Stock insuficiente',
+                text: 'Algunos productos exceden el stock disponible:\n' + mensajeError,
+                icon: 'error'
             });
             return;
         }
@@ -311,41 +386,36 @@ document.addEventListener('DOMContentLoaded', function() {
                     confirmButtonText: 'Continuar'
                 });
 
-                // Luego preguntar por la remisión si no es cotización
-                if (tipoDocumento !== 'cotizacion') {
-                    const { isConfirmed: imprimirRemision } = await Swal.fire({
-                        title: '¿Generar remisión?',
-                        text: 'La remisión es el documento para despacho de bodega',
-                        icon: 'question',
-                        showCancelButton: true,
-                        confirmButtonText: 'Sí, generar remisión',
-                        cancelButtonText: 'No, solo ticket',
-                        confirmButtonColor: '#4F46E5',
-                        cancelButtonColor: '#9CA3AF'
-                    });
+                // Preguntar por la remisión
+                const { isConfirmed: imprimirRemision } = await Swal.fire({
+                    title: '¿Generar remisión?',
+                    text: 'La remisión es el documento para despacho de bodega',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, generar remisión',
+                    cancelButtonText: 'No, solo ticket',
+                    confirmButtonColor: '#4F46E5',
+                    cancelButtonColor: '#9CA3AF'
+                });
 
-                    if (imprimirRemision) {
-                        window.open(`controllers/imprimir_remision.php?id=${data.venta_id}`, '_blank');
-                    }
+                if (imprimirRemision) {
+                    window.open(`controllers/imprimir_remision.php?id=${data.venta_id}`, '_blank');
+                }
 
-                    // Finalmente preguntar por la impresión del ticket
-                    const { isConfirmed: imprimirTicket } = await Swal.fire({
-                        title: 'Imprimir ticket',
-                        text: '¿Desea imprimir el ticket de venta?',
-                        icon: 'question',
-                        showCancelButton: true,
-                        confirmButtonText: 'Sí, imprimir',
-                        cancelButtonText: 'No, finalizar',
-                        confirmButtonColor: '#4F46E5',
-                        cancelButtonColor: '#6B7280'
-                    });
+                // Preguntar por la impresión del ticket
+                const { isConfirmed: imprimirTicket } = await Swal.fire({
+                    title: 'Imprimir ticket',
+                    text: '¿Desea imprimir el ticket de venta?',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, imprimir',
+                    cancelButtonText: 'No, finalizar',
+                    confirmButtonColor: '#4F46E5',
+                    cancelButtonColor: '#6B7280'
+                });
 
-                    if (imprimirTicket) {
-                        window.open(`controllers/imprimir_factura.php?id=${data.venta_id}`, '_blank');
-                    }
-                } else {
-                    // Si es cotización, mantener el comportamiento actual
-                    window.open(`controllers/imprimir_cotizacion.php?id=${data.cotizacion_id}`, '_blank');
+                if (imprimirTicket) {
+                    window.open(`controllers/imprimir_factura.php?id=${data.venta_id}`, '_blank');
                 }
 
                 // Limpiar carrito y recargar
@@ -382,19 +452,6 @@ document.addEventListener('DOMContentLoaded', function() {
         actualizarCarritoUI();
     });
 
-    document.getElementById('tipo-documento').addEventListener('change', function() {
-        const metodoPago = document.getElementById('metodo-pago');
-        const btnProcesar = document.getElementById('procesar-venta');
-        
-        if (this.value === 'cotizacion') {
-            metodoPago.disabled = true;
-            btnProcesar.textContent = 'Generar Cotización';
-        } else {
-            metodoPago.disabled = false;
-            btnProcesar.textContent = 'Confirmar Venta';
-        }
-    });
-
     document.getElementById('procesar-venta').addEventListener('click', procesarVenta);
 
     // Evento para el campo de búsqueda
@@ -424,40 +481,188 @@ document.addEventListener('DOMContentLoaded', function() {
     // Enfoque automático en el campo de búsqueda al cargar la página
     buscarInput?.focus();
 
-    // Evento para leer código de barras
-    let codigoBarras = '';
-    let ultimoKeyTime = 0;
-    const DELAY_ENTRE_TECLAS = 50; // Tiempo máximo entre teclas para considerar lectura de código de barras
+    // Configuración del scanner de código de barras
+    const SCANNER_CONFIG = {
+        DELAY_BETWEEN_KEYS: 30, // Tiempo máximo entre teclas para considerar entrada del scanner (ms)
+        MIN_CHARS: 3, // Longitud mínima del código de barras
+        ENTER_KEY: 'Enter', // Tecla que indica fin de escaneo
+        TIMEOUT: 100 // Tiempo de espera después del último carácter antes de procesar
+    };
 
-    document.addEventListener('keypress', function(e) {
-        const tiempoActual = new Date().getTime();
-        
-        // Si el foco está en un input, no procesar como código de barras
-        if (document.activeElement.tagName === 'INPUT') return;
+    let scannerBuffer = '';
+    let lastKeyTime = 0;
+    let scannerTimeout = null;
 
-        // Verificar si es una entrada rápida (típica de un scanner)
-        if (tiempoActual - ultimoKeyTime <= DELAY_ENTRE_TECLAS) {
-            codigoBarras += e.key;
-        } else {
-            codigoBarras = e.key;
-        }
-        
-        ultimoKeyTime = tiempoActual;
+    // Función para procesar código de barras
+    function procesarCodigoBarras(codigo) {
+        const productos = document.querySelectorAll('.item-view');
+        const producto = Array.from(productos).find(p => p.dataset.codigo === codigo);
 
-        // Procesar el código de barras cuando se presiona Enter
-        if (e.key === 'Enter' && codigoBarras.length > 1) {
-            // Eliminar el Enter del final del código
-            codigoBarras = codigoBarras.slice(0, -1);
-            
-            // Establecer el código en el campo de búsqueda y realizar la búsqueda
+        if (producto) {
+            const productoData = {
+                id: producto.dataset.id,
+                nombre: producto.dataset.nombre,
+                precio: parseFloat(producto.dataset.precio),
+                stock: parseInt(producto.dataset.cantidad),
+                codigo: producto.dataset.codigo
+            };
+
+            // Verificar stock antes de agregar
+            if (productoData.stock <= 0) {
+                reproducirBeep(false);
+                Swal.fire({
+                    title: 'Producto sin stock',
+                    text: 'Este producto no tiene existencias disponibles',
+                    icon: 'warning',
+                    timer: 1500,
+                    showConfirmButton: false,
+                    position: 'top-end',
+                    toast: true
+                });
+                return;
+            }
+
+            // Verificar si ya existe en el carrito y validar stock
+            const existente = carrito.items.find(item => item.id === parseInt(productoData.id));
+            if (existente) {
+                if (existente.cantidad >= productoData.stock) {
+                    reproducirBeep(false);
+                    Swal.fire({
+                        title: 'Stock insuficiente',
+                        text: `Solo hay ${productoData.stock} unidades disponibles`,
+                        icon: 'warning',
+                        timer: 1500,
+                        showConfirmButton: false,
+                        position: 'top-end',
+                        toast: true
+                    });
+                    return;
+                }
+            }
+
+            agregarAlCarrito(productoData);
+            reproducirBeep(true);
+            // Limpiar el campo de búsqueda
             const buscarInput = document.getElementById('buscar-producto');
-            buscarInput.value = codigoBarras;
-            filtrarProductos(codigoBarras);
-            
-            // Limpiar el código almacenado
-            codigoBarras = '';
+            if (buscarInput) {
+                buscarInput.value = '';
+                buscarInput.focus();
+            }
+        } else {
+            reproducirBeep(false);
+            Swal.fire({
+                title: 'Producto no encontrado',
+                text: 'No se encontró ningún producto con ese código de barras',
+                icon: 'warning',
+                timer: 1500,
+                showConfirmButton: false,
+                position: 'top-end',
+                toast: true
+            });
         }
+    }
+
+    // Función para reproducir beep
+    function reproducirBeep(success) {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(success ? 1000 : 400, audioContext.currentTime);
+        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+
+        oscillator.start();
+        oscillator.stop(audioContext.currentTime + 0.1);
+    }
+
+    // Event listener para el scanner
+    document.addEventListener('keydown', function(e) {
+        const buscarInput = document.getElementById('buscar-producto');
+        const currentTime = new Date().getTime();
+        
+        // Si el foco está en un input que no es el de búsqueda, ignorar
+        if (e.target.tagName === 'INPUT' && e.target !== buscarInput) {
+            return;
+        }
+
+        // Si no está en el input de búsqueda, poner el foco
+        if (e.target !== buscarInput) {
+            buscarInput.focus();
+        }
+
+        // Procesar entrada del scanner
+        if (currentTime - lastKeyTime <= SCANNER_CONFIG.DELAY_BETWEEN_KEYS || scannerBuffer.length > 0) {
+            // Prevenir el comportamiento por defecto solo si parece ser entrada del scanner
+            e.preventDefault();
+
+            if (e.key === SCANNER_CONFIG.ENTER_KEY) {
+                if (scannerBuffer.length >= SCANNER_CONFIG.MIN_CHARS) {
+                    procesarCodigoBarras(scannerBuffer);
+                }
+                scannerBuffer = '';
+                clearTimeout(scannerTimeout);
+            } else if (e.key.length === 1) { // Solo agregar caracteres imprimibles
+                scannerBuffer += e.key;
+                clearTimeout(scannerTimeout);
+                scannerTimeout = setTimeout(() => {
+                    if (scannerBuffer.length >= SCANNER_CONFIG.MIN_CHARS) {
+                        procesarCodigoBarras(scannerBuffer);
+                    }
+                    scannerBuffer = '';
+                }, SCANNER_CONFIG.TIMEOUT);
+            }
+        }
+        
+        lastKeyTime = currentTime;
     });
+
+    // Event listener para búsqueda manual
+    const buscarInputManual = document.getElementById('buscar-producto');
+    if (buscarInputManual) {
+        let timeoutId;
+
+        buscarInputManual.addEventListener('input', function(e) {
+            const currentTime = new Date().getTime();
+            
+            // Si parece ser entrada del scanner (rápida), no filtrar aún
+            if (currentTime - lastKeyTime <= SCANNER_CONFIG.DELAY_BETWEEN_KEYS) {
+                return;
+            }
+
+            clearTimeout(timeoutId);
+            timeoutId = setTimeout(() => {
+                filtrarProductos(this.value);
+            }, 300);
+        });
+
+        buscarInputManual.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const valor = this.value.trim();
+
+                if (valor.length >= SCANNER_CONFIG.MIN_CHARS) {
+                    const productos = document.querySelectorAll('.item-view:not([style*="display: none"])');
+                    if (productos.length === 1) {
+                        const producto = productos[0];
+                        const productoData = {
+                            id: producto.dataset.id,
+                            nombre: producto.dataset.nombre,
+                            precio: parseFloat(producto.dataset.precio),
+                            cantidad: parseInt(producto.dataset.cantidad),
+                            codigo: producto.dataset.codigo
+                        };
+                        agregarAlCarrito(productoData);
+                        this.value = '';
+                        filtrarProductos('');
+                    }
+                }
+            }
+        });
+    }
 });
 
 function enviarFacturaPorCorreo(email) {

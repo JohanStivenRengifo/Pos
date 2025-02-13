@@ -46,12 +46,17 @@ try {
     // Obtener detalles de la venta
     $stmt = $pdo->prepare("
         SELECT 
-            vd.*,
+            vd.producto_id,
             i.nombre as producto_nombre,
-            i.codigo_barras
+            i.codigo_barras,
+            SUM(vd.cantidad) as cantidad,
+            vd.precio_unitario,
+            SUM(vd.cantidad * vd.precio_unitario) as total_item
         FROM venta_detalles vd
         LEFT JOIN inventario i ON vd.producto_id = i.id
         WHERE vd.venta_id = ?
+        GROUP BY vd.producto_id, i.nombre, i.codigo_barras, vd.precio_unitario
+        ORDER BY i.nombre ASC
     ");
     $stmt->execute([$_GET['id']]);
     $detalles = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -228,14 +233,14 @@ try {
 
         <?php 
         $total_productos = 0;
-        foreach ($detalles as $index => $detalle): 
+        foreach ($detalles as $detalle): 
             $total_productos += $detalle['cantidad'];
         ?>
             <div class="producto">
-                <div class="producto-nombre"><?= ($index + 1) . ' ' . htmlspecialchars($detalle['producto_nombre']) ?></div>
+                <div class="producto-nombre"><?= htmlspecialchars($detalle['producto_nombre']) ?></div>
                 <div class="producto-detalle">
-                    <?= $detalle['cantidad'] ?> x $<?= number_format($detalle['precio_unitario'], 0, ',', '.') ?> = 
-                    $<?= number_format($detalle['cantidad'] * $detalle['precio_unitario'], 0, ',', '.') ?>
+                    <?= number_format($detalle['cantidad'], 0) ?> x $<?= number_format($detalle['precio_unitario'], 0, ',', '.') ?> = 
+                    $<?= number_format($detalle['total_item'], 0, ',', '.') ?>
                 </div>
             </div>
         <?php endforeach; ?>

@@ -195,6 +195,10 @@ if (
                     <div class="flex items-center space-x-3">
                         <i class="fas fa-cash-register text-indigo-600 text-xl"></i>
                         <span class="text-lg font-semibold text-gray-800">VendEasy POS</span>
+                        <a href="/welcome.php" class="ml-4 px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors text-sm flex items-center">
+                            <i class="fas fa-home mr-2"></i>
+                            Home
+                        </a>
                     </div>
                 </div>
 
@@ -284,11 +288,25 @@ if (
                             <input type="text"
                                 id="buscar-producto"
                                 class="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 placeholder-gray-400"
-                                placeholder="Buscar productos por nombre o código de barras...">
+                                placeholder="Buscar productos por nombre o escanear código de barras..."
+                                autocomplete="off"
+                                data-scanner-enabled="true"
+                                autofocus>
                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <i class="fas fa-search text-gray-400"></i>
+                                <i class="fas fa-barcode text-gray-400"></i>
+                            </div>
+                            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded">
+                                    <i class="fas fa-keyboard mr-1"></i> Buscar
+                                    <span class="mx-1">|</span>
+                                    <i class="fas fa-barcode mr-1"></i> Escanear
+                                </span>
                             </div>
                         </div>
+                    </div>
+                    <div class="mt-1 text-xs text-gray-500 flex items-center justify-center">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        Escanea un código de barras o escribe para buscar productos
                     </div>
 
                     <!-- Grid de productos mejorado con scroll -->
@@ -406,7 +424,6 @@ if (
                             <div class="grid grid-cols-2 gap-2">
                                 <select id="tipo-documento" class="w-full border border-gray-300 rounded-lg text-xs py-1.5 px-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200">
                                     <option value="factura">Factura de venta</option>
-                                    <option value="cotizacion">Cotización</option>
                                 </select>
                                 <select id="numeracion" class="w-full border border-gray-300 rounded-lg text-xs py-1.5 px-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200">
                                     <option value="principal">Principal</option>
@@ -1170,7 +1187,11 @@ if (
         function agregarProductoAlCarrito(producto) {
             const listaVenta = document.getElementById('venta-lista');
             const listaEmpty = document.getElementById('venta-lista-empty');
-            const cantidadItems = document.getElementById('cantidad-items');
+            
+            if (!listaVenta || !listaEmpty) {
+                console.error('Elementos del carrito no encontrados');
+                return;
+            }
             
             // Verificar si el producto ya está en el carrito
             const productoExistente = document.querySelector(`tr[data-id="${producto.id}"]`);
@@ -1178,10 +1199,12 @@ if (
             if (productoExistente) {
                 // Incrementar cantidad si el producto ya existe
                 const cantidadInput = productoExistente.querySelector('input[type="number"]');
-                const cantidadActual = parseInt(cantidadInput.value);
-                if (cantidadActual < producto.cantidad) {
-                    cantidadInput.value = cantidadActual + 1;
-                    actualizarTotalProducto(productoExistente);
+                if (cantidadInput) {
+                    const cantidadActual = parseInt(cantidadInput.value);
+                    if (cantidadActual < producto.cantidad) {
+                        cantidadInput.value = cantidadActual + 1;
+                        actualizarTotalProducto(productoExistente);
+                    }
                 }
             } else {
                 // Agregar nuevo producto
@@ -1192,7 +1215,7 @@ if (
                     <td class="py-2">
                         <div class="flex flex-col">
                             <span class="font-medium text-xs text-gray-900">${producto.nombre}</span>
-                            <span class="text-xs text-gray-500">${producto.codigo}</span>
+                            <span class="text-xs text-gray-500">${producto.codigo || ''}</span>
                         </div>
                     </td>
                     <td class="text-center">
@@ -1229,14 +1252,12 @@ if (
                 `;
                 
                 listaVenta.appendChild(tr);
+                listaEmpty.style.display = 'none';
             }
             
             // Actualizar UI
             actualizarTotales();
             actualizarVisibilidadCarritoVacio();
-            
-            // Habilitar botón de procesar venta
-            document.getElementById('procesar-venta').disabled = false;
         }
 
         // Funciones para manipular cantidades
@@ -1272,12 +1293,6 @@ if (
             tr.remove();
             actualizarTotales();
             actualizarVisibilidadCarritoVacio();
-            
-            // Deshabilitar botón si no hay productos
-            const productos = document.querySelectorAll('#venta-lista tr');
-            if (productos.length === 0) {
-                document.getElementById('procesar-venta').disabled = true;
-            }
         }
 
         // Función para actualizar el total de un producto
@@ -1295,33 +1310,63 @@ if (
             let subtotal = 0;
             const productos = document.querySelectorAll('#venta-lista tr');
             const cantidadItems = document.getElementById('cantidad-items');
+            const subtotalElement = document.getElementById('subtotal');
+            const descuentoInput = document.getElementById('descuento');
+            const descuentoMontoElement = document.getElementById('descuento-monto');
+            const totalElement = document.getElementById('venta-total');
+            const procesarVentaBtn = document.getElementById('procesar-venta');
             
-            productos.forEach(tr => {
-                const cantidad = parseInt(tr.querySelector('input[type="number"]').value);
-                const precio = parseFloat(tr.getAttribute('data-precio'));
-                subtotal += cantidad * precio;
-            });
+            // Verificar que todos los elementos necesarios existan
+            if (!cantidadItems || !subtotalElement || !descuentoInput || 
+                !descuentoMontoElement || !totalElement || !procesarVentaBtn) {
+                console.error('Algunos elementos del DOM no están disponibles');
+                return;
+            }
             
             // Actualizar contador de items
             cantidadItems.textContent = productos.length;
             
+            // Calcular subtotal
+            productos.forEach(tr => {
+                const cantidadInput = tr.querySelector('input[type="number"]');
+                if (cantidadInput) {
+                    const cantidad = parseInt(cantidadInput.value) || 0;
+                    const precio = parseFloat(tr.getAttribute('data-precio')) || 0;
+                    subtotal += cantidad * precio;
+                }
+            });
+            
             // Actualizar subtotal
-            document.getElementById('subtotal').textContent = `$${subtotal.toLocaleString('es-CO')}`;
+            subtotalElement.textContent = `$${subtotal.toLocaleString('es-CO')}`;
             
             // Calcular y actualizar descuento
-            const descuentoPorcentaje = parseInt(document.getElementById('descuento').value) || 0;
+            const descuentoPorcentaje = parseInt(descuentoInput.value) || 0;
             const descuentoMonto = (subtotal * descuentoPorcentaje) / 100;
-            document.getElementById('descuento-monto').textContent = `-$${descuentoMonto.toLocaleString('es-CO')}`;
+            descuentoMontoElement.textContent = `-$${descuentoMonto.toLocaleString('es-CO')}`;
             
             // Actualizar total
             const total = subtotal - descuentoMonto;
-            document.getElementById('venta-total').textContent = `$${total.toLocaleString('es-CO')}`;
+            totalElement.textContent = `$${total.toLocaleString('es-CO')}`;
+
+            // Actualizar estado del botón procesar venta
+            if (productos.length > 0) {
+                procesarVentaBtn.disabled = false;
+                procesarVentaBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            } else {
+                procesarVentaBtn.disabled = true;
+                procesarVentaBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
         }
 
         // Función para actualizar visibilidad del mensaje de carrito vacío
         function actualizarVisibilidadCarritoVacio() {
             const listaVenta = document.getElementById('venta-lista');
             const listaEmpty = document.getElementById('venta-lista-empty');
+            
+            if (!listaVenta || !listaEmpty) {
+                console.error('Elementos del carrito no encontrados');
+                return;
+            }
             
             if (listaVenta.children.length > 0) {
                 listaEmpty.style.display = 'none';
@@ -1370,9 +1415,7 @@ if (
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.all.min.js"></script>
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script src="js/index.js" defer></script>
-    <script src="js/header.js" defer></script>
-    <script src="js/pos.js"></script>
+    <script src="/modules/pos/js/pos.js"></script>
 </body>
 
 </html>

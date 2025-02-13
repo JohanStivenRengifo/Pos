@@ -7,17 +7,7 @@ function e($string) {
 }
 
 // Obtener información del usuario
-$user = [];
-if (isset($_SESSION['user_id'])) {
-    try {
-        $stmt = $pdo->prepare("SELECT * FROM usuarios WHERE id = ?");
-        $stmt->execute([$_SESSION['user_id']]);
-        $user = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
-    } catch (PDOException $e) {
-        error_log("Error al obtener datos del usuario: " . $e->getMessage());
-        $user = [];
-    }
-}
+$user = $_SESSION['user'] ?? [];
 
 // Verificar si la ruta base está definida
 $rutaBase = $rutaBase ?? '';

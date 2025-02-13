@@ -82,10 +82,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         // Iniciar sesión con datos completos
         session_regenerate_id(true);
+        $_SESSION['user'] = [
+            'id' => $user['id'],
+            'nombre' => $user['nombre'],
+            'rol' => $user['rol'],
+            'email' => $user['email'],
+            'empresa_id' => $user['empresa_id'],
+            'estado' => $user['estado']
+        ];
         $_SESSION['user_id'] = $user['id'];
-        $_SESSION['user_name'] = $user['nombre'];
-        $_SESSION['user_role'] = $user['rol'];
-        $_SESSION['user_email'] = $user['email'];
         $_SESSION['empresa_id'] = $user['empresa_id'];
         $_SESSION['last_activity'] = time();
         $_SESSION['created_at'] = time();

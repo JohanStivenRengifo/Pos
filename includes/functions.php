@@ -279,23 +279,51 @@ function resetLoginAttempts($pdo, $user_id)
 
 function logoutUser($pdo)
 {
-    $user_id = $_SESSION['user_id'] ?? null;
+    // Guardar el ID del usuario antes de limpiar la sesión
+    $user_id = $_SESSION['user']['id'] ?? null;
+
+    // Limpiar todas las variables de sesión
     $_SESSION = array();
-    if (ini_get("session.use_cookies")) {
+
+    // Destruir la cookie de sesión si existe
+    if (isset($_COOKIE[session_name()])) {
         $params = session_get_cookie_params();
-        setcookie(session_name(), '', time() - 42000, $params["path"], $params["domain"], $params["secure"], $params["httponly"]);
+        setcookie(
+            session_name(),
+            '',
+            time() - 42000,
+            $params["path"],
+            $params["domain"],
+            $params["secure"],
+            $params["httponly"]
+        );
     }
-    session_destroy();
 
-    // Eliminar el token de remember_me de la base de datos
+    // Eliminar el token de remember_me de la base de datos si existe
     if ($user_id) {
-        $sql = "UPDATE users SET remember_token = NULL, token_expires = NULL WHERE id = :id";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute(['id' => $user_id]);
+        try {
+            $stmt = $pdo->prepare("UPDATE users SET remember_token = NULL, token_expires = NULL WHERE id = ?");
+            $stmt->execute([$user_id]);
+        } catch (PDOException $e) {
+            error_log("Error al limpiar remember token: " . $e->getMessage());
+        }
     }
 
-    // Eliminar la cookie remember_token
-    setcookie('remember_token', '', time() - 3600, COOKIE_PATH, COOKIE_DOMAIN, COOKIE_SECURE, COOKIE_HTTPONLY);
+    // Eliminar la cookie remember_token si existe
+    if (isset($_COOKIE['remember_token'])) {
+        setcookie(
+            'remember_token',
+            '',
+            time() - 3600,
+            '/',
+            '',
+            true,
+            true
+        );
+    }
+
+    // Destruir la sesión
+    session_destroy();
 }
 
 /**
@@ -658,4 +686,36 @@ function obtenerProductos($pdo, $user_id) {
         error_log("Error obteniendo productos: " . $e->getMessage());
         return [];
     }
+}
+
+function isLoggedIn() {
+    // Verificar si existe la sesión del usuario
+    if (!isset($_SESSION['user']) || !is_array($_SESSION['user'])) {
+        return false;
+    }
+
+    // Verificar que todos los campos necesarios estén presentes
+    $required_fields = ['id', 'nombre', 'rol', 'email', 'empresa_id', 'estado'];
+    foreach ($required_fields as $field) {
+        if (!isset($_SESSION['user'][$field])) {
+            return false;
+        }
+    }
+
+    // Verificar que el estado sea activo
+    if ($_SESSION['user']['estado'] !== 'activo') {
+        return false;
+    }
+
+    // Verificar tiempo de inactividad (30 minutos)
+    if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > 1800)) {
+        session_unset();
+        session_destroy();
+        return false;
+    }
+
+    // Actualizar tiempo de última actividad
+    $_SESSION['last_activity'] = time();
+
+    return true;
 }

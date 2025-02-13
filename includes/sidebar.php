@@ -196,6 +196,7 @@ function getNotificationCount($module) {
     ];
     return $counts[$module] ?? 0;
 }
+
 ?>
 
 <aside class="min-h-screen w-72 bg-white border-r border-gray-200 flex flex-col fixed left-0 top-0 h-screen shadow-lg" id="sidebar">

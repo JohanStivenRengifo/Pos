@@ -184,10 +184,18 @@ try {
 
     // Obtener detalles de la venta
     $stmt = $pdo->prepare("
-        SELECT vd.*, i.nombre, i.codigo_barras
+        SELECT 
+            i.nombre, 
+            i.codigo_barras,
+            i.impuesto,
+            i.precio_venta,
+            SUM(vd.cantidad) as cantidad,
+            vd.precio_unitario,
+            SUM(vd.cantidad * vd.precio_unitario) as total_item
         FROM venta_detalles vd
         LEFT JOIN inventario i ON vd.producto_id = i.id
         WHERE vd.venta_id = ?
+        GROUP BY i.id, i.nombre, i.codigo_barras, i.impuesto, i.precio_venta, vd.precio_unitario
     ");
     
     if (!$stmt->execute([$_GET['id']])) {
@@ -245,7 +253,7 @@ try {
             
             $this->SetXY(130, 18);
             $this->SetFont('Arial', 'B', 12);
-            $this->Cell(70, 8, $this->normalize('No. ' . ($venta['prefijo_factura'] ?? '') . $venta['numero_factura']), 0, 1, 'R');
+            $this->Cell(70, 8, $this->normalize('No. ' . $venta['numero_factura']), 0, 1, 'R');
             
             // Fechas
             $this->SetXY(130, 26);
@@ -327,7 +335,7 @@ try {
             // Encabezados con bordes más sutiles y mejor espaciado
             $this->SetDrawColor(200, 200, 200);
             $this->Cell(25, 8, $this->normalize('Código'), 'TB', 0, 'C', true);
-            $this->Cell(85, 8, $this->normalize('Descripción'), 'TB', 0, 'L', true);
+            $this->Cell(75, 8, $this->normalize('Descripción'), 'TB', 0, 'L', true);
             $this->Cell(20, 8, $this->normalize('Cant.'), 'TB', 0, 'C', true);
             $this->Cell(30, 8, $this->normalize('Precio'), 'TB', 0, 'R', true);
             $this->Cell(30, 8, $this->normalize('Total'), 'TB', 1, 'R', true);
@@ -430,21 +438,20 @@ try {
     $pdf->SetFont('Arial', '', 9);
     
     $subtotal = 0;
-    foreach ($detalles as $detalle) {
-        $total_item = $detalle['cantidad'] * $detalle['precio_unitario'];
-        $subtotal += $total_item;
-
-        // Descripción del producto con referencia
-        $descripcion = $detalle['nombre'];
-        if (!empty($detalle['codigo_barras'])) {
-            $descripcion .= ' (Ref: ' . $detalle['codigo_barras'] . ')';
-        }
-
-        $pdf->Cell(25, 6, substr($detalle['codigo_barras'], -6), 1, 0, 'C');
-        $pdf->Cell(85, 6, iconv('UTF-8', 'ISO-8859-1', $descripcion), 1, 0, 'L');
+    $total_iva = 0;
+    foreach ($detalles as &$detalle) {
+        $precio_sin_iva = round($detalle['precio_unitario'] / (1 + ($detalle['impuesto'] / 100)));
+        $subtotal_item = $precio_sin_iva * $detalle['cantidad'];
+        $subtotal += $subtotal_item;
+        
+        $iva_producto = round($subtotal_item * ($detalle['impuesto'] / 100));
+        $total_iva += $iva_producto;
+        
+        $pdf->Cell(25, 6, $detalle['codigo_barras'], 1, 0, 'C');
+        $pdf->Cell(75, 6, $pdf->normalize($detalle['nombre']), 1, 0, 'L');
         $pdf->Cell(20, 6, number_format($detalle['cantidad'], 0), 1, 0, 'C');
         $pdf->Cell(30, 6, '$ ' . number_format($detalle['precio_unitario'], 0, ',', '.'), 1, 0, 'R');
-        $pdf->Cell(30, 6, '$ ' . number_format($total_item, 0, ',', '.'), 1, 1, 'R');
+        $pdf->Cell(30, 6, '$ ' . number_format($detalle['total_item'], 0, ',', '.'), 1, 1, 'R');
     }
 
     // Totales
@@ -465,63 +472,31 @@ try {
     // IVA
     $pdf->SetX($x_position);
     $pdf->Cell($width_label, 7, $pdf->normalize('IVA (19%):'), 0, 0, 'R');
-    $pdf->Cell($width_value, 7, '$ ' . number_format($venta['total'] * 0.19, 0, ',', '.'), 0, 1, 'R');
+    $pdf->Cell($width_value, 7, '$ ' . number_format($total_iva, 0, ',', '.'), 0, 1, 'R');
+
+    // Calcular el total antes del descuento
+    $total_antes_descuento = $subtotal + $total_iva;
+
+    // Descuento si existe
+    if ($venta['descuento'] > 0) {
+        $pdf->SetX($x_position);
+        $descuento_valor = round($total_antes_descuento * ($venta['descuento'] / 100));
+        $pdf->Cell($width_label, 7, $pdf->normalize('Descuento (' . $venta['descuento'] . '%):'), 0, 0, 'R');
+        $pdf->Cell($width_value, 7, '-$ ' . number_format($descuento_valor, 0, ',', '.'), 0, 1, 'R');
+        $total_final = $total_antes_descuento - $descuento_valor;
+    } else {
+        $total_final = $total_antes_descuento;
+    }
 
     // Total
     $pdf->SetX($x_position);
     $pdf->SetFont('Arial', 'B', 12);
     $pdf->Cell($width_label, 9, $pdf->normalize('TOTAL:'), 'T', 0, 'R');
-    $pdf->Cell($width_value, 9, '$ ' . number_format($venta['total'] * 1.19, 0, ',', '.'), 'T', 1, 'R');
+    $pdf->Cell($width_value, 9, '$ ' . number_format($total_final, 0, ',', '.'), 'T', 1, 'R');
 
     // Valor en letras
     $pdf->SetFont('Arial', 'I', 10);
-    $pdf->Cell(0, 8, $pdf->normalize('Son: ' . NumeroALetras::convertir($venta['total'] * 1.19, 'PESOS')), 0, 1, 'L');
-
-    // Información legal y resolución DIAN
-    $pdf->Ln(10);
-    $pdf->SetFont('Arial', 'B', 9);
-    $pdf->Cell(0, 6, $pdf->normalize('Información Legal:'), 0, 1, 'L');
-    $pdf->SetFont('Arial', '', 9);
-    $pdf->MultiCell(0, 5, $pdf->normalize("• Resolución DIAN: " . ($venta['numero_inicial'] ?? '') . " al " . ($venta['numero_final'] ?? '') . "\n" .
-        "• Régimen Fiscal: " . ($venta['regimen_fiscal'] ?? 'No responsable de IVA')), 0, 'L');
-
-    // Si es factura electrónica, agregar CUFE y QR
-    if ($venta['numeracion'] === 'electronica' && !empty($venta['cufe'])) {
-        $pdf->Ln(5);
-        $pdf->SetFont('Arial', 'B', 9);
-        $pdf->Cell(0, 6, 'CUFE:', 0, 1, 'L');
-        $pdf->SetFont('Arial', '', 8);
-        $pdf->MultiCell(0, 4, $venta['cufe'], 0, 'L');
-
-        if (!empty($venta['qr_code'])) {
-            $qrImage = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $venta['qr_code']));
-            $tmpfile = tempnam(sys_get_temp_dir(), 'qr_');
-            file_put_contents($tmpfile, $qrImage);
-            $pdf->Image($tmpfile, 15, $pdf->GetY() + 5, 30);
-            unlink($tmpfile);
-        }
-    }
-
-    // Espacios para firmas
-    $pdf->Ln(20);
-    $pdf->Cell(95, 0, '', 'T', 0, 'C');
-    $pdf->Cell(20, 0, '', 0, 0);
-    $pdf->Cell(95, 0, '', 'T', 1, 'C');
-    
-    $pdf->SetFont('Arial', '', 10);
-    $pdf->Cell(95, 5, $pdf->normalize('VENDEDOR'), 0, 0, 'C');
-    $pdf->Cell(20, 5, '', 0, 0);
-    $pdf->Cell(95, 5, $pdf->normalize('CLIENTE'), 0, 1, 'C');
-    
-    $pdf->SetFont('Arial', '', 8);
-    $pdf->Cell(95, 5, $pdf->normalize($venta['nombre_empresa']), 0, 0, 'C');
-    $pdf->Cell(20, 5, '', 0, 0);
-    $pdf->Cell(95, 5, $pdf->normalize($nombre_cliente), 0, 1, 'C');
-
-    // Pie de página personalizado
-    $pdf->Ln(10);
-    $pdf->SetFont('Arial', 'I', 8);
-    $pdf->Cell(0, 5, $pdf->normalize('Generado en www.johanrengifo.cloud'), 0, 1, 'C');
+    $pdf->Cell(0, 8, $pdf->normalize('Son: ' . NumeroALetras::convertir($total_final, 'PESOS')), 0, 1, 'L');
 
     try {
         // Enviar el PDF

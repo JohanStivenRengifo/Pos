@@ -25,14 +25,26 @@ try {
     $stmt->execute([$_GET['id']]);
     $venta = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    // Obtener detalles
+    // Obtener detalles de la venta
     $stmt = $pdo->prepare("
-        SELECT vd.*, i.nombre, i.codigo_barras, i.ubicacion
+        SELECT 
+            i.nombre, 
+            i.codigo_barras,
+            i.impuesto,
+            i.precio_venta,
+            SUM(vd.cantidad) as cantidad,
+            vd.precio_unitario,
+            SUM(vd.cantidad * vd.precio_unitario) as total_item
         FROM venta_detalles vd
         LEFT JOIN inventario i ON vd.producto_id = i.id
         WHERE vd.venta_id = ?
+        GROUP BY i.id, i.nombre, i.codigo_barras, i.impuesto, i.precio_venta, vd.precio_unitario
     ");
-    $stmt->execute([$_GET['id']]);
+    
+    if (!$stmt->execute([$_GET['id']])) {
+        throw new Exception('Error al obtener los detalles de la venta');
+    }
+    
     $detalles = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     // Crear clase personalizada de PDF
@@ -65,11 +77,11 @@ try {
             $this->SetFont('Arial', 'B', 16);
             $this->Cell(0, 8, $this->normalize('VendEasy'), 0, 1, 'C');
             $this->SetFont('Arial', '', 10);
-            $this->Cell(0, 5, $this->normalize('NIT: ' . $venta['nit']), 0, 1, 'C');
-            $this->Cell(0, 5, $this->normalize($venta['empresa_direccion']), 0, 1, 'C');
+            $this->Cell(0, 5, $this->normalize('NIT: 1048067754'), 0, 1, 'C');
+            $this->Cell(0, 5, $this->normalize('Popayan'), 0, 1, 'C');
             $this->SetFont('Arial', '', 9);
-            $this->Cell(0, 5, $this->normalize('Tel: ' . $venta['empresa_telefono']), 0, 1, 'C');
-            $this->Cell(0, 5, $this->normalize($venta['empresa_email']), 0, 1, 'C');
+            $this->Cell(0, 5, $this->normalize('Tel: 3116035791'), 0, 1, 'C');
+            $this->Cell(0, 5, $this->normalize('johanstivenrengifo@outlook.com'), 0, 1, 'C');
 
             // Número de remisión y tipo (lado derecho)
             $this->SetXY(130, 10);
@@ -161,7 +173,7 @@ try {
             // Encabezados con bordes más sutiles y mejor espaciado
             $this->SetDrawColor(200, 200, 200);
             $this->Cell(25, 8, $this->normalize('Código'), 'TB', 0, 'C', true);
-            $this->Cell(85, 8, $this->normalize('Descripción'), 'TB', 0, 'L', true);
+            $this->Cell(75, 8, $this->normalize('Descripción'), 'TB', 0, 'L', true);
             $this->Cell(20, 8, $this->normalize('Cant.'), 'TB', 0, 'C', true);
             $this->Cell(30, 8, $this->normalize('Precio'), 'TB', 0, 'R', true);
             $this->Cell(30, 8, $this->normalize('Total'), 'TB', 1, 'R', true);
@@ -266,16 +278,20 @@ try {
     $pdf->SetFont('Arial', '', 9);
     
     $subtotal = 0;
+    $total_iva = 0;
     foreach ($detalles as $detalle) {
-        $precio_final = $detalle['precio_unitario'] - $detalle['descuento'];
-        $total_item = $precio_final * $detalle['cantidad'];
-        $subtotal += $total_item;
+        $precio_sin_iva = round($detalle['precio_unitario'] / (1 + ($detalle['impuesto'] / 100)));
+        $subtotal_item = $precio_sin_iva * $detalle['cantidad'];
+        $subtotal += $subtotal_item;
+        
+        $iva_producto = round($subtotal_item * ($detalle['impuesto'] / 100));
+        $total_iva += $iva_producto;
 
-        $pdf->Cell(25, 6, substr($detalle['codigo_barras'], -6), 1, 0, 'C');
-        $pdf->Cell(85, 6, $pdf->normalize($detalle['nombre']), 1, 0, 'L');
+        $pdf->Cell(25, 6, $detalle['codigo_barras'], 1, 0, 'C');
+        $pdf->Cell(75, 6, $pdf->normalize($detalle['nombre']), 1, 0, 'L');
         $pdf->Cell(20, 6, number_format($detalle['cantidad'], 0), 1, 0, 'C');
-        $pdf->Cell(30, 6, '$ ' . number_format($precio_final, 0, ',', '.'), 1, 0, 'R');
-        $pdf->Cell(30, 6, '$ ' . number_format($total_item, 0, ',', '.'), 1, 1, 'R');
+        $pdf->Cell(30, 6, '$ ' . number_format($detalle['precio_unitario'], 0, ',', '.'), 1, 0, 'R');
+        $pdf->Cell(30, 6, '$ ' . number_format($detalle['total_item'], 0, ',', '.'), 1, 1, 'R');
     }
 
     // Totales
@@ -296,13 +312,27 @@ try {
     // IVA
     $pdf->SetX($x_position);
     $pdf->Cell($width_label, 7, $pdf->normalize('IVA (19%):'), 0, 0, 'R');
-    $pdf->Cell($width_value, 7, '$ ' . number_format($venta['total'] * 0.19, 0, ',', '.'), 0, 1, 'R');
+    $pdf->Cell($width_value, 7, '$ ' . number_format($total_iva, 0, ',', '.'), 0, 1, 'R');
+
+    // Calcular el total antes del descuento
+    $total_antes_descuento = $subtotal + $total_iva;
+
+    // Descuento si existe
+    if ($venta['descuento'] > 0) {
+        $pdf->SetX($x_position);
+        $descuento_valor = round($total_antes_descuento * ($venta['descuento'] / 100));
+        $pdf->Cell($width_label, 7, $pdf->normalize('Descuento (' . $venta['descuento'] . '%):'), 0, 0, 'R');
+        $pdf->Cell($width_value, 7, '-$ ' . number_format($descuento_valor, 0, ',', '.'), 0, 1, 'R');
+        $total_final = $total_antes_descuento - $descuento_valor;
+    } else {
+        $total_final = $total_antes_descuento;
+    }
 
     // Total
     $pdf->SetX($x_position);
     $pdf->SetFont('Arial', 'B', 12);
     $pdf->Cell($width_label, 9, $pdf->normalize('TOTAL:'), 'T', 0, 'R');
-    $pdf->Cell($width_value, 9, '$ ' . number_format($venta['total'] * 1.19, 0, ',', '.'), 'T', 1, 'R');
+    $pdf->Cell($width_value, 9, '$ ' . number_format($total_final, 0, ',', '.'), 'T', 1, 'R');
 
     // Información adicional
     $pdf->Ln(10);
