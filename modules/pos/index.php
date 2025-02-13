@@ -248,28 +248,6 @@ if (
                             <span class="text-xs text-blue-700 font-medium">Reimprimir Facturas</span>
                         </button>
                     </li>
-
-                    <!-- Perfil de usuario simplificado -->
-                    <li class="h-full flex items-center gap-2">
-                        <div class="flex items-center gap-2">
-                            <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center">
-                                <span class="text-sm font-medium text-indigo-600">
-                                    <?= substr($user_name, 0, 1) ?>
-                                </span>
-                            </div>
-                            <div class="hidden md:block text-left">
-                                <p class="text-sm font-medium text-gray-700">
-                                    <?= htmlspecialchars($user_name) ?>
-                                </p>
-                                <p class="text-xs text-gray-500">
-                                    <?= htmlspecialchars($user_role) ?>
-                                </p>
-                            </div>
-                        </div>
-                        <button onclick="toggleProfileMenu()" class="ml-2 p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors">
-                            <i class="fas fa-sign-out-alt"></i>
-                        </button>
-                    </li>
                 </ul>
             </div>
         </div>
