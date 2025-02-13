@@ -156,7 +156,7 @@ class MailController {
     }
 
     // Método base para enviar correos
-    private function sendEmail($to, $subject, $content) {
+    public function sendEmail($to, $subject, $content) {
         $message = $this->getBaseTemplate($content);
         return sendEmail($to, $subject, $message);
     }
