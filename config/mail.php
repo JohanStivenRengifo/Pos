@@ -184,24 +184,28 @@ $mailer->sendSubscriptionReminder('usuario@ejemplo.com', 'Juan Pérez', '2024-03
 
 // Función para enviar correos
 function sendEmail($to, $subject, $message, $from = SMTP_FROM, $fromName = SMTP_FROM_NAME) {
-    // Headers para enviar HTML
-    $headers = "MIME-Version: 1.0\r\n";
-    $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
-    $headers .= "From: {$fromName} <{$from}>\r\n";
-    $headers .= "Reply-To: {$from}\r\n";
-    $headers .= "X-Mailer: PHP/" . phpversion();
-
-    // Configurar el envío SMTP
-    ini_set("SMTP", SMTP_HOST);
-    ini_set("smtp_port", SMTP_PORT);
-    ini_set("sendmail_from", SMTP_FROM);
-
-    // Configurar autenticación SMTP
-    $additional_params = "-f " . SMTP_FROM;
+    require_once __DIR__ . '/../vendor/autoload.php';
     
-    // Intentar enviar el correo
+    $mail = new PHPMailer\PHPMailer\PHPMailer(true);
+    
     try {
-        return mail($to, $subject, $message, $headers, $additional_params);
+        $mail->isSMTP();
+        $mail->Host = SMTP_HOST;
+        $mail->SMTPAuth = true;
+        $mail->Username = SMTP_USER;
+        $mail->Password = SMTP_PASS;
+        $mail->SMTPSecure = PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
+        $mail->Port = SMTP_PORT;
+        
+        $mail->setFrom($from, $fromName);
+        $mail->addAddress($to);
+        $mail->isHTML(true);
+        $mail->CharSet = 'UTF-8';
+        
+        $mail->Subject = $subject;
+        $mail->Body = $message;
+        
+        return $mail->send();
     } catch (Exception $e) {
         error_log("Error enviando correo: " . $e->getMessage());
         return false;
