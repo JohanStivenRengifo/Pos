@@ -192,12 +192,12 @@ require_once 'config/config.php';
                                 <p class="text-gray-600 text-sm">Respuesta inmediata</p>
                             </div>
                         </a>
-                        <a href="mailto:privacidad@vendeasy.com" 
+                        <a href="mailto:privacidad@johanrengifo.cloud" 
                            class="flex items-center space-x-3 bg-white p-4 rounded-xl hover:shadow-md transition-shadow">
                             <i class="fas fa-envelope text-blue-500 text-2xl"></i>
                             <div>
                                 <h3 class="font-medium text-gray-900">Email</h3>
-                                <p class="text-gray-600 text-sm">privacidad@vendeasy.com</p>
+                                <p class="text-gray-600 text-sm">privacidad@johanrengifo.cloud</p>
                             </div>
                         </a>
                     </div>

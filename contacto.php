@@ -78,8 +78,8 @@ require_once 'config/config.php';
                             <i class="fas fa-envelope text-2xl"></i>
                         </div>
                         <h3 class="text-xl font-semibold text-gray-900 mb-4">Email</h3>
-                        <p class="text-gray-600 mb-6">soporte@vendeasy.com</p>
-                        <a href="mailto:soporte@vendeasy.com" 
+                        <p class="text-gray-600 mb-6">soporte@johanrengifo.cloud</p>
+                        <a href="mailto:soporte@johanrengifo.cloud" 
                            class="inline-flex items-center justify-center space-x-3 bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 px-6 rounded-xl transition-all duration-300 w-full">
                             <i class="fas fa-paper-plane"></i>
                             <span>Enviar email</span>

@@ -1,21 +1,24 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?php
+header("Content-Type: application/xml; charset=UTF-8");
+echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
+?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
         <loc>https://johanrengifo.cloud/</loc>
-        <lastmod><?php echo date('Y-m-d'); ?></lastmod>
+        <lastmod><?= date('Y-m-d'); ?></lastmod>
         <changefreq>weekly</changefreq>
         <priority>1.0</priority>
     </url>
     <url>
         <loc>https://johanrengifo.cloud/terminos-y-condiciones.php</loc>
-        <lastmod><?php echo date('Y-m-d'); ?></lastmod>
+        <lastmod><?= date('Y-m-d'); ?></lastmod>
         <changefreq>monthly</changefreq>
         <priority>0.5</priority>
     </url>
     <url>
         <loc>https://johanrengifo.cloud/politica-privacidad.php</loc>
-        <lastmod><?php echo date('Y-m-d'); ?></lastmod>
+        <lastmod><?= date('Y-m-d'); ?></lastmod>
         <changefreq>monthly</changefreq>
         <priority>0.5</priority>
     </url>
-</urlset> 
+</urlset>

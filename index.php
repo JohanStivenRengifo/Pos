@@ -46,18 +46,18 @@ if (isset($_SESSION['user_id'])) {
     <!-- Open Graph Meta Tags -->
     <meta property="og:title" content="VendEasy - Sistema Contable Profesional">
     <meta property="og:description" content="Sistema contable profesional para empresas colombianas. Gestiona tus finanzas de manera eficiente con la plataforma líder en el mercado.">
-    <meta property="og:image" content="https://vendeasy.com/assets/img/og-image.jpg">
-    <meta property="og:url" content="https://vendeasy.com">
+    <meta property="og:image" content="https://johanrengifo.cloud/assets/img/og-image.jpg">
+    <meta property="og:url" content="https://johanrengifo.cloud">
     <meta property="og:type" content="website">
     
     <!-- Twitter Card Meta Tags -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="VendEasy - Sistema Contable Profesional">
     <meta name="twitter:description" content="Sistema contable profesional para empresas colombianas. Gestiona tus finanzas de manera eficiente.">
-    <meta name="twitter:image" content="https://vendeasy.com/assets/img/twitter-card.jpg">
+    <meta name="twitter:image" content="https://johanrengifo.cloud/assets/img/twitter-card.jpg">
     
     <!-- Canonical URL -->
-    <link rel="canonical" href="https://vendeasy.com">
+    <link rel="canonical" href="https://johanrengifo.cloud">
     
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="/favicon/favicon.ico" />
@@ -639,7 +639,7 @@ if (isset($_SESSION['user_id'])) {
                 <ul class="space-y-3">
                     <li class="flex items-center text-gray-400 hover:text-white transition-colors duration-300">
                         <i class="fas fa-envelope mr-3 text-blue-400"></i>
-                        <a href="mailto:soporte@vendeasy.com">soporte@vendeasy.com</a>
+                        <a href="mailto:soporte@johanrengifo.cloud">soporte@johanrengifo.cloud</a>
                     </li>
                     <li class="flex items-center text-gray-400 hover:text-white transition-colors duration-300">
                         <i class="fas fa-phone mr-3 text-blue-400"></i>
