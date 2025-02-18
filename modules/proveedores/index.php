@@ -325,7 +325,7 @@ $proveedores = getUserProveedores($user_id);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Proveedores | VendEasy</title>
+    <title>Proveedores | Numercia</title>
     <link rel="icon" type="image/png" href="/favicon/favicon.ico"/>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
@@ -927,7 +927,7 @@ $proveedores = getUserProveedores($user_id);
             day: '2-digit'
         }).replace(/\//g, '-');
         
-        XLSX.writeFile(wb, `Proveedores_VendEasy_${fecha}.xlsx`);
+        XLSX.writeFile(wb, `Proveedores_Numercia_${fecha}.xlsx`);
     }
 
     // Actualizar el botón de exportar para mostrar opciones

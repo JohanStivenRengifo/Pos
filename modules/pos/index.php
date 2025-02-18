@@ -158,8 +158,8 @@ if (
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VendEasy POS</title>
-    <link rel="icon" type="image/png" href="./favicon/favicon.ico" />
+    <title>Numercia POS</title>
+    <link rel="icon" type="image/png" href="../../favicon/favicon.ico" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -194,7 +194,7 @@ if (
                     <!-- Logo -->
                     <div class="flex items-center space-x-3">
                         <i class="fas fa-cash-register text-indigo-600 text-xl"></i>
-                        <span class="text-lg font-semibold text-gray-800">VendEasy POS</span>
+                        <span class="text-lg font-semibold text-gray-800">Numercia POS</span>
                         <a href="/welcome.php" class="ml-4 px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors text-sm flex items-center">
                             <i class="fas fa-home mr-2"></i>
                             Home

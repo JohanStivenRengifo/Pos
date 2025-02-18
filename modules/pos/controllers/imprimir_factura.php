@@ -27,7 +27,12 @@ try {
             e.telefono as empresa_telefono,
             e.correo_contacto as empresa_email,
             e.logo as empresa_logo,
-            e.regimen_fiscal
+            e.regimen_fiscal,
+            e.tipo_persona as empresa_tipo,
+            e.responsabilidad_tributaria as empresa_responsabilidad,
+            e.departamento,
+            e.municipio,
+            e.codigo_postal
         FROM ventas v
         LEFT JOIN clientes c ON v.cliente_id = c.id
         LEFT JOIN users u ON v.user_id = u.id
@@ -49,6 +54,7 @@ try {
             vd.producto_id,
             i.nombre as producto_nombre,
             i.codigo_barras,
+            i.descripcion,
             SUM(vd.cantidad) as cantidad,
             vd.precio_unitario,
             SUM(vd.cantidad * vd.precio_unitario) as total_item
@@ -69,7 +75,7 @@ try {
     <html lang="es">
     <head>
         <meta charset="UTF-8">
-        <title>Comprobante de Venta #<?= $venta['id'] ?></title>
+        <title>Factura #<?= $venta['numero_factura'] ?></title>
         <style>
             @page {
                 <?php if ($formato === '80mm'): ?>
@@ -221,8 +227,8 @@ try {
         </div>
 
         <div class="info-factura">
-            <?= $venta['tipo_documento'] == 'factura' ? 'Factura de venta' : 'Documento' ?> N° <?= $venta['id'] ?><br>
-            Fecha de emisión: <?= date('d/m/Y h:i a', strtotime($venta['fecha'])) ?><br>
+            <?= $venta['tipo_documento'] == 'factura' ? 'Factura de venta' : 'Documento' ?> N° <?= $venta['numero_factura'] ?><br>
+            Fecha de emisión: <?= date('d/m/Y H:i:s', strtotime($venta['fecha'])) ?><br>
             Forma de pago: Contado<br>
             Método de pago: <?= ucfirst($venta['metodo_pago']) ?><br>
             Vendedor: <?= htmlspecialchars($venta['vendedor_nombre']) ?><br>
@@ -272,8 +278,8 @@ try {
 
         <div class="footer">
             <strong><?= htmlspecialchars($venta['empresa_nombre']) ?></strong><br>
-            <span style="color: #666;">Generado por VendEasy POS</span><br>
-            <span style="color: #666;">www.johanrengifo.cloud</span>
+            <span style="color: #666;">Generado por Numercia POS</span><br>
+            <span style="color: #666;">www.numercia.com</span>
         </div>
 
         <?php if ($formato === 'carta'): ?>

@@ -63,12 +63,14 @@ try {
 
         // Calcular el total
         $total = 0;
+        $subtotal = 0;
         foreach ($productos as $producto) {
             if (!is_numeric($producto['cantidad']) || !is_numeric($producto['precio'])) {
                 throw new Exception("Los valores de cantidad y precio deben ser numéricos");
             }
-            $subtotal = $producto['cantidad'] * $producto['precio'];
-            $total += $subtotal;
+            $subtotal_producto = $producto['cantidad'] * $producto['precio'];
+            $subtotal += $subtotal_producto;
+            $total += $subtotal_producto;
         }
 
         // Iniciar transacción
@@ -99,7 +101,7 @@ try {
                 tipo_documento,
                 estado_factura
             ) VALUES (
-                ?, ?, ?, ?, 0, 'Crédito', ?, ?, 'Factura', 'EMITIDA'
+                ?, ?, ?, ?, ?, 'Crédito', ?, ?, 'Factura', 'EMITIDA'
             )";
             
             $stmt = $pdo->prepare($query);
@@ -107,7 +109,8 @@ try {
                 $_SESSION['user_id'],
                 $cliente_id,
                 $total,
-                $total, // subtotal igual al total ya que no hay descuento
+                $subtotal,
+                0, // descuento
                 $fecha,
                 $numero_factura
             ]);
@@ -119,16 +122,19 @@ try {
                 venta_id,
                 producto_id,
                 cantidad,
-                precio_unitario
-            ) VALUES (?, ?, ?, ?)";
+                precio_unitario,
+                subtotal
+            ) VALUES (?, ?, ?, ?, ?)";
             
             $stmt = $pdo->prepare($query);
             foreach ($productos as $producto) {
+                $subtotal_detalle = $producto['cantidad'] * $producto['precio'];
                 $stmt->execute([
                     $venta_id,
                     $producto['id'],
                     $producto['cantidad'],
-                    $producto['precio']
+                    $producto['precio'],
+                    $subtotal_detalle
                 ]);
             }
 
@@ -211,7 +217,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nuevo Crédito | VendEasy</title>
+    <title>Nuevo Crédito | Numercia</title>
     <link rel="icon" href="../../favicon/favicon.ico" type="image/x-icon">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">

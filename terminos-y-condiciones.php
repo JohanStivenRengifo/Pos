@@ -7,8 +7,8 @@ require_once 'config/config.php';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Términos y Condiciones | VendEasy</title>
-    <meta name="description" content="Términos y condiciones de uso de VendEasy - Sistema de gestión empresarial">
+    <title>Términos y Condiciones | Numercia</title>
+    <meta name="description" content="Términos y condiciones de uso de Numercia - Sistema de gestión empresarial">
     <link rel="icon" type="image/png" href="/favicon/favicon.ico"/>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -22,10 +22,12 @@ require_once 'config/config.php';
     <header class="bg-white/80 backdrop-blur-md shadow-sm fixed w-full z-50">
         <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <div class="flex justify-between items-center">
-                <a href="/" class="flex items-center space-x-3 text-blue-600 text-xl font-bold hover:text-blue-700 transition-colors">
-                    <i class="fas fa-calculator"></i>
-                    <span>VendEasy</span>
-                </a>
+            <div class="flex items-center">
+                    <a href="/" class="flex items-center space-x-2">
+                        <img src="/favicon/favicon.ico" alt="Numercia Logo" class="h-8 w-8">
+                        <span class="text-xl font-bold text-gray-900">Numercia</span>
+                    </a>
+                </div>
                 <a href="/" class="flex items-center space-x-2 text-gray-600 hover:text-blue-600 transition-colors bg-white/80 py-2 px-4 rounded-lg shadow-sm hover:shadow">
                     <i class="fas fa-arrow-left"></i>
                     <span>Volver</span>
@@ -51,7 +53,7 @@ require_once 'config/config.php';
                         <h2 class="text-2xl font-semibold">Aceptación de los términos</h2>
                     </div>
                     <p class="text-gray-600 leading-relaxed pl-9">
-                        Al acceder y utilizar VendEasy, aceptas estar sujeto a estos términos y condiciones.
+                        Al acceder y utilizar Numercia, aceptas estar sujeto a estos términos y condiciones.
                         Si no estás de acuerdo con alguno de estos términos, te recomendamos no utilizar el servicio.
                     </p>
                 </section>
@@ -63,7 +65,7 @@ require_once 'config/config.php';
                         <h2 class="text-2xl font-semibold">Uso del servicio</h2>
                     </div>
                     <div class="pl-9">
-                        <p class="text-gray-600 mb-4">VendEasy te permite:</p>
+                        <p class="text-gray-600 mb-4">Numercia te permite:</p>
                         <div class="grid md:grid-cols-2 gap-4">
                             <div class="bg-blue-50 p-4 rounded-xl">
                                 <div class="flex items-center space-x-3 mb-2">
@@ -133,12 +135,12 @@ require_once 'config/config.php';
                                 <p class="text-gray-600 text-sm">Respuesta inmediata</p>
                             </div>
                         </a>
-                        <a href="mailto:soporte@johanrengifo.cloud" 
+                        <a href="mailto:soporte@numercia.com" 
                            class="flex items-center space-x-3 bg-white p-4 rounded-xl hover:shadow-md transition-shadow">
                             <i class="fas fa-envelope text-blue-500 text-2xl"></i>
                             <div>
                                 <h3 class="font-medium text-gray-900">Email</h3>
-                                <p class="text-gray-600 text-sm">soporte@johanrengifo.cloud</p>
+                                <p class="text-gray-600 text-sm">soporte@numercia.com</p>
                             </div>
                         </a>
                     </div>
@@ -152,7 +154,7 @@ require_once 'config/config.php';
         <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
             <div class="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
                 <div class="text-gray-600 text-sm">
-                    © <?= date('Y') ?> VendEasy. Todos los derechos reservados.
+                    © <?= date('Y') ?> Numercia. Todos los derechos reservados.
                 </div>
                 <div class="flex space-x-6">
                     <a href="/terminos-y-condiciones.php" class="text-gray-600 hover:text-blue-600 text-sm transition-colors">

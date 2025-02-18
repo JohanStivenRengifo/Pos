@@ -7,7 +7,7 @@ require_once '../config/config.php';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Error del servidor | VendEasy</title>
+    <title>Error del servidor | Numercia</title>
     <meta name="description" content="Lo sentimos, ha ocurrido un error interno del servidor.">
     <link rel="icon" type="image/png" href="../favicon/favicon.ico"/>
     <script src="https://cdn.tailwindcss.com"></script>

@@ -35,29 +35,29 @@ if (isset($_SESSION['user_id'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VendEasy - Sistema Contable Profesional para Empresas Colombianas</title>
+    <title>Numercia - Sistema Contable Profesional para Empresas Colombianas</title>
     
     <!-- SEO Meta Tags -->
-    <meta name="description" content="VendEasy es el sistema contable profesional líder en Colombia. Gestiona facturación electrónica, inventario y contabilidad de manera eficiente. Prueba gratuita por 14 días.">
-    <meta name="keywords" content="sistema contable, facturación electrónica, contabilidad en línea, software contable, facturación Colombia, VendEasy">
-    <meta name="author" content="VendEasy">
+    <meta name="description" content="Numercia es el sistema contable profesional líder en Colombia. Gestiona facturación electrónica, inventario y contabilidad de manera eficiente. Prueba gratuita por 14 días.">
+    <meta name="keywords" content="sistema contable, facturación electrónica, contabilidad en línea, software contable, facturación Colombia, Numercia">
+    <meta name="author" content="Numercia">
     <meta name="robots" content="index, follow">
     
     <!-- Open Graph Meta Tags -->
-    <meta property="og:title" content="VendEasy - Sistema Contable Profesional">
+    <meta property="og:title" content="Numercia - Sistema Contable Profesional">
     <meta property="og:description" content="Sistema contable profesional para empresas colombianas. Gestiona tus finanzas de manera eficiente con la plataforma líder en el mercado.">
-    <meta property="og:image" content="https://johanrengifo.cloud/assets/img/og-image.jpg">
-    <meta property="og:url" content="https://johanrengifo.cloud">
+    <meta property="og:image" content="https://numercia.com/assets/img/og-image.jpg">
+    <meta property="og:url" content="https://numercia.com">
     <meta property="og:type" content="website">
     
     <!-- Twitter Card Meta Tags -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="VendEasy - Sistema Contable Profesional">
+    <meta name="twitter:title" content="Numercia - Sistema Contable Profesional">
     <meta name="twitter:description" content="Sistema contable profesional para empresas colombianas. Gestiona tus finanzas de manera eficiente.">
-    <meta name="twitter:image" content="https://johanrengifo.cloud/assets/img/twitter-card.jpg">
+    <meta name="twitter:image" content="https://numercia.com/assets/img/twitter-card.jpg">
     
     <!-- Canonical URL -->
-    <link rel="canonical" href="https://johanrengifo.cloud">
+    <link rel="canonical" href="https://numercia.com">
     
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="/favicon/favicon.ico" />
@@ -122,8 +122,8 @@ if (isset($_SESSION['user_id'])) {
             <div class="flex justify-between h-16">
                 <div class="flex items-center">
                     <a href="/" class="flex items-center space-x-2">
-                        <i class="fas fa-calculator text-primary text-2xl"></i>
-                        <span class="text-xl font-bold text-gray-900">VendEasy</span>
+                        <img src="/favicon/favicon.ico" alt="Numercia Logo" class="h-8 w-8">
+                        <span class="text-xl font-bold text-gray-900">Numercia</span>
                     </a>
                 </div>
                 
@@ -191,8 +191,8 @@ if (isset($_SESSION['user_id'])) {
                 </div>
                 <div class="relative animate-fade-in" style="animation-delay: 0.6s;">
                     <div class="relative z-10 bg-white/10 backdrop-blur-lg rounded-2xl p-2 shadow-2xl transform hover:scale-105 transition-transform duration-300">
-                        <img src="assets/img/dashboard-preview.png" alt="Dashboard VendEasy" class="rounded-xl shadow-lg" 
-                             onerror="this.src='https://via.placeholder.com/600x400/2563eb/ffffff?text=Dashboard+VendEasy'"/>
+                        <img src="assets/img/dashboard-preview.png" alt="Dashboard Numercia" class="rounded-xl shadow-lg" 
+                             onerror="this.src='https://via.placeholder.com/600x400/2563eb/ffffff?text=Dashboard+Numercia'"/>
                     </div>
                     <!-- Decorative elements -->
                     <div class="absolute -top-4 -right-4 w-72 h-72 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-bounce-slow"></div>
@@ -412,7 +412,7 @@ if (isset($_SESSION['user_id'])) {
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center">
                 <h2 class="text-3xl font-extrabold text-gray-900 sm:text-4xl">
-                    Sobre VendEasy
+                    Sobre Numercia
                 </h2>
                 <p class="mt-4 text-lg text-gray-500 max-w-3xl mx-auto">
                     Somos una innovadora plataforma de soluciones contables diseñada específicamente para empresas colombianas. 
@@ -463,7 +463,7 @@ if (isset($_SESSION['user_id'])) {
                     Preguntas Frecuentes
                 </h2>
                 <p class="mt-4 text-xl text-gray-600 max-w-2xl mx-auto">
-                    Encuentra respuestas a las preguntas más comunes sobre VendEasy
+                    Encuentra respuestas a las preguntas más comunes sobre Numercia
                 </p>
             </div>
 
@@ -608,7 +608,7 @@ if (isset($_SESSION['user_id'])) {
         <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
             <!-- Sección Logo y Descripción -->
             <div class="space-y-4">
-                <h3 class="text-xl font-bold mb-4 text-blue-400">VendEasy</h3>
+                <h3 class="text-xl font-bold mb-4 text-blue-400">Numercia - Sistema contable</h3>
                 <p class="text-gray-400 text-sm leading-relaxed">
                     Sistema contable profesional para empresas modernas que buscan optimizar sus procesos financieros.
                 </p>
@@ -639,7 +639,7 @@ if (isset($_SESSION['user_id'])) {
                 <ul class="space-y-3">
                     <li class="flex items-center text-gray-400 hover:text-white transition-colors duration-300">
                         <i class="fas fa-envelope mr-3 text-blue-400"></i>
-                        <a href="mailto:soporte@johanrengifo.cloud">soporte@johanrengifo.cloud</a>
+                        <a href="mailto:soporte@numercia.com">soporte@numercia.com</a>
                     </li>
                     <li class="flex items-center text-gray-400 hover:text-white transition-colors duration-300">
                         <i class="fas fa-phone mr-3 text-blue-400"></i>
@@ -659,11 +659,11 @@ if (isset($_SESSION['user_id'])) {
         <div class="mt-12 pt-8 border-t border-gray-800">
             <div class="flex flex-col md:flex-row justify-between items-center">
                 <p class="text-gray-400 text-sm">
-                    © <?php echo date('Y'); ?> VendEasy. Todos los derechos reservados.
+                    © <?php echo date('Y'); ?> Numercia. Todos los derechos reservados.
                 </p>
                 <div class="mt-4 md:mt-0">
                     <a href="#" class="text-gray-400 hover:text-white transition-colors duration-300 text-sm">
-                        Diseñado con <i class="fas fa-heart text-red-500 mx-1"></i> por <a href="https://github.com/JohanRengifo">Johan Rengifo</a>
+                        Diseñado con <i class="fas fa-heart text-red-500 mx-1"></i> por <a href="https://github.com/JohanStivenRengifo">Johan Rengifo</a>
                     </a>
                 </div>
             </div>

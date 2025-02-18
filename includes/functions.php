@@ -372,7 +372,7 @@ function isAjaxRequest()
  */
 function sendFormattedEmail($to, $subject, $content)
 {
-    $from = "noreply@johanrengifo.cloud";
+    $from = "noreply@numercia.com";
     $headers = array(
         'From' => $from,
         'Reply-To' => $from,
@@ -454,7 +454,7 @@ function sendFormattedEmail($to, $subject, $content)
                 <tr>
                     <td style="text-align: center; padding-bottom: 20px;">
                         <h1 style="font-family: 'Times New Roman', serif; color: black; font-size: 2.5em; font-style: italic;">
-                            VendEasy
+                            Numercia
                         </h1>
                         <p style="font-family: 'Times New Roman', serif; color: gray; font-size: 1em;">
                             Tu sistema contable inteligente
@@ -535,7 +535,7 @@ function generateAndSendOTP($userId, $userEmail)
         // Enviar email
         return sendFormattedEmail(
             $userEmail,
-            "Código de verificación - VendEasy",
+            "Código de verificación - Numercia",
             $emailContent
         );
     } catch (Exception $e) {

@@ -221,7 +221,7 @@ function generarPDFProductos($categoria_id = null, $departamento_id = null, $sto
             </div>
 
             <div class="footer">
-                Generado por VendEasy - Página <span class="pagenum"></span>
+                Generado por Numercia - Página <span class="pagenum"></span>
             </div>
         </body>
         </html>';

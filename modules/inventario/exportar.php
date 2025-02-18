@@ -22,31 +22,7 @@ if (!empty($missing_extensions)) {
 
 session_start();
 require_once '../../config/db.php';
-
-// Verificar si el usuario está logueado
-if (!isset($_SESSION['user_id'])) {
-    header("Location: ../../index.php");
-    exit();
-}
-
-// Verificar y crear directorio temporal si no existe
-$tempDir = __DIR__ . '/../../temp';
-if (!file_exists($tempDir)) {
-    if (!mkdir($tempDir, 0777, true)) {
-        die('Error: No se pudo crear el directorio temporal');
-    }
-}
-
-// Verificar la existencia del directorio vendor y el autoload
-$vendorPath = __DIR__ . '/../../vendor/autoload.php';
-if (!file_exists($vendorPath)) {
-    die('Error: Las dependencias no están instaladas. Por favor, ejecute los siguientes comandos en la terminal:<br><br>' .
-        '<code>cd ' . __DIR__ . '/../../</code><br>' .
-        '<code>composer require phpoffice/phpspreadsheet:"^1.24"</code><br>' . // Versión específica
-        '<code>composer require tecnickcom/tcpdf</code>');
-}
-
-require_once $vendorPath;
+require_once '../../vendor/autoload.php'; // Asegúrate de tener PhpSpreadsheet instalado
 
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -55,22 +31,29 @@ use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 
-try {
-    $user_id = $_SESSION['user_id'];
-    $formato = $_GET['formato'] ?? 'excel';
+// Verificar si el usuario está logueado
+if (!isset($_SESSION['user_id'])) {
+    header("Location: ../../index.php");
+    exit();
+}
 
-    // Verificar que el formato sea válido
-    if (!in_array($formato, ['excel', 'pdf'])) {
-        throw new Exception('Formato de exportación no válido');
-    }
+$user_id = $_SESSION['user_id'];
+$formato = $_GET['formato'] ?? 'excel';
 
-    // Consulta SQL mejorada
+// Obtener datos del inventario
+function obtenerDatosInventario($pdo, $user_id) {
     $query = "
         SELECT 
-            i.*,
-            c.nombre as categoria_nombre,
-            d.nombre as departamento_nombre,
-            GROUP_CONCAT(DISTINCT b.nombre SEPARATOR ', ') as bodegas,
+            i.codigo_barras,
+            i.nombre,
+            i.descripcion,
+            i.stock,
+            i.stock_minimo,
+            i.precio_costo,
+            i.precio_venta,
+            c.nombre as categoria,
+            d.nombre as departamento,
+            GROUP_CONCAT(DISTINCT b.nombre) as bodegas,
             (i.stock * i.precio_venta) as valor_total
         FROM inventario i
         LEFT JOIN categorias c ON i.categoria_id = c.id
@@ -79,78 +62,100 @@ try {
         LEFT JOIN bodegas b ON ib.bodega_id = b.id
         WHERE i.user_id = :user_id
         GROUP BY i.id
-        ORDER BY i.nombre ASC
-    ";
-
+        ORDER BY i.nombre ASC";
+    
     $stmt = $pdo->prepare($query);
     $stmt->execute([':user_id' => $user_id]);
-    $productos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
 
-    if (empty($productos)) {
-        throw new Exception('No hay productos para exportar.');
-    }
+$productos = obtenerDatosInventario($pdo, $user_id);
 
-    if ($formato === 'excel') {
+// Función para dar formato a números
+function formatoNumero($numero) {
+    return number_format($numero, 2, '.', ',');
+}
+
+// Cabeceras comunes para CSV y Excel
+$headers = [
+    'Código de Barras',
+    'Nombre',
+    'Descripción',
+    'Stock',
+    'Stock Mínimo',
+    'Precio Costo',
+    'Precio Venta',
+    'Categoría',
+    'Departamento',
+    'Bodegas',
+    'Valor Total'
+];
+
+switch ($formato) {
+    case 'csv':
+        // Configurar headers para descarga
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename=inventario_' . date('Y-m-d') . '.csv');
+        
+        // Crear archivo CSV
+        $output = fopen('php://output', 'w');
+        
+        // BOM para Excel
+        fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+        
+        // Escribir cabeceras
+        fputcsv($output, $headers);
+        
+        // Escribir datos
+        foreach ($productos as $producto) {
+            $row = [
+                $producto['codigo_barras'],
+                $producto['nombre'],
+                $producto['descripcion'],
+                $producto['stock'],
+                $producto['stock_minimo'],
+                formatoNumero($producto['precio_costo']),
+                formatoNumero($producto['precio_venta']),
+                $producto['categoria'],
+                $producto['departamento'],
+                $producto['bodegas'],
+                formatoNumero($producto['valor_total'])
+            ];
+            fputcsv($output, $row);
+        }
+        
+        fclose($output);
+        break;
+
+    case 'excel':
         // Crear nuevo documento Excel
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setTitle('Inventario');
-
-        // Establecer encabezados
-        $headers = [
-            'A' => ['Código de Barras', 15],
-            'B' => ['Nombre', 40],
-            'C' => ['Descripción', 50],
-            'D' => ['Stock', 10],
-            'E' => ['Stock Mínimo', 15],
-            'F' => ['Unidad Medida', 15],
-            'G' => ['Precio Costo', 15],
-            'H' => ['Margen %', 12],
-            'I' => ['IVA %', 10],
-            'J' => ['Precio Venta', 15],
-            'K' => ['Valor Total', 15],
-            'L' => ['Categoría', 20],
-            'M' => ['Departamento', 20],
-            'N' => ['Bodegas', 30],
-            'O' => ['Ubicación', 15],
-            'P' => ['Estado', 12],
-            'Q' => ['Fecha Ingreso', 20]
-        ];
-
-        // Aplicar encabezados y ajustar columnas
-        foreach ($headers as $columna => $info) {
-            $sheet->setCellValue($columna . '1', $info[0]);
-            $sheet->getColumnDimension($columna)->setWidth($info[1]);
-        }
-
-        // Estilo para encabezados
+        
+        // Estilo para cabeceras
         $headerStyle = [
             'font' => [
                 'bold' => true,
                 'color' => ['rgb' => 'FFFFFF'],
-                'size' => 11,
-                'name' => 'Arial',
             ],
             'fill' => [
-                'fillType' => Fill::FILL_SOLID,
+                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
                 'startColor' => ['rgb' => '1E40AF'],
             ],
-            'borders' => [
-                'allBorders' => [
-                    'borderStyle' => Border::BORDER_THIN,
-                    'color' => ['rgb' => '000000'],
-                ],
-            ],
             'alignment' => [
-                'horizontal' => Alignment::HORIZONTAL_CENTER,
-                'vertical' => Alignment::VERTICAL_CENTER,
+                'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
             ],
         ];
-
-        $sheet->getStyle('A1:Q1')->applyFromArray($headerStyle);
-        $sheet->getRowDimension(1)->setRowHeight(30);
-
-        // Llenar datos
+        
+        // Escribir cabeceras
+        foreach ($headers as $index => $header) {
+            $column = chr(65 + $index);
+            $sheet->setCellValue($column . '1', $header);
+            $sheet->getColumnDimension($column)->setAutoSize(true);
+        }
+        $sheet->getStyle('A1:K1')->applyFromArray($headerStyle);
+        
+        // Escribir datos
         $row = 2;
         foreach ($productos as $producto) {
             $sheet->setCellValue('A' . $row, $producto['codigo_barras']);
@@ -158,166 +163,32 @@ try {
             $sheet->setCellValue('C' . $row, $producto['descripcion']);
             $sheet->setCellValue('D' . $row, $producto['stock']);
             $sheet->setCellValue('E' . $row, $producto['stock_minimo']);
-            $sheet->setCellValue('F' . $row, $producto['unidad_medida']);
-            $sheet->setCellValue('G' . $row, $producto['precio_costo']);
-            $sheet->setCellValue('H' . $row, $producto['margen_ganancia']);
-            $sheet->setCellValue('I' . $row, $producto['impuesto']);
-            $sheet->setCellValue('J' . $row, $producto['precio_venta']);
+            $sheet->setCellValue('F' . $row, $producto['precio_costo']);
+            $sheet->setCellValue('G' . $row, $producto['precio_venta']);
+            $sheet->setCellValue('H' . $row, $producto['categoria']);
+            $sheet->setCellValue('I' . $row, $producto['departamento']);
+            $sheet->setCellValue('J' . $row, $producto['bodegas']);
             $sheet->setCellValue('K' . $row, $producto['valor_total']);
-            $sheet->setCellValue('L' . $row, $producto['categoria_nombre']);
-            $sheet->setCellValue('M' . $row, $producto['departamento_nombre']);
-            $sheet->setCellValue('N' . $row, $producto['bodegas']);
-            $sheet->setCellValue('O' . $row, $producto['ubicacion']);
-            $sheet->setCellValue('P' . $row, $producto['estado']);
-            $sheet->setCellValue('Q' . $row, $producto['fecha_ingreso']);
+            
+            // Formato para columnas numéricas
+            $sheet->getStyle('F' . $row)->getNumberFormat()->setFormatCode('#,##0.00');
+            $sheet->getStyle('G' . $row)->getNumberFormat()->setFormatCode('#,##0.00');
+            $sheet->getStyle('K' . $row)->getNumberFormat()->setFormatCode('#,##0.00');
+            
             $row++;
         }
-
-        // Aplicar formatos
-        $lastRow = $row - 1;
-        $sheet->getStyle('G2:K' . $lastRow)->getNumberFormat()
-              ->setFormatCode(NumberFormat::FORMAT_CURRENCY_USD_SIMPLE);
-        $sheet->getStyle('H2:I' . $lastRow)->getNumberFormat()
-              ->setFormatCode(NumberFormat::FORMAT_PERCENTAGE_00);
-
-        // Estilo para los datos
-        $dataStyle = [
-            'borders' => [
-                'allBorders' => [
-                    'borderStyle' => Border::BORDER_THIN,
-                    'color' => ['rgb' => '000000'],
-                ],
-            ],
-            'alignment' => [
-                'vertical' => Alignment::VERTICAL_CENTER,
-            ],
-        ];
-        $sheet->getStyle('A2:Q' . $lastRow)->applyFromArray($dataStyle);
-
-        // Crear archivo temporal
-        $tempFile = $tempDir . '/inventario_' . date('Y-m-d_H-i-s') . '.xlsx';
         
-        // Limpiar el buffer de salida
-        if (ob_get_length()) ob_end_clean();
+        // Configurar headers para descarga
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment;filename="inventario_' . date('Y-m-d') . '.xlsx"');
+        header('Cache-Control: max-age=0');
         
-        try {
-            // Intentar guardar primero en archivo temporal
-            $writer = new Xlsx($spreadsheet);
-            $writer->save($tempFile);
-            
-            // Si se guardó correctamente, enviarlo al navegador
-            if (file_exists($tempFile)) {
-                header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-                header('Content-Disposition: attachment;filename="' . basename($tempFile) . '"');
-                header('Cache-Control: max-age=0');
-                header('Expires: 0');
-                header('Pragma: public');
-                
-                readfile($tempFile);
-                unlink($tempFile); // Eliminar archivo temporal
-                exit;
-            } else {
-                throw new Exception('No se pudo crear el archivo temporal');
-            }
-        } catch (Exception $e) {
-            if (file_exists($tempFile)) {
-                unlink($tempFile);
-            }
-            throw new Exception('Error al generar el archivo Excel: ' . $e->getMessage());
-        }
+        // Crear archivo Excel
+        $writer = new Xlsx($spreadsheet);
+        $writer->save('php://output');
+        break;
 
-    } else if ($formato === 'pdf') {
-        // Crear nuevo documento PDF
-        $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false);
-
-        // Configurar documento
-        $pdf->SetCreator(PDF_CREATOR);
-        $pdf->SetAuthor('VendEasy');
-        $pdf->SetTitle('Reporte de Inventario');
-
-        // Configurar márgenes
-        $pdf->SetMargins(PDF_MARGIN_LEFT, PDF_MARGIN_TOP, PDF_MARGIN_RIGHT);
-        $pdf->SetHeaderMargin(PDF_MARGIN_HEADER);
-        $pdf->SetFooterMargin(PDF_MARGIN_FOOTER);
-
-        // Agregar página
-        $pdf->AddPage('L', 'A4');
-
-        // Crear contenido HTML para el PDF
-        $html = '<h1>Reporte de Inventario</h1>';
-        $html .= '<table border="1" cellpadding="4">
-            <thead>
-                <tr>
-                    <th>Código</th>
-                    <th>Nombre</th>
-                    <th>Stock</th>
-                    <th>Precio Costo</th>
-                    <th>Precio Venta</th>
-                    <th>Valor Total</th>
-                    <th>Categoría</th>
-                    <th>Departamento</th>
-                    <th>Bodegas</th>
-                </tr>
-            </thead>
-            <tbody>';
-
-        foreach ($productos as $producto) {
-            $html .= '<tr>
-                <td>' . htmlspecialchars($producto['codigo_barras']) . '</td>
-                <td>' . htmlspecialchars($producto['nombre']) . '</td>
-                <td>' . $producto['stock'] . '</td>
-                <td>$' . number_format($producto['precio_costo'], 2) . '</td>
-                <td>$' . number_format($producto['precio_venta'], 2) . '</td>
-                <td>$' . number_format($producto['valor_total'], 2) . '</td>
-                <td>' . htmlspecialchars($producto['categoria_nombre']) . '</td>
-                <td>' . htmlspecialchars($producto['departamento_nombre']) . '</td>
-                <td>' . htmlspecialchars($producto['bodegas']) . '</td>
-            </tr>';
-        }
-
-        $html .= '</tbody></table>';
-
-        // Generar PDF
-        $pdf->writeHTML($html, true, false, true, false, '');
-
-        // Cerrar y generar PDF
-        $pdf->Output('inventario_' . date('Y-m-d') . '.pdf', 'D');
-        exit;
-    }
-
-} catch (Exception $e) {
-    error_log("Error en exportación: " . $e->getMessage());
-    
-    // Limpiar cualquier salida previa
-    if (ob_get_length()) ob_end_clean();
-    
-    // Determinar si es una solicitud AJAX
-    if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && 
-        strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
-        
-        header('Content-Type: application/json');
-        echo json_encode([
-            'success' => false,
-            'message' => 'Error al exportar: ' . $e->getMessage()
-        ]);
-    } else {
-        header('HTTP/1.1 500 Internal Server Error');
-        echo '<div style="color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; padding: 1rem; margin: 1rem; border-radius: 0.25rem;">';
-        echo '<h3 style="margin-top: 0;">Error al exportar</h3>';
-        echo '<p>' . htmlspecialchars($e->getMessage()) . '</p>';
-        echo '<p>Por favor, verifique que:</p>';
-        echo '<ul style="margin-left: 20px;">';
-        echo '<li>Todas las dependencias estén instaladas correctamente</li>';
-        echo '<li>Tenga los permisos necesarios en el sistema</li>';
-        echo '<li>Haya suficiente memoria disponible</li>';
-        echo '<li>Las extensiones PHP requeridas estén instaladas</li>';
-        echo '</ul>';
-        echo '<p>Detalles técnicos:</p>';
-        echo '<pre style="background: #f8f9fa; padding: 1rem; border-radius: 0.25rem; font-size: 0.875rem;">';
-        echo htmlspecialchars($e->getTraceAsString());
-        echo '</pre>';
-        echo '<p><a href="javascript:history.back()" style="color: #721c24;">← Volver</a></p>';
-        echo '</div>';
-    }
-    exit;
+    default:
+        header('Location: index.php');
+        exit();
 } 

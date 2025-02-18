@@ -77,7 +77,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && $tokenData) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Restablecer Contraseña | VendEasy</title>
+    <title>Restablecer Contraseña | Numercia</title>
     <link rel="icon" href="../../favicon/favicon.ico" type="image/x-icon">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
@@ -87,7 +87,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && $tokenData) {
     <!-- Sección lateral -->
     <div class="hidden lg:flex lg:w-1/2 bg-indigo-600 text-white p-12 flex-col justify-between">
         <div>
-            <h1 class="text-4xl font-bold mb-4">VendEasy</h1>
+            <h1 class="text-4xl font-bold mb-4">Numercia</h1>
             <p class="text-indigo-100">Sistema integral de gestión empresarial</p>
         </div>
         <div class="space-y-6">
@@ -109,7 +109,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && $tokenData) {
             </div>
         </div>
         <div class="text-sm text-indigo-100">
-            © <?= date('Y') ?> VendEasy. Todos los derechos reservados.
+            © <?= date('Y') ?> Numercia. Todos los derechos reservados.
         </div>
     </div>
 

@@ -123,7 +123,7 @@ if ($codigo_barras) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Eliminar Producto | VendEasy</title>
+    <title>Eliminar Producto | Numercia</title>
     <link rel="icon" type="image/png" href="/favicon/favicon.ico"/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
     <link rel="stylesheet" href="../../css/welcome.css">
@@ -231,7 +231,7 @@ if ($codigo_barras) {
 <body>
     <header class="header">
         <div class="logo">
-            <a href="../../welcome.php">VendEasy</a>
+            <a href="../../welcome.php">Numercia</a>
         </div>
         <div class="header-icons">
             <div class="user-info">

@@ -3,15 +3,15 @@
 // Configuración del servidor SMTP
 define('SMTP_HOST', 'smtp.hostinger.com');
 define('SMTP_PORT', 465);
-define('SMTP_USER', 'soporte@johanrengifo.cloud');
+define('SMTP_USER', 'soporte@numercia.com');
 define('SMTP_PASS', 'N#w>:]f]8');
-define('SMTP_FROM', 'soporte@johanrengifo.cloud');
-define('SMTP_FROM_NAME', 'VendEasy');
+define('SMTP_FROM', 'soporte@numercia.com');
+define('SMTP_FROM_NAME', 'Numercia');
 
 class MailController {
-    private $from_email = 'soporte@johanrengifo.cloud';
-    private $from_name = 'VendEasy | Sistema Contable';
-    private $reply_to = 'soporte@johanrengifo.cloud';
+    private $from_email = 'soporte@numercia.com';
+    private $from_name = 'Numercia | Sistema Contable';
+    private $reply_to = 'soporte@numercia.com';
 
     // Plantilla base para todos los correos
     private function getBaseTemplate($content) {
@@ -21,7 +21,7 @@ class MailController {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>VendEasy</title>
+            <title>Numercia - Sistema Contable</title>
             <style>
                 body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 0; background-color: #f3f4f6; }
                 .container { max-width: 600px; margin: 0 auto; padding: 20px; }
@@ -38,14 +38,14 @@ class MailController {
         <body>
             <div class="container">
                 <div class="header">
-                    <h1>VendEasy</h1>
+                    <h1>Numercia - Sistema Contable</h1>
                 </div>
                 <div class="content">
                     ' . $content . '
                 </div>
                 <div class="footer">
                     <p>Este es un correo automático, por favor no respondas a este mensaje.</p>
-                    <p>&copy; ' . date('Y') . ' VendEasy. Todos los derechos reservados.</p>
+                    <p>&copy; ' . date('Y') . ' Numercia. Todos los derechos reservados.</p>
                 </div>
             </div>
         </body>
@@ -64,7 +64,7 @@ class MailController {
 
     // Enviar correo OTP para cambio de email
     public function sendEmailChangeOTP($email, $nombre, $otp) {
-        $subject = "Código de verificación - VendEasy";
+        $subject = "Código de verificación - Numercia - Sistema Contable";
         
         $content = '
             <h2>Hola ' . htmlspecialchars($nombre) . ',</h2>
@@ -81,11 +81,11 @@ class MailController {
 
     // Enviar correo de bienvenida
     public function sendWelcomeEmail($email, $nombre) {
-        $subject = "¡Bienvenido a VendEasy!";
+        $subject = "¡Bienvenido a Numercia - Sistema Contable!";
         
         $content = '
-            <h2>¡Bienvenido a VendEasy, ' . htmlspecialchars($nombre) . '!</h2>
-            <p>Nos alegra tenerte como parte de nuestra comunidad. Con VendEasy podrás gestionar tu negocio de manera eficiente y profesional.</p>
+            <h2>¡Bienvenido a Numercia, ' . htmlspecialchars($nombre) . '!</h2>
+            <p>Nos alegra tenerte como parte de nuestra comunidad. Con Numercia podrás gestionar tu negocio de manera eficiente y profesional.</p>
             <div class="alert alert-info">
                 <strong>Próximos pasos:</strong>
                 <ul>
@@ -124,7 +124,7 @@ class MailController {
 
     // Enviar notificación de factura
     public function sendInvoiceNotification($email, $nombre, $invoice_number, $amount, $due_date) {
-        $subject = "Nueva Factura Generada - VendEasy";
+        $subject = "Nueva Factura Generada - Numercia - Sistema Contable";
         
         $content = '
             <h2>Hola ' . htmlspecialchars($nombre) . ',</h2>
@@ -141,7 +141,7 @@ class MailController {
 
     // Enviar recordatorio de suscripción
     public function sendSubscriptionReminder($email, $nombre, $expiry_date, $plan) {
-        $subject = "Recordatorio de Suscripción - VendEasy";
+        $subject = "Recordatorio de Suscripción - Numercia - Sistema Contable";
         
         $content = '
             <h2>Hola ' . htmlspecialchars($nombre) . ',</h2>

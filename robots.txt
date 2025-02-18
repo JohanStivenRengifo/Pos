@@ -6,4 +6,4 @@ Disallow: /includes/
 Disallow: /assets/admin/
 Disallow: /modules/
 
-Sitemap: https://johanrengifo.cloud/sitemap.xml 
+Sitemap: https://numercia.com/sitemap.xml 

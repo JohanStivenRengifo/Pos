@@ -7,20 +7,52 @@ function e($string) {
 }
 
 // Obtener información del usuario y la empresa
-$user = $_SESSION['user'] ?? [];
-$empresa = null;
+$user = [
+    'id' => $_SESSION['user']['id'] ?? $_SESSION['user_id'] ?? null,
+    'nombre' => $_SESSION['user']['nombre'] ?? '',
+    'email' => $_SESSION['user']['email'] ?? '',
+    'rol' => $_SESSION['user']['rol'] ?? 'usuario'
+];
 
+// Mejorar la consulta de empresa para obtener todos los campos necesarios
+$empresa = null;
 if (isset($_SESSION['empresa_id'])) {
-    $stmt = $pdo->prepare("SELECT e.*, 
+    $stmt = $pdo->prepare("SELECT 
+        e.*,
         CASE 
             WHEN e.tipo_persona = 'juridica' THEN e.nombre_empresa
-            ELSE CONCAT(COALESCE(e.primer_nombre, ''), ' ', COALESCE(e.segundo_nombre, ''), ' ', COALESCE(e.apellidos, ''))
+            ELSE CONCAT(
+                COALESCE(e.primer_nombre, ''), 
+                CASE WHEN e.segundo_nombre IS NOT NULL AND e.segundo_nombre != '' 
+                     THEN CONCAT(' ', e.segundo_nombre) 
+                     ELSE '' 
+                END,
+                CASE WHEN e.apellidos IS NOT NULL AND e.apellidos != '' 
+                     THEN CONCAT(' ', e.apellidos) 
+                     ELSE '' 
+                END
+            )
         END as nombre_completo,
-        e.nombre_empresa,
-        CONCAT(e.tipo_identificacion, ': ', e.nit) as identificacion_completa,
-        e.tipo_persona
+        CASE 
+            WHEN e.tipo_persona = 'juridica' THEN e.nombre_empresa
+            ELSE CONCAT(
+                COALESCE(e.primer_nombre, ''),
+                CASE WHEN e.segundo_nombre IS NOT NULL AND e.segundo_nombre != '' 
+                     THEN CONCAT(' ', e.segundo_nombre) 
+                     ELSE '' 
+                END
+            )
+        END as nombre_corto,
+        CONCAT(
+            COALESCE(e.tipo_identificacion, ''), 
+            CASE WHEN e.nit IS NOT NULL AND e.nit != '' 
+                 THEN CONCAT(': ', e.nit) 
+                 ELSE '' 
+            END
+        ) as identificacion_completa
     FROM empresas e 
-    WHERE e.id = ?");
+    WHERE e.id = ? AND e.estado = 1");
+    
     $stmt->execute([$_SESSION['empresa_id']]);
     $empresa = $stmt->fetch(PDO::FETCH_ASSOC);
 }
@@ -35,14 +67,13 @@ $rutaBase = $rutaBase ?? '';
             <!-- Logo y nombre -->
             <div class="flex-shrink-0">
                 <a href="<?= $rutaBase ?>welcome.php" class="flex items-center gap-3 group">
-                    <div class="w-10 h-10 bg-gradient-to-br from-indigo-500 via-indigo-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg transform group-hover:scale-105 transition-all duration-200 group-hover:shadow-indigo-200">
-                        <span class="text-lg font-bold text-white">V</span>
+                    <div class="w-10 h-10 bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg transform group-hover:scale-105 transition-all duration-200 group-hover:shadow-blue-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                        </svg>
                     </div>
                     <div class="flex items-center gap-2">
-                        <span class="text-xl font-bold bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent">VendEasy</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.75 15.75V18m-7.5-6.75h.008v.008H8.25v-.008zm0 2.25h.008v.008H8.25V13.5zm0 2.25h.008v.008H8.25v-.008zm0 2.25h.008v.008H8.25V18zm2.498-6.75h.007v.008h-.007v-.008zm0 2.25h.007v.008h-.007V13.5zm0 2.25h.007v.008h-.007v-.008zm0 2.25h.007v.008h-.007V18zm2.504-6.75h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V13.5zm0 2.25h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V18zm2.498-6.75h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V13.5zM8.25 6h7.5v2.25h-7.5V6zM12 2.25c-1.892 0-3.758.11-5.593.322C5.307 2.7 4.5 3.65 4.5 4.757V19.5a2.25 2.25 0 002.25 2.25h10.5a2.25 2.25 0 002.25-2.25V4.757c0-1.108-.806-2.057-1.907-2.185A48.507 48.507 0 0012 2.25z" />
-                        </svg>
+                        <span class="text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">Numercia</span>
                     </div>
                 </a>
             </div>
@@ -54,7 +85,7 @@ $rutaBase = $rutaBase ?? '';
                     <button onclick="toggleSyncMenu()" 
                             class="p-2 rounded-lg hover:bg-gray-100/80 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 group">
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-gray-600 group-hover:text-indigo-600 transition-colors duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4 M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4 M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4"/>
                         </svg>
                     </button>
                     
@@ -139,13 +170,17 @@ $rutaBase = $rutaBase ?? '';
                             class="flex items-center gap-3 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50/80 hover:border-gray-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 group">
                         <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-sm group-hover:shadow transform group-hover:scale-105 transition-all duration-200">
                             <span class="text-sm font-medium text-white">
-                                <?= strtoupper(substr($user['nombre'] ?? '', 0, 1)); ?>
+                                <?= !empty($user['nombre']) ? strtoupper(substr($user['nombre'], 0, 1)) : 'U'; ?>
                             </span>
                         </div>
                         
                         <div class="hidden sm:block text-left">
-                            <p class="text-sm font-medium text-gray-900"><?= e($user['nombre'] ?? ''); ?></p>
-                            <p class="text-xs text-gray-500 truncate max-w-[150px]"><?= e($user['email'] ?? ''); ?></p>
+                            <p class="text-sm font-medium text-gray-900">
+                                <?= !empty($user['nombre']) ? e($user['nombre']) : 'Usuario'; ?>
+                            </p>
+                            <p class="text-xs text-gray-500 truncate max-w-[150px]">
+                                <?= !empty($user['email']) ? e($user['email']) : ''; ?>
+                            </p>
                         </div>
                         
                         <svg class="w-5 h-5 text-gray-400 group-hover:text-indigo-500 transition-colors duration-200" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -159,12 +194,16 @@ $rutaBase = $rutaBase ?? '';
                             <div class="flex items-center gap-3">
                                 <div class="w-12 h-12 rounded-lg bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-sm">
                                     <span class="text-lg font-bold text-white">
-                                        <?= strtoupper(substr($user['nombre'] ?? '', 0, 1)); ?>
+                                        <?= !empty($user['nombre']) ? strtoupper(substr($user['nombre'], 0, 1)) : 'U'; ?>
                                     </span>
                                 </div>
                                 <div>
-                                    <p class="text-sm font-semibold text-gray-900"><?= e($user['nombre'] ?? ''); ?></p>
-                                    <p class="text-xs text-gray-500"><?= e($user['email'] ?? ''); ?></p>
+                                    <p class="text-sm font-semibold text-gray-900">
+                                        <?= !empty($user['nombre']) ? e($user['nombre']) : 'Usuario'; ?>
+                                    </p>
+                                    <p class="text-xs text-gray-500">
+                                        <?= !empty($user['email']) ? e($user['email']) : ''; ?>
+                                    </p>
                                 </div>
                             </div>
                             <div class="mt-3 space-y-2 text-sm">
@@ -178,14 +217,16 @@ $rutaBase = $rutaBase ?? '';
                                             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
                                             </svg>
-                                            <span class="font-medium"><?= e($empresa['nombre_empresa']); ?></span>
+                                            <span class="font-medium"><?= e($empresa['nombre_completo']); ?></span>
                                         </p>
+                                        <?php if (!empty($empresa['identificacion_completa'])): ?>
                                         <p class="flex items-center gap-2 text-gray-600 pl-6">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm1.294 6.336a6.721 6.721 0 01-3.17.789 6.721 6.721 0 01-3.168-.789 3.376 3.376 0 016.338 0z" />
                                             </svg>
                                             <span><?= e($empresa['identificacion_completa']); ?></span>
                                         </p>
+                                        <?php endif; ?>
                                     </div>
 
                                     <!-- Badges de Rol y Tipo -->
@@ -195,7 +236,7 @@ $rutaBase = $rutaBase ?? '';
                                         </svg>
                                         <div class="flex gap-2 flex-wrap">
                                             <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700">
-                                                <?= ucfirst(e($user['rol'] ?? 'Usuario')); ?>
+                                                <?= ucfirst(e($user['rol'])); ?>
                                             </span>
                                             <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
                                                 <?= ucfirst(e($empresa['tipo_persona'])); ?>

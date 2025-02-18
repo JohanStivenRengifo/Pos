@@ -107,7 +107,7 @@ try {
             // Información de la empresa (centrada)
             $this->SetY(10);
             $this->SetFont('Arial', 'B', 16);
-            $this->Cell(0, 8, $this->normalize('VendEasy'), 0, 1, 'C');
+            $this->Cell(0, 8, $this->normalize('Numercia'), 0, 1, 'C');
             $this->SetFont('Arial', '', 10);
             $this->Cell(0, 5, $this->normalize('NIT: ' . $empresa['nit']), 0, 1, 'C');
             $this->Cell(0, 5, $this->normalize($empresa['direccion']), 0, 1, 'C');
@@ -312,7 +312,7 @@ try {
             $this->SetFont('Arial', 'I', 8);
             $this->Cell(0, 5, $this->normalize('Página ' . $this->PageNo() . '/{nb}'), 0, 1, 'C');
             $this->SetTextColor(100, 100, 100);
-            $this->Cell(0, 5, $this->normalize('Generado por www.johanrengifo.cloud'), 0, 1, 'C');
+            $this->Cell(0, 5, $this->normalize('Generado por www.numercia.com'), 0, 1, 'C');
         }
     }
 

@@ -87,13 +87,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $sql = "INSERT INTO empresas (
                 nombre_empresa, nit, regimen_fiscal, direccion, telefono,
                 correo_contacto, prefijo_factura, numero_inicial, numero_final,
-                created_at, updated_at, estado, es_principal, usuario_id, logo, ultimo_numero
+                created_at, updated_at, estado, es_principal, usuario_id, logo,
+                ultimo_numero, plan_suscripcion, tipo_persona, tipo_identificacion,
+                primer_nombre, segundo_nombre, apellidos, nombre_comercial,
+                tipo_nacionalidad, responsabilidad_tributaria, moneda, pais,
+                departamento, municipio, codigo_postal
             ) VALUES (
                 ?, ?, ?, ?, ?, ?, ?, ?, ?, 
-                NOW(), NOW(), 1, ?, ?, ?, ?
+                NOW(), NOW(), 1, ?, ?, ?,
+                ?, 'basico', ?, ?, 
+                ?, ?, ?, ?,
+                'nacional', ?, 'COP', 'Colombia',
+                ?, ?, ?
             )";
 
             $stmt = $pdo->prepare($sql);
+            
+            // Procesar datos según tipo de persona
+            $tipo_persona = $_POST['tipo_persona'];
+            $primer_nombre = $tipo_persona === 'natural' ? $_POST['primer_nombre'] : null;
+            $segundo_nombre = $tipo_persona === 'natural' ? $_POST['segundo_nombre'] : null;
+            $apellidos = $tipo_persona === 'natural' ? $_POST['apellidos'] : null;
+            $nombre_comercial = $tipo_persona === 'juridica' ? $datos['nombre_empresa'] : null;
             
             $params = [
                 $datos['nombre_empresa'],
@@ -108,7 +123,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 !$tiene_principal, // es_principal
                 $_SESSION['user_id'],
                 $logo_path,
-                (int)$datos['numero_inicial'] // ultimo_numero
+                (int)$datos['numero_inicial'], // ultimo_numero
+                $tipo_persona,
+                $_POST['tipo_identificacion'] ?? 'NIT',
+                $primer_nombre,
+                $segundo_nombre,
+                $apellidos,
+                $nombre_comercial,
+                $_POST['responsabilidad_tributaria'] ?? 'No responsable de IVA',
+                $_POST['departamento'] ?? '',
+                $_POST['municipio'] ?? '',
+                $_POST['codigo_postal'] ?? ''
             ];
 
             if (!$stmt->execute($params)) {
@@ -117,7 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $empresa_id = $pdo->lastInsertId();
 
-            // NUEVO: Actualizar el empresa_id en la tabla users
+            // Actualizar el empresa_id en la tabla users
             $stmt = $pdo->prepare("UPDATE users SET empresa_id = ? WHERE id = ?");
             if (!$stmt->execute([$empresa_id, $_SESSION['user_id']])) {
                 throw new Exception("Error al actualizar la información del usuario");
@@ -175,7 +200,7 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Configuración de Empresa | VendEasy</title>
+    <title>Configuración de Empresa | Numercia</title>
     <link rel="icon" type="image/png" href="../../favicon/favicon.ico"/>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -223,7 +248,7 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     <!-- Sección lateral con imagen y mensaje de bienvenida -->
     <div class="hidden lg:flex lg:w-1/2 bg-primary-600 text-white p-12 flex-col justify-between">
         <div>
-            <h1 class="text-4xl font-bold mb-4">VendEasy</h1>
+            <h1 class="text-4xl font-bold mb-4">Numercia</h1>
             <p class="text-primary-100">Sistema integral de gestión empresarial</p>
         </div>
         <div class="space-y-6">
@@ -249,7 +274,7 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
             </div>
         </div>
         <div class="text-sm text-primary-100">
-            © <?= date('Y') ?> VendEasy. Todos los derechos reservados.
+            © <?= date('Y') ?> Numercia. Todos los derechos reservados.
         </div>
     </div>
 
@@ -339,6 +364,60 @@ $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
                         <label for="apellidos" class="block text-sm font-medium text-gray-700">Apellidos</label>
                         <input type="text" id="apellidos" name="apellidos" 
                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary-500 focus:border-primary-500">
+                    </div>
+                </div>
+
+                <!-- Campos adicionales -->
+                <div class="space-y-4">
+                    <div>
+                        <label for="tipo_identificacion" class="block text-sm font-medium text-gray-700">
+                            Tipo de Identificación
+                        </label>
+                        <select id="tipo_identificacion" name="tipo_identificacion" required
+                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary-500 focus:border-primary-500">
+                            <option value="NIT">NIT</option>
+                            <option value="CC">Cédula de Ciudadanía</option>
+                            <option value="CE">Cédula de Extranjería</option>
+                            <option value="PP">Pasaporte</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="responsabilidad_tributaria" class="block text-sm font-medium text-gray-700">
+                            Responsabilidad Tributaria
+                        </label>
+                        <select id="responsabilidad_tributaria" name="responsabilidad_tributaria" required
+                                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary-500 focus:border-primary-500">
+                            <option value="No responsable de IVA">No responsable de IVA</option>
+                            <option value="Responsable de IVA">Responsable de IVA</option>
+                            <option value="Gran Contribuyente">Gran Contribuyente</option>
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label for="departamento" class="block text-sm font-medium text-gray-700">
+                                Departamento
+                            </label>
+                            <input type="text" id="departamento" name="departamento"
+                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary-500 focus:border-primary-500">
+                        </div>
+
+                        <div>
+                            <label for="municipio" class="block text-sm font-medium text-gray-700">
+                                Municipio
+                            </label>
+                            <input type="text" id="municipio" name="municipio"
+                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary-500 focus:border-primary-500">
+                        </div>
+
+                        <div>
+                            <label for="codigo_postal" class="block text-sm font-medium text-gray-700">
+                                Código Postal
+                            </label>
+                            <input type="text" id="codigo_postal" name="codigo_postal"
+                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-primary-500 focus:border-primary-500">
+                        </div>
                     </div>
                 </div>
 

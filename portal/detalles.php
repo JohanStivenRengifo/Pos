@@ -89,7 +89,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Detalles - <?php echo htmlspecialchars($tipo); ?> - VendEasy</title>
+    <title>Detalles - <?php echo htmlspecialchars($tipo); ?> - Numercia</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="shortcut icon" href="./favicon/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -117,7 +117,7 @@ try {
                 <div class="flex items-center">
                     <a href="/" class="flex items-center space-x-2">
                         <i class="fas fa-calculator text-primary text-2xl"></i>
-                        <span class="text-xl font-bold text-gray-900">VendEasy</span>
+                        <span class="text-xl font-bold text-gray-900">Numercia</span>
                     </a>
                 </div>
                     <div class="flex items-center space-x-4">

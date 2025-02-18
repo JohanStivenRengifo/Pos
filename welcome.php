@@ -449,10 +449,47 @@ $ultimosCreditos = executeQuery(
     [$user_id]
 );
 
-// Agregar debug para verificar
-error_log("User ID: " . $user_id);
-error_log("Créditos encontrados: " . print_r($creditosActivos, true));
-error_log("Últimos créditos: " . print_r($ultimosCreditos, true));
+// Obtener ventas diarias del mes actual
+$ventasDiarias = executeQuery(
+    "
+    SELECT 
+        DATE(fecha) as fecha,
+        COALESCE(SUM(total), 0) as total_ventas,
+        COUNT(*) as num_transacciones
+    FROM ventas 
+    WHERE user_id = ? 
+    AND MONTH(fecha) = MONTH(CURRENT_DATE())
+    AND YEAR(fecha) = YEAR(CURRENT_DATE())
+    GROUP BY DATE(fecha)
+    ORDER BY fecha",
+    [$user_id]
+);
+
+// Obtener ingresos vs egresos del mes actual
+$ingresosVsEgresos = executeQuery(
+    "
+    SELECT 
+        DATE(fecha_mov) as fecha,
+        SUM(CASE WHEN tipo = 'ingreso' THEN monto ELSE 0 END) as ingresos,
+        SUM(CASE WHEN tipo = 'egreso' THEN monto ELSE 0 END) as egresos
+    FROM (
+        SELECT fecha as fecha_mov, total as monto, 'ingreso' as tipo
+        FROM ventas
+        WHERE user_id = ? 
+        AND MONTH(fecha) = MONTH(CURRENT_DATE())
+        AND YEAR(fecha) = YEAR(CURRENT_DATE())
+        UNION ALL
+        SELECT fecha as fecha_mov, monto, 'egreso' as tipo
+        FROM egresos
+        WHERE user_id = ? 
+        AND MONTH(fecha) = MONTH(CURRENT_DATE())
+        AND YEAR(fecha) = YEAR(CURRENT_DATE())
+        AND estado = 'pagado'
+    ) as movimientos
+    GROUP BY DATE(fecha_mov)
+    ORDER BY fecha_mov",
+    [$user_id, $user_id]
+);
 
 // Cerrar sesión
 if (isset($_POST['logout'])) {
@@ -469,7 +506,7 @@ if (isset($_POST['logout'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VendEasy - Panel de Control</title>
+    <title>Numercia - Panel de Control</title>
     <link rel="icon" type="image/png" href="/favicon/favicon.ico" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
@@ -552,7 +589,7 @@ if (isset($_POST['logout'])) {
                                     </p>
                                 </div>
                             </div>
-                            <a href="https://portal.johanrengifo.cloud" target="_blank" 
+                            <a href="https://portal.numercia.com" target="_blank" 
                                class="inline-flex items-center px-4 py-2 bg-white text-indigo-600 text-sm font-medium rounded-xl 
                                       transition-all hover:bg-indigo-50 hover:scale-105">
                                 Visitar Portal
@@ -631,115 +668,29 @@ if (isset($_POST['logout'])) {
 
             <!-- Gráficos Principales -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                <!-- Ventas Mensuales -->
+                <!-- Ventas Diarias del Mes -->
                 <div class="bg-white rounded-xl p-6 shadow-sm" data-aos="fade-up">
                     <div class="flex justify-between items-center mb-6">
-                        <h3 class="text-lg font-semibold text-gray-800">Ventas Mensuales</h3>
+                        <h3 class="text-lg font-semibold text-gray-800">Ventas Diarias del Mes</h3>
                         <div class="flex items-center gap-2">
                             <span class="text-sm text-gray-500"><?= date('F Y') ?></span>
                         </div>
                     </div>
-                    <div class="space-y-4">
-                        <!-- Ingresos -->
-                        <div class="p-4 bg-green-50 rounded-lg">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-sm font-medium text-gray-600">Ingresos</span>
-                                <span class="text-sm text-green-600 bg-green-100 px-2 py-1 rounded-full">
-                                    Este mes
-                                </span>
-                            </div>
-                            <div class="flex items-center justify-between">
-                                <h4 class="text-2xl font-bold text-gray-900">
-                                    $<?= number_format($totalIngresosMes, 0) ?>
-                                </h4>
-                                <?php if ($porcentajeCambioIngresos != 0): ?>
-                                <span class="flex items-center text-sm <?= $porcentajeCambioIngresos >= 0 ? 'text-green-600' : 'text-red-600' ?>">
-                                    <i class="fas fa-arrow-<?= $porcentajeCambioIngresos >= 0 ? 'up' : 'down' ?> mr-1"></i>
-                                    <?= abs(round($porcentajeCambioIngresos, 1)) ?>%
-                                </span>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                        <!-- Egresos -->
-                        <div class="p-4 bg-red-50 rounded-lg">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-sm font-medium text-gray-600">Egresos</span>
-                                <span class="text-sm text-red-600 bg-red-100 px-2 py-1 rounded-full">
-                                    Este mes
-                                </span>
-                            </div>
-                            <div class="flex items-center justify-between">
-                                <h4 class="text-2xl font-bold text-gray-900">
-                                    $<?= number_format($totalEgresosMes, 0) ?>
-                                </h4>
-                                <?php if ($porcentajeCambioEgresos != 0): ?>
-                                <span class="flex items-center text-sm <?= $porcentajeCambioEgresos <= 0 ? 'text-green-600' : 'text-red-600' ?>">
-                                    <i class="fas fa-arrow-<?= $porcentajeCambioEgresos <= 0 ? 'down' : 'up' ?> mr-1"></i>
-                                    <?= abs(round($porcentajeCambioEgresos, 1)) ?>%
-                                </span>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                        <!-- Balance -->
-                        <div class="p-4 bg-blue-50 rounded-lg">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-sm font-medium text-gray-600">Balance Total</span>
-                                <span class="text-sm text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
-                                    Neto
-                                </span>
-                            </div>
-                            <h4 class="text-2xl font-bold text-gray-900">
-                                $<?= number_format($totalIngresosMes - $totalEgresosMes, 0) ?>
-                            </h4>
-                        </div>
+                    <div class="relative h-80">
+                        <canvas id="ventasDiariasChart"></canvas>
                     </div>
                 </div>
 
-                <!-- Ventas Diarias -->
+                <!-- Ingresos vs Egresos -->
                 <div class="bg-white rounded-xl p-6 shadow-sm" data-aos="fade-up">
                     <div class="flex justify-between items-center mb-6">
-                        <h3 class="text-lg font-semibold text-gray-800">Ventas Diarias</h3>
+                        <h3 class="text-lg font-semibold text-gray-800">Flujo de Transacciones</h3>
                         <div class="flex items-center gap-2">
-                            <span class="text-sm text-gray-500">Últimos <?= $diasConVentas ?> días</span>
+                            <span class="text-sm text-gray-500"><?= date('F Y') ?></span>
                         </div>
                     </div>
-                    <div class="space-y-4">
-                        <!-- Promedio -->
-                        <div class="p-4 bg-indigo-50 rounded-lg">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-sm font-medium text-gray-600">Promedio Diario</span>
-                                <span class="text-sm text-indigo-600 bg-indigo-100 px-2 py-1 rounded-full">
-                                    Promedio
-                                </span>
-                            </div>
-                            <h4 class="text-2xl font-bold text-gray-900">
-                                $<?= number_format($promedioVentas, 0) ?>
-                            </h4>
-                        </div>
-                        <!-- Transacciones -->
-                        <div class="p-4 bg-purple-50 rounded-lg">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-sm font-medium text-gray-600">Transacciones Promedio</span>
-                                <span class="text-sm text-purple-600 bg-purple-100 px-2 py-1 rounded-full">
-                                    Por día
-                                </span>
-                            </div>
-                            <h4 class="text-2xl font-bold text-gray-900">
-                                <?= number_format($promedioTransaccionesDiarias, 1) ?>
-                            </h4>
-                        </div>
-                        <!-- Hoy -->
-                        <div class="p-4 bg-amber-50 rounded-lg">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="text-sm font-medium text-gray-600">Ventas de Hoy</span>
-                                <span class="text-sm text-amber-600 bg-amber-100 px-2 py-1 rounded-full">
-                                    <?= $numVentasHoy ?> transacciones
-                                </span>
-                            </div>
-                            <h4 class="text-2xl font-bold text-gray-900">
-                                $<?= number_format($totalVentasDia, 0) ?>
-                            </h4>
-                        </div>
+                    <div class="relative h-80">
+                        <canvas id="flujoCajaChart"></canvas>
                     </div>
                 </div>
             </div>
@@ -800,21 +751,32 @@ if (isset($_POST['logout'])) {
         Chart.defaults.font.family = '"Inter var", system-ui, -apple-system, sans-serif';
         Chart.defaults.color = '#64748b';
 
-        // Gráfico de ventas semanales
-        const ctxVentas = document.getElementById('ventasChart').getContext('2d');
-        new Chart(ctxVentas, {
-            type: 'line',
+        // Función para formatear moneda
+        const formatCurrency = (value) => {
+            return new Intl.NumberFormat('es-CO', {
+                style: 'currency',
+                currency: 'COP',
+                minimumFractionDigits: 0
+            }).format(value);
+        };
+
+        // Gráfico de Ventas Diarias
+        const ctxVentasDiarias = document.getElementById('ventasDiariasChart').getContext('2d');
+        new Chart(ctxVentasDiarias, {
+            type: 'bar',
             data: {
-                labels: <?= json_encode(array_map(function ($fecha) {
-                    return date('d M', strtotime($fecha));
-                }, array_column($ventasUltimos7Dias, 'fecha'))) ?>,
+                labels: <?= json_encode(array_map(function($venta) {
+                    return date('d M', strtotime($venta['fecha']));
+                }, $ventasDiarias)) ?>,
                 datasets: [{
                     label: 'Ventas',
-                    data: <?= json_encode(array_column($ventasUltimos7Dias, 'total')) ?>,
-                    borderColor: '#4f46e5',
-                    backgroundColor: 'rgba(79, 70, 229, 0.1)',
-                    tension: 0.4,
-                    fill: true
+                    data: <?= json_encode(array_map(function($venta) {
+                        return $venta['total_ventas'];
+                    }, $ventasDiarias)) ?>,
+                    backgroundColor: 'rgba(79, 70, 229, 0.2)',
+                    borderColor: 'rgb(79, 70, 229)',
+                    borderWidth: 1,
+                    borderRadius: 4
                 }]
             },
             options: {
@@ -823,45 +785,79 @@ if (isset($_POST['logout'])) {
                 plugins: {
                     legend: {
                         display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return 'Ventas: ' + formatCurrency(context.raw);
+                            }
+                        }
                     }
                 },
                 scales: {
                     y: {
                         beginAtZero: true,
                         ticks: {
-                            callback: value => '$' + new Intl.NumberFormat().format(value)
+                            callback: value => formatCurrency(value)
                         }
                     }
                 }
             }
         });
 
-        // Gráfico de métodos de pago
-        const ctxMetodoPago = document.getElementById('metodoPagoChart').getContext('2d');
-        new Chart(ctxMetodoPago, {
-            type: 'doughnut',
+        // Gráfico de Flujo de Caja
+        const ctxFlujoCaja = document.getElementById('flujoCajaChart').getContext('2d');
+        new Chart(ctxFlujoCaja, {
+            type: 'line',
             data: {
-                labels: <?= json_encode(array_column($ventasPorMetodoPago, 'metodo_pago')) ?>,
+                labels: <?= json_encode(array_map(function($movimiento) {
+                    return date('d M', strtotime($movimiento['fecha']));
+                }, $ingresosVsEgresos)) ?>,
                 datasets: [{
-                    data: <?= json_encode(array_column($ventasPorMetodoPago, 'total')) ?>,
-                    backgroundColor: [
-                        '#4f46e5',
-                        '#06b6d4',
-                        '#10b981',
-                        '#f59e0b',
-                        '#ef4444'
-                    ]
+                    label: 'Ingresos',
+                    data: <?= json_encode(array_map(function($movimiento) {
+                        return $movimiento['ingresos'];
+                    }, $ingresosVsEgresos)) ?>,
+                    borderColor: 'rgb(34, 197, 94)',
+                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                },
+                {
+                    label: 'Egresos',
+                    data: <?= json_encode(array_map(function($movimiento) {
+                        return $movimiento['egresos'];
+                    }, $ingresosVsEgresos)) ?>,
+                    borderColor: 'rgb(239, 68, 68)',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    fill: true,
+                    tension: 0.4
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
                 plugins: {
                     legend: {
-                        position: 'bottom',
-                        labels: {
-                            usePointStyle: true,
-                            padding: 20
+                        position: 'top'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + formatCurrency(context.raw);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: value => formatCurrency(value)
                         }
                     }
                 }

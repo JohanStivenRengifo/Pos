@@ -7,8 +7,8 @@ require_once 'config/config.php';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contacto | VendEasy</title>
-    <meta name="description" content="Contáctanos para cualquier duda o sugerencia sobre VendEasy">
+    <title>Contacto | Numercia</title>
+    <meta name="description" content="Contáctanos para cualquier duda o sugerencia sobre Numercia">
     <link rel="icon" type="image/png" href="/favicon/favicon.ico"/>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -26,10 +26,12 @@ require_once 'config/config.php';
     <header class="bg-white/80 backdrop-blur-md shadow-sm fixed w-full z-50">
         <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <div class="flex justify-between items-center">
-                <a href="/" class="flex items-center space-x-3 text-blue-600 text-xl font-bold hover:text-blue-700 transition-colors">
-                    <i class="fas fa-calculator"></i>
-                    <span>VendEasy</span>
-                </a>
+            <div class="flex items-center">
+                    <a href="/" class="flex items-center space-x-2">
+                        <img src="/favicon/favicon.ico" alt="Numercia Logo" class="h-8 w-8">
+                        <span class="text-xl font-bold text-gray-900">Numercia</span>
+                    </a>
+                </div>
                 <a href="/" class="flex items-center space-x-2 text-gray-600 hover:text-blue-600 transition-colors bg-white/80 py-2 px-4 rounded-lg shadow-sm hover:shadow">
                     <i class="fas fa-arrow-left"></i>
                     <span>Volver</span>
@@ -78,8 +80,8 @@ require_once 'config/config.php';
                             <i class="fas fa-envelope text-2xl"></i>
                         </div>
                         <h3 class="text-xl font-semibold text-gray-900 mb-4">Email</h3>
-                        <p class="text-gray-600 mb-6">soporte@johanrengifo.cloud</p>
-                        <a href="mailto:soporte@johanrengifo.cloud" 
+                        <p class="text-gray-600 mb-6">soporte@numercia.com</p>
+                        <a href="mailto:soporte@numercia.com" 
                            class="inline-flex items-center justify-center space-x-3 bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 px-6 rounded-xl transition-all duration-300 w-full">
                             <i class="fas fa-paper-plane"></i>
                             <span>Enviar email</span>

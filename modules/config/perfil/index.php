@@ -63,7 +63,7 @@ function verifyOTP($user_id, $otp) {
 }
 
 function sendOTPEmail($email, $otp, $nombre) {
-    $subject = "Código de verificación - VendEasy";
+    $subject = "Código de verificación - Numercia";
     
     // Plantilla HTML del correo
     $message = '
@@ -86,7 +86,7 @@ function sendOTPEmail($email, $otp, $nombre) {
     <body>
         <div class="container">
             <div class="header">
-                <h1>VendEasy</h1>
+                <h1>Numercia</h1>
             </div>
             <div class="content">
                 <h2>Hola ' . htmlspecialchars($nombre) . ',</h2>
@@ -97,7 +97,7 @@ function sendOTPEmail($email, $otp, $nombre) {
             </div>
             <div class="footer">
                 <p>Este es un correo automático, por favor no respondas a este mensaje.</p>
-                <p>&copy; ' . date('Y') . ' VendEasy. Todos los derechos reservados.</p>
+                <p>&copy; ' . date('Y') . ' Numercia. Todos los derechos reservados.</p>
             </div>
         </div>
     </body>
@@ -179,7 +179,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mi Perfil | VendEasy</title>
+    <title>Mi Perfil | Numercia</title>
     <link rel="icon" href="../../../favicon/favicon.ico" type="image/x-icon">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">

@@ -563,7 +563,7 @@ function getProximoVencimiento($user_id) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Egresos | VendEasy</title>
+    <title>Egresos | Numercia</title>
     <link rel="icon" type="image/png" href="/favicon/favicon.ico"/>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
@@ -608,57 +608,108 @@ function getProximoVencimiento($user_id) {
     <style type="text/tailwindcss">
         @layer components {
             .btn-primary {
-                @apply px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 
-                       transition-colors duration-200 flex items-center gap-2 font-medium;
+                padding: 0.5rem 1rem;
+                background-color: rgb(2 132 199);
+                color: white;
+                border-radius: 0.5rem;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                font-weight: 500;
+                transition: background-color 0.2s;
+            }
+
+            .btn-primary:hover {
+                background-color: rgb(3 105 161);
             }
 
             .btn-secondary {
-                @apply px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 
-                       transition-colors duration-200 flex items-center gap-2 font-medium;
+                padding: 0.5rem 1rem;
+                background-color: rgb(243 244 246);
+                color: rgb(55 65 81);
+                border-radius: 0.5rem;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                font-weight: 500;
+                transition: background-color 0.2s;
             }
 
             .btn-danger {
-                @apply px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 
-                       transition-colors duration-200 flex items-center gap-2 font-medium;
+                padding: 0.5rem 1rem;
+                background-color: rgb(239 68 68);
+                color: white;
+                border-radius: 0.5rem;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                font-weight: 500;
+                transition: background-color 0.2s;
             }
 
             .card {
-                @apply bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden 
-                       transition-all duration-300 hover:shadow-md;
+                background-color: white;
+                border-radius: 0.75rem;
+                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+                border: 1px solid rgb(243 244 246);
+                overflow: hidden;
+                transition: all 0.3s;
             }
 
-            .form-input {
-                @apply w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 
-                       focus:ring-primary-500/20 focus:border-primary-500 transition-all duration-200;
+            .card:hover {
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             }
 
-            .form-select {
-                @apply w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 
-                       focus:ring-primary-500/20 focus:border-primary-500 transition-all duration-200;
+            .form-input, .form-select {
+                width: 100%;
+                padding: 0.5rem 1rem;
+                border-radius: 0.5rem;
+                border: 1px solid rgb(209 213 219);
+                transition: all 0.2s;
+            }
+
+            .form-input:focus, .form-select:focus {
+                outline: none;
+                border-color: rgb(14 165 233);
+                box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2);
             }
 
             .form-label {
-                @apply block text-sm font-medium text-gray-700 mb-1;
+                display: block;
+                font-size: 0.875rem;
+                font-weight: 500;
+                color: rgb(55 65 81);
+                margin-bottom: 0.25rem;
             }
 
             .badge {
-                @apply px-2.5 py-1 rounded-full text-xs font-medium inline-flex items-center gap-1;
+                padding: 0.25rem 0.625rem;
+                border-radius: 9999px;
+                font-size: 0.75rem;
+                font-weight: 500;
+                display: inline-flex;
+                align-items: center;
+                gap: 0.25rem;
             }
 
             .badge-primary {
-                @apply bg-primary-100 text-primary-700;
+                background-color: rgb(224 242 254);
+                color: rgb(3 105 161);
             }
 
             .badge-success {
-                @apply bg-green-100 text-green-700;
+                background-color: rgb(220 252 231);
+                color: rgb(21 128 61);
             }
 
             .badge-warning {
-                @apply bg-yellow-100 text-yellow-700;
+                background-color: rgb(254 249 195);
+                color: rgb(161 98 7);
             }
 
             .badge-danger {
-                @apply bg-red-100 text-red-700;
+                background-color: rgb(254 226 226);
+                color: rgb(185 28 28);
             }
         }
     </style>

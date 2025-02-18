@@ -7,7 +7,7 @@ require_once '../config/config.php';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>No autorizado | VendEasy</title>
+    <title>No autorizado | Numercia</title>
     <meta name="description" content="Necesitas iniciar sesión para acceder a este recurso.">
     <link rel="icon" type="image/png" href="../favicon/favicon.ico"/>
     <script src="https://cdn.tailwindcss.com"></script>

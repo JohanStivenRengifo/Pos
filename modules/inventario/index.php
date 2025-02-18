@@ -474,7 +474,7 @@ try {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventario | VendEasy</title>
+    <title>Inventario | Numercia</title>
     <link rel="icon" type="image/png" href="/favicon/favicon.ico" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
     <script src="https://cdn.tailwindcss.com"></script>
@@ -504,36 +504,75 @@ try {
                 <h1 class="text-3xl font-bold text-gray-900 mb-8">Gestión de Inventario</h1>
 
                 <!-- Barra de acciones mejorada -->
-                <div class="flex flex-wrap gap-4 mb-8">
+                <div class="flex flex-col lg:flex-row gap-4 mb-8">
+                    <!-- Grupo de botones principales -->
                     <div class="flex flex-wrap gap-3">
                         <a href="crear.php"
-                            class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all transform hover:scale-105 shadow-sm">
-                            <i class="fas fa-plus mr-2"></i> Nuevo Producto
+                            class="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all transform hover:scale-105 shadow-sm">
+                            <i class="fas fa-plus mr-2"></i>
+                            <span class="hidden sm:inline">Nuevo Producto</span>
+                            <span class="sm:hidden">Nuevo</span>
                         </a>
                         <a href="surtir.php"
-                            class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all transform hover:scale-105 shadow-sm">
-                            <i class="fas fa-boxes mr-2"></i> Surtir
+                            class="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all transform hover:scale-105 shadow-sm">
+                            <i class="fas fa-boxes mr-2"></i>
+                            <span class="hidden sm:inline">Surtir Inventario</span>
+                            <span class="sm:hidden">Surtir</span>
                         </a>
                         <a href="importar.php"
-                            class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg hover:from-purple-700 hover:to-purple-800 transition-all transform hover:scale-105 shadow-sm">
-                            <i class="fas fa-file-import mr-2"></i> Importar
+                            class="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg hover:from-purple-700 hover:to-purple-800 transition-all transform hover:scale-105 shadow-sm">
+                            <i class="fas fa-file-import mr-2"></i>
+                            <span class="hidden sm:inline">Importar</span>
+                            <span class="sm:hidden">Importar</span>
                         </a>
                         <a href="catalogo.php"
-                            class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg hover:from-indigo-700 hover:to-indigo-800 transition-all transform hover:scale-105 shadow-sm">
-                            <i class="fas fa-book mr-2"></i> Catálogo
+                            class="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-lg hover:from-indigo-700 hover:to-indigo-800 transition-all transform hover:scale-105 shadow-sm">
+                            <i class="fas fa-book mr-2"></i>
+                            <span class="hidden sm:inline">Catálogo</span>
+                            <span class="sm:hidden">Catálogo</span>
                         </a>
                     </div>
-                    <div class="flex gap-3 ml-auto">
-                        <!-- Botón de exportar PDF -->
-                        <a href="exportar.php?formato=pdf" 
-                            class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 transition-all transform hover:scale-105 shadow-sm">
-                            <i class="fas fa-file-pdf mr-2"></i> Exportar PDF
-                        </a>
+
+                    <!-- Grupo de botones de exportación -->
+                    <div class="flex flex-wrap gap-3 lg:ml-auto">
+                        <!-- Menú desplegable de exportación -->
+                        <div class="relative group">
+                            <button type="button"
+                                class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all transform hover:scale-105 shadow-sm">
+                                <i class="fas fa-download mr-2"></i>
+                                <span class="hidden sm:inline">Exportar</span>
+                                <i class="fas fa-chevron-down ml-2"></i>
+                            </button>
+                            
+                            <!-- Menú desplegable -->
+                            <div class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50">
+                                <div class="p-2 space-y-2">
+                                    <a href="exportar.php?formato=excel" 
+                                        class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-green-50 rounded-lg transition-colors">
+                                        <i class="fas fa-file-excel text-green-600 mr-3 w-4"></i>
+                                        Exportar Excel
+                                    </a>
+                                    <a href="exportar.php?formato=csv" 
+                                        class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 rounded-lg transition-colors">
+                                        <i class="fas fa-file-csv text-blue-600 mr-3 w-4"></i>
+                                        Exportar CSV
+                                    </a>
+                                    <a href="exportar.php?formato=pdf" 
+                                        class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-red-50 rounded-lg transition-colors">
+                                        <i class="fas fa-file-pdf text-red-600 mr-3 w-4"></i>
+                                        Exportar PDF
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Botón de vaciar inventario -->
                         <button type="button"
                             onclick="confirmarVaciarInventario()"
                             class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 transition-all transform hover:scale-105 shadow-sm">
-                            <i class="fas fa-trash-alt mr-2"></i> Vaciar
+                            <i class="fas fa-trash-alt mr-2"></i>
+                            <span class="hidden sm:inline">Vaciar Inventario</span>
+                            <span class="sm:hidden">Vaciar</span>
                         </button>
                     </div>
                 </div>
@@ -1267,7 +1306,81 @@ try {
 
         /* Estilo para los iconos en los encabezados */
         .header-icon {
-            @apply text-blue-600 opacity-75 group-hover:opacity-100 transition-opacity;
+            color: #2563eb; /* text-blue-600 */
+            opacity: 0.75;
+            transition: opacity 0.2s;
+        }
+
+        .group:hover .header-icon {
+            opacity: 1;
+        }
+
+        /* Animación para el menú desplegable */
+        .group:hover .absolute {
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+        
+        .absolute {
+            transform: translateY(-10px);
+            pointer-events: none;
+            transition: all 0.3s ease;
+        }
+
+        /* Efecto hover para los botones */
+        .hover\:scale-105:hover {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 
+                        0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        /* Animación para los íconos en hover */
+        .fas {
+            transition: transform 0.2s ease;
+        }
+        
+        a:hover .fas,
+        button:hover .fas {
+            transform: scale(1.2);
+        }
+
+        /* Mejora visual para dispositivos móviles */
+        @media (max-width: 640px) {
+            .flex-wrap {
+                justify-content: center;
+            }
+            
+            .flex-1 {
+                min-width: auto;
+            }
+        }
+
+        /* Efecto de brillo en hover para los botones */
+        .bg-gradient-to-r {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .bg-gradient-to-r::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                to right,
+                rgba(255,255,255,0) 0%,
+                rgba(255,255,255,0.3) 50%,
+                rgba(255,255,255,0) 100%
+            );
+            transform: rotate(45deg);
+            transition: all 0.3s ease;
+            opacity: 0;
+        }
+
+        .bg-gradient-to-r:hover::after {
+            opacity: 1;
+            transform: rotate(45deg) translate(50%, -50%);
         }
     </style>
 </body>

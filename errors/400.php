@@ -7,7 +7,7 @@ require_once '../config/config.php';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Solicitud incorrecta | VendEasy</title>
+    <title>Solicitud incorrecta | Numercia</title>
     <meta name="description" content="La solicitud no pudo ser procesada debido a un error en la sintaxis.">
     <link rel="icon" type="image/png" href="../favicon/favicon.ico"/>
     <script src="https://cdn.tailwindcss.com"></script>

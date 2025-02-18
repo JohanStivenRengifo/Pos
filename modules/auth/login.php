@@ -202,8 +202,8 @@ if (rand(1, 100) <= 5) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Sistema de gestión empresarial VendEasy - Inicio de sesión">
-    <title>VendEasy | Iniciar Sesión</title>
+    <meta name="description" content="Sistema de gestión empresarial Numercia - Inicio de sesión">
+    <title>Numercia | Iniciar Sesión</title>
     <link rel="icon" type="image/png" href="../../favicon/favicon.ico">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -252,7 +252,7 @@ if (rand(1, 100) <= 5) {
     <!-- Sección lateral con imagen y mensaje de bienvenida -->
     <div class="hidden lg:flex lg:w-1/2 bg-primary-600 text-white p-12 flex-col justify-between">
         <div>
-            <h1 class="text-4xl font-bold mb-4">VendEasy</h1>
+            <h1 class="text-4xl font-bold mb-4">Numercia</h1>
             <p class="text-primary-100">Sistema integral de gestión empresarial</p>
         </div>
         <div class="space-y-6">
@@ -270,7 +270,7 @@ if (rand(1, 100) <= 5) {
             </div>
         </div>
         <div class="text-sm text-primary-100">
-            © <?= date('Y') ?> VendEasy. Todos los derechos reservados.
+            © <?= date('Y') ?> Numercia. Todos los derechos reservados.
         </div>
     </div>
 

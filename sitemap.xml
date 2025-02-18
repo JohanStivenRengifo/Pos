@@ -3,21 +3,27 @@ header("Content-Type: application/xml; charset=UTF-8");
 echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
 ?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-    <url>
-        <loc>https://johanrengifo.cloud/</loc>
-        <lastmod><?= date('Y-m-d'); ?></lastmod>
+    <url></url>
+        <loc>https://numercia.com/</loc>
+        <lastmod>2024-03-20</lastmod>
         <changefreq>weekly</changefreq>
         <priority>1.0</priority>
     </url>
     <url>
-        <loc>https://johanrengifo.cloud/terminos-y-condiciones.php</loc>
-        <lastmod><?= date('Y-m-d'); ?></lastmod>
+        <loc>https://numercia.com/welcome.php</loc>
+        <lastmod>2024-03-20</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.8</priority>
+    </url>
+    <url>
+        <loc>https://numercia.com/terminos-y-condiciones.php</loc>
+        <lastmod>2024-03-20</lastmod>
         <changefreq>monthly</changefreq>
         <priority>0.5</priority>
     </url>
     <url>
-        <loc>https://johanrengifo.cloud/politica-privacidad.php</loc>
-        <lastmod><?= date('Y-m-d'); ?></lastmod>
+        <loc>https://numercia.com/politica-privacidad.php</loc>
+        <lastmod>2024-03-20</lastmod>
         <changefreq>monthly</changefreq>
         <priority>0.5</priority>
     </url>

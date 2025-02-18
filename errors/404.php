@@ -7,7 +7,7 @@ require_once '../config/config.php';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Página no encontrada | VendEasy</title>
+    <title>Página no encontrada | Numercia</title>
     <meta name="description" content="Lo sentimos, la página que buscas no existe o ha sido movida.">
     <link rel="icon" type="image/png" href="../favicon/favicon.ico"/>
     <script src="https://cdn.tailwindcss.com"></script>

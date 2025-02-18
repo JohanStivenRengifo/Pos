@@ -78,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portal de Clientes - VendEasy</title>
+    <title>Portal de Clientes - Numercia</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="shortcut icon" href="./favicon/favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -114,7 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="flex items-center">
                     <a href="/" class="flex items-center space-x-2">
                         <i class="fas fa-calculator text-primary text-2xl"></i>
-                        <span class="text-xl font-bold text-gray-900">VendEasy</span>
+                        <span class="text-xl font-bold text-gray-900">Numercia</span>
                     </a>
                 </div>
                     <div class="flex items-center space-x-4">
@@ -276,7 +276,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <footer class="bg-white border-t border-gray-200 mt-12">
             <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
                 <div class="text-center text-sm text-gray-500">
-                    <p>&copy; <?php echo date('Y'); ?> VendEasy. Todos los derechos reservados.</p>
+                    <p>&copy; <?php echo date('Y'); ?> Numercia. Todos los derechos reservados.</p>
                 </div>
             </div>
         </footer>

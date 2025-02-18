@@ -2,6 +2,15 @@
 session_start();
 require_once '../../../config/db.php';
 
+// Definir constantes para el manejo de logos
+define('LOGO_PATH', '../../../assets/img/logos/');
+define('DEFAULT_LOGO', '../../../assets/img/logos/default-logo.jpg');
+
+// Verificar y crear el directorio de logos si no existe
+if (!file_exists(LOGO_PATH)) {
+    mkdir(LOGO_PATH, 0777, true);
+}
+
 // Verificar si el usuario está autenticado
 if (!isset($_SESSION['user_id'])) {
     header('Location: ../../../login.php');
@@ -30,7 +39,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 moneda = ?,
                 departamento = ?,
                 municipio = ?,
-                pais = ?
+                pais = ?,
+                prefijo_factura = ?,
+                numero_inicial = ?,
+                numero_final = ?,
+                primer_nombre = ?,
+                segundo_nombre = ?,
+                apellidos = ?,
+                tipo_nacionalidad = ?,
+                codigo_postal = ?,
+                plan_suscripcion = ?
             WHERE id = ?
         ");
 
@@ -48,26 +66,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_POST['departamento'],
             $_POST['municipio'],
             $_POST['pais'],
+            $_POST['prefijo_factura'],
+            $_POST['numero_inicial'],
+            $_POST['numero_final'],
+            $_POST['primer_nombre'],
+            $_POST['segundo_nombre'],
+            $_POST['apellidos'],
+            $_POST['tipo_nacionalidad'],
+            $_POST['codigo_postal'],
+            $_POST['plan_suscripcion'],
             $_SESSION['empresa_id']
         ]);
 
         // Procesar logo si se subió uno nuevo
         if (isset($_FILES['logo']) && $_FILES['logo']['error'] === 0) {
-            $allowed = ['jpg', 'jpeg', 'png'];
-            $filename = $_FILES['logo']['name'];
-            $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+            $allowed_types = ['image/jpeg', 'image/png'];
+            $max_size = 2 * 1024 * 1024; // 2MB
             
-            if (in_array($ext, $allowed)) {
-                $target_dir = "../../../assets/img/logos/";
-                if (!file_exists($target_dir)) {
-                    mkdir($target_dir, 0777, true);
+            if (!in_array($_FILES['logo']['type'], $allowed_types)) {
+                $_SESSION['error_message'] = "Solo se permiten archivos JPG y PNG.";
+            } elseif ($_FILES['logo']['size'] > $max_size) {
+                $_SESSION['error_message'] = "El archivo es demasiado grande. El tamaño máximo permitido es 2MB.";
+            } else {
+                $ext = strtolower(pathinfo($_FILES['logo']['name'], PATHINFO_EXTENSION));
+                
+                // Eliminar logo anterior si existe
+                if (!empty($empresa['logo'])) {
+                    $old_logo = LOGO_PATH . $empresa['logo'];
+                    if (file_exists($old_logo)) {
+                        unlink($old_logo);
+                    }
                 }
                 
-                $new_filename = "logo_" . $_SESSION['empresa_id'] . "." . $ext;
-                move_uploaded_file($_FILES['logo']['tmp_name'], $target_dir . $new_filename);
+                // Generar nombre único para el logo
+                $new_filename = uniqid() . '.' . $ext;
+                $target_file = LOGO_PATH . $new_filename;
                 
-                $stmt = $pdo->prepare("UPDATE empresas SET logo = ? WHERE id = ?");
-                $stmt->execute([$new_filename, $_SESSION['empresa_id']]);
+                if (move_uploaded_file($_FILES['logo']['tmp_name'], $target_file)) {
+                    // Actualizar la base de datos con el nuevo nombre del logo
+                    $stmt = $pdo->prepare("UPDATE empresas SET logo = ? WHERE id = ?");
+                    $stmt->execute([$new_filename, $_SESSION['empresa_id']]);
+                } else {
+                    $_SESSION['error_message'] = "Error al subir el archivo. Por favor, intente nuevamente.";
+                }
             }
         }
 
@@ -84,7 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Configuración de Empresa | VendEasy</title>
+    <title>Configuración de Empresa | Numercia</title>
     <link rel="icon" href="../../../favicon/favicon.ico" type="image/x-icon">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
@@ -128,13 +169,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <h2 class="text-lg font-semibold text-gray-800 mb-4">Logo de la Empresa</h2>
                             <div class="flex items-center space-x-6">
                                 <div class="w-40 h-40 relative">
-                                    <img src="<?php echo isset($empresa['logo']) ? '../../../assets/img/logos/' . $empresa['logo'] : '../../../assets/img/default-logo.png'; ?>" 
+                                    <?php
+                                    $logo_url = DEFAULT_LOGO;
+                                    if (!empty($empresa['logo'])) {
+                                        $logo_file = LOGO_PATH . $empresa['logo'];
+                                        if (file_exists($logo_file)) {
+                                            $logo_url = $logo_file;
+                                        }
+                                    }
+                                    ?>
+                                    <img src="<?php echo htmlspecialchars($logo_url); ?>" 
                                          alt="Logo de la empresa" 
-                                         class="w-full h-full object-contain">
+                                         class="w-full h-full object-contain border rounded-lg"
+                                         id="preview-logo">
                                     <label for="logo" class="absolute bottom-0 right-0 bg-indigo-600 text-white rounded-full p-2 hover:bg-indigo-700 cursor-pointer">
                                         <i class="fas fa-camera"></i>
-                                        <input type="file" id="logo" name="logo" class="hidden" accept="image/*">
+                                        <input type="file" id="logo" name="logo" class="hidden" accept="image/jpeg,image/png">
                                     </label>
+                                </div>
+                                <div class="text-sm text-gray-600">
+                                    <p>Formatos permitidos: JPG, PNG</p>
+                                    <p>Tamaño máximo: 2MB</p>
                                 </div>
                             </div>
                         </div>
@@ -241,6 +296,69 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </div>
                         </div>
 
+                        <!-- Información Adicional -->
+                        <div class="bg-gray-50 p-6 rounded-lg mt-6">
+                            <h2 class="text-lg font-semibold text-gray-800 mb-4">Información Adicional</h2>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Primer Nombre</label>
+                                    <input type="text" name="primer_nombre" value="<?php echo htmlspecialchars($empresa['primer_nombre'] ?? ''); ?>"
+                                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Segundo Nombre</label>
+                                    <input type="text" name="segundo_nombre" value="<?php echo htmlspecialchars($empresa['segundo_nombre'] ?? ''); ?>"
+                                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Apellidos</label>
+                                    <input type="text" name="apellidos" value="<?php echo htmlspecialchars($empresa['apellidos'] ?? ''); ?>"
+                                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Prefijo Factura</label>
+                                    <input type="text" name="prefijo_factura" value="<?php echo htmlspecialchars($empresa['prefijo_factura']); ?>"
+                                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Número Inicial</label>
+                                    <input type="number" name="numero_inicial" value="<?php echo htmlspecialchars($empresa['numero_inicial']); ?>"
+                                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Número Final</label>
+                                    <input type="number" name="numero_final" value="<?php echo htmlspecialchars($empresa['numero_final']); ?>"
+                                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" required>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Código Postal</label>
+                                    <input type="text" name="codigo_postal" value="<?php echo htmlspecialchars($empresa['codigo_postal'] ?? ''); ?>"
+                                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Tipo de Nacionalidad</label>
+                                    <select name="tipo_nacionalidad" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                        <option value="nacional" <?php echo ($empresa['tipo_nacionalidad'] ?? '') === 'nacional' ? 'selected' : ''; ?>>Nacional</option>
+                                        <option value="extranjero" <?php echo ($empresa['tipo_nacionalidad'] ?? '') === 'extranjero' ? 'selected' : ''; ?>>Extranjero</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700">Plan de Suscripción</label>
+                                    <div class="mt-1 block w-full p-2 bg-gray-50 rounded-md border border-gray-300">
+                                        <?php
+                                        $planes = [
+                                            'basico' => 'Básico',
+                                            'profesional' => 'Profesional',
+                                            'empresarial' => 'Empresarial'
+                                        ];
+                                        echo htmlspecialchars($planes[$empresa['plan_suscripcion']] ?? 'Básico');
+                                        ?>
+                                        <input type="hidden" name="plan_suscripcion" value="<?php echo htmlspecialchars($empresa['plan_suscripcion']); ?>">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Botones de Acción -->
                         <div class="flex justify-end space-x-4">
                             <button type="button" onclick="window.location.href='index.php'" 
@@ -260,11 +378,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <script>
     document.getElementById('logo').addEventListener('change', function(e) {
         if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            
+            // Verificar el tamaño del archivo (2MB máximo)
+            if (file.size > 2 * 1024 * 1024) {
+                alert('El archivo es demasiado grande. El tamaño máximo permitido es 2MB.');
+                this.value = '';
+                return;
+            }
+            
+            // Verificar el tipo de archivo
+            if (!file.type.match('image/jpeg') && !file.type.match('image/png')) {
+                alert('Solo se permiten archivos JPG y PNG.');
+                this.value = '';
+                return;
+            }
+            
             const reader = new FileReader();
             reader.onload = function(e) {
-                document.querySelector('.w-40.h-40 img').src = e.target.result;
+                document.getElementById('preview-logo').src = e.target.result;
             }
-            reader.readAsDataURL(e.target.files[0]);
+            reader.readAsDataURL(file);
         }
     });
     </script>

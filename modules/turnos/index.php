@@ -488,53 +488,89 @@ $turno_activo = getTurnoActivo($user_id);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Turnos | VendEasy</title>
+    <title>Turnos | Numercia</title>
     <link rel="icon" type="image/png" href="/favicon/favicon.ico"/>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css" />
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        /* Animaciones personalizadas */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+        .transition-all-custom {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+    </style>
 </head>
-<body class="bg-gray-50">
+<body class="bg-gray-50 font-[Poppins]">
     <?php include '../../includes/header.php'; ?>
     
     <div class="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <?php include '../../includes/sidebar.php'; ?>
         
-        <div class="main-content ml-64">
-            <h2 class="text-2xl font-semibold text-gray-800 mb-6">Gestión de Turnos</h2>
+        <div class="main-content ml-64 animate-fade-in">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-semibold text-gray-800 flex items-center gap-2">
+                    <i class="fas fa-cash-register text-emerald-500"></i>
+                    Gestión de Turnos
+                </h2>
+                <nav class="flex" aria-label="Breadcrumb">
+                    <ol class="inline-flex items-center space-x-1 md:space-x-3">
+                        <li class="inline-flex items-center">
+                            <a href="/" class="text-gray-500 hover:text-gray-700">
+                                <i class="fas fa-home mr-1"></i> Inicio
+                            </a>
+                        </li>
+                        <li>
+                            <div class="flex items-center">
+                                <i class="fas fa-chevron-right text-gray-400 mx-2 text-sm"></i>
+                                <span class="text-gray-500">Turnos</span>
+                            </div>
+                        </li>
+                    </ol>
+                </nav>
+            </div>
             
             <?php if ($turno_activo): ?>
             <!-- Tarjeta de Turno Activo -->
-            <div class="bg-gradient-to-r from-emerald-500 to-green-600 rounded-lg shadow-lg p-6 mb-8">
+            <div class="bg-gradient-to-r from-emerald-500 to-green-600 rounded-xl shadow-lg p-6 mb-8 transform hover:scale-[1.01] transition-all-custom">
                 <div class="flex items-center justify-between mb-4">
                     <h3 class="text-xl font-semibold text-white flex items-center">
-                        <i class="fas fa-clock mr-2"></i> Turno Activo
+                        <i class="fas fa-clock mr-2 animate-pulse"></i> Turno Activo
                     </h3>
-                    <span class="bg-emerald-400 text-white px-3 py-1 rounded-full text-sm">
+                    <span class="bg-emerald-400/30 text-white px-4 py-1.5 rounded-full text-sm font-medium backdrop-blur-sm">
                         En curso
                     </span>
                 </div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div class="bg-white/10 rounded-lg p-4">
-                        <p class="text-white/80 text-sm mb-1">Inicio del Turno</p>
-                        <p class="text-white font-medium">
+                    <div class="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 transition-colors duration-200">
+                        <p class="text-white/80 text-sm mb-1 font-medium">Inicio del Turno</p>
+                        <p class="text-white font-medium flex items-center gap-2">
+                            <i class="fas fa-calendar-alt"></i>
                             <?= $turno_activo['fecha_apertura_formateada'] ?>
                         </p>
                     </div>
                     
-                    <div class="bg-white/10 rounded-lg p-4">
-                        <p class="text-white/80 text-sm mb-1">Monto Inicial</p>
-                        <p class="text-white font-medium">
-                            $<?= number_format($turno_activo['monto_inicial'], 2) ?>
+                    <div class="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 transition-colors duration-200">
+                        <p class="text-white/80 text-sm mb-1 font-medium">Monto Inicial</p>
+                        <p class="text-white font-medium flex items-center gap-2">
+                            <i class="fas fa-dollar-sign"></i>
+                            <?= number_format($turno_activo['monto_inicial'], 2) ?>
                         </p>
                     </div>
                     
-                    <div class="bg-white/10 rounded-lg p-4">
-                        <p class="text-white/80 text-sm mb-1">Tiempo Transcurrido</p>
-                        <p class="text-white font-medium" id="tiempoTranscurrido">
+                    <div class="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 transition-colors duration-200">
+                        <p class="text-white/80 text-sm mb-1 font-medium">Tiempo Transcurrido</p>
+                        <p class="text-white font-medium flex items-center gap-2" id="tiempoTranscurrido">
+                            <i class="fas fa-hourglass-half"></i>
                             Calculando...
                         </p>
                     </div>
@@ -542,8 +578,9 @@ $turno_activo = getTurnoActivo($user_id);
                 
                 <div class="mt-6 flex justify-end">
                     <button onclick="cerrarTurno()" 
-                            class="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg 
-                                   flex items-center transition-colors duration-200">
+                            class="bg-red-500 hover:bg-red-600 text-white px-6 py-2.5 rounded-lg 
+                                   flex items-center transition-all duration-200 hover:shadow-lg
+                                   focus:ring-4 focus:ring-red-500/30">
                         <i class="fas fa-stop-circle mr-2"></i> 
                         Cerrar Turno
                     </button>
@@ -551,17 +588,20 @@ $turno_activo = getTurnoActivo($user_id);
             </div>
             <?php else: ?>
             <!-- Botón para Iniciar Turno -->
-            <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-                <div class="text-center">
-                    <i class="fas fa-cash-register text-4xl text-gray-400 mb-4"></i>
-                    <h3 class="text-xl font-medium text-gray-800 mb-2">No hay turno activo</h3>
+            <div class="bg-white rounded-xl shadow-md p-8 mb-8 transform hover:shadow-lg transition-all-custom">
+                <div class="text-center max-w-lg mx-auto">
+                    <div class="bg-emerald-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-cash-register text-3xl text-emerald-500"></i>
+                    </div>
+                    <h3 class="text-xl font-medium text-gray-800 mb-3">No hay turno activo</h3>
                     <p class="text-gray-600 mb-6">
-                        Inicia un nuevo turno para comenzar a registrar ventas
+                        Inicia un nuevo turno para comenzar a registrar ventas y mantener un control preciso de tus operaciones
                     </p>
                     <button onclick="iniciarTurno()" 
-                            class="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-lg 
-                                   flex items-center justify-center mx-auto transition-colors duration-200">
-                        <i class="fas fa-play-circle mr-2"></i>
+                            class="bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-3 rounded-lg 
+                                   flex items-center justify-center mx-auto transition-all duration-200
+                                   hover:shadow-lg focus:ring-4 focus:ring-emerald-500/30 group">
+                        <i class="fas fa-play-circle mr-2 group-hover:rotate-[360deg] transition-transform duration-500"></i>
                         Iniciar Turno
                     </button>
                 </div>
@@ -569,22 +609,29 @@ $turno_activo = getTurnoActivo($user_id);
             <?php endif; ?>
 
             <!-- Historial de Turnos -->
-            <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="bg-white rounded-xl shadow-md p-6">
                 <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6">
-                    <h4 class="text-lg font-medium text-gray-800">Historial de Turnos</h4>
+                    <h4 class="text-lg font-medium text-gray-800 flex items-center gap-2">
+                        <i class="fas fa-history text-emerald-500"></i>
+                        Historial de Turnos
+                    </h4>
                     <form id="filtroFechas" class="flex flex-wrap items-center gap-4">
                         <div class="flex items-center gap-2">
-                            <label class="text-sm text-gray-600">Fecha:</label>
-                            <input type="date" 
-                                   id="fecha" 
-                                   name="fecha"
-                                   value="<?= $fecha_filtro ?? '' ?>"
-                                   class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 
-                                          focus:ring-emerald-500 focus:border-emerald-500">
+                            <label class="text-sm text-gray-600 font-medium">Fecha:</label>
+                            <div class="relative">
+                                <input type="date" 
+                                       id="fecha" 
+                                       name="fecha"
+                                       value="<?= $fecha_filtro ?? '' ?>"
+                                       class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 
+                                              focus:ring-emerald-500 focus:border-emerald-500 transition-all duration-200">
+                                <i class="fas fa-calendar-alt absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                            </div>
                         </div>
                         <button type="submit"
                                 class="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg 
-                                       flex items-center gap-2 transition-colors duration-200">
+                                       flex items-center gap-2 transition-all duration-200 hover:shadow-md
+                                       focus:ring-4 focus:ring-emerald-500/30">
                             <i class="fas fa-filter"></i>
                             Filtrar
                         </button>
@@ -592,7 +639,8 @@ $turno_activo = getTurnoActivo($user_id);
                         <button type="button"
                                 onclick="limpiarFiltro()"
                                 class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-2 rounded-lg 
-                                       flex items-center gap-2 transition-colors duration-200">
+                                       flex items-center gap-2 transition-all duration-200
+                                       focus:ring-4 focus:ring-gray-200">
                             <i class="fas fa-times"></i>
                             Mostrar Todo
                         </button>
@@ -600,26 +648,26 @@ $turno_activo = getTurnoActivo($user_id);
                     </form>
                 </div>
 
-                <div class="overflow-x-auto">
+                <div class="overflow-x-auto rounded-xl border border-gray-100">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead>
-                            <tr>
-                                <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <tr class="bg-gray-50">
+                                <th class="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Fecha Apertura
                                 </th>
-                                <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th class="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Fecha Cierre
                                 </th>
-                                <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th class="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Monto Inicial
                                 </th>
-                                <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th class="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Monto Final
                                 </th>
-                                <th class="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th class="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Estado
                                 </th>
-                                <th class="px-6 py-3 bg-gray-50 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th class="px-6 py-3.5 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Acciones
                                 </th>
                             </tr>
@@ -627,39 +675,56 @@ $turno_activo = getTurnoActivo($user_id);
                         <tbody class="bg-white divide-y divide-gray-200">
                             <?php if (empty($turnos)): ?>
                             <tr>
-                                <td colspan="6" class="px-6 py-4 text-center text-gray-500">
-                                    No hay turnos registrados
+                                <td colspan="6" class="px-6 py-8 text-center">
+                                    <div class="flex flex-col items-center justify-center text-gray-500">
+                                        <i class="fas fa-receipt text-4xl mb-3"></i>
+                                        <p class="text-gray-500 mb-1">No hay turnos registrados</p>
+                                        <p class="text-sm text-gray-400">Los turnos aparecerán aquí una vez iniciados</p>
+                                    </div>
                                 </td>
                             </tr>
                             <?php else: ?>
                                 <?php foreach ($turnos as $turno): ?>
-                                <tr class="hover:bg-gray-50">
+                                <tr class="hover:bg-gray-50 transition-colors duration-150">
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <?= htmlspecialchars($turno['fecha_apertura_formateada']) ?>
+                                        <div class="flex items-center gap-2">
+                                            <i class="fas fa-calendar-day text-emerald-500"></i>
+                                            <?= htmlspecialchars($turno['fecha_apertura_formateada']) ?>
+                                        </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <?= $turno['fecha_cierre_formateada'] ?? '-' ?>
+                                        <div class="flex items-center gap-2">
+                                            <i class="fas fa-calendar-check text-emerald-500"></i>
+                                            <?= $turno['fecha_cierre_formateada'] ?? '-' ?>
+                                        </div>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        $<?= number_format($turno['monto_inicial'], 2) ?>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                        <div class="flex items-center gap-2">
+                                            <i class="fas fa-dollar-sign text-emerald-500"></i>
+                                            <?= number_format($turno['monto_inicial'], 2) ?>
+                                        </div>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        <?= $turno['monto_final'] ? '$'.number_format($turno['monto_final'], 2) : '-' ?>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                        <div class="flex items-center gap-2">
+                                            <i class="fas fa-dollar-sign text-emerald-500"></i>
+                                            <?= $turno['monto_final'] ? number_format($turno['monto_final'], 2) : '-' ?>
+                                        </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <?php if ($turno['fecha_cierre']): ?>
-                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                                                Cerrado
+                                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                                <i class="fas fa-lock mr-1"></i> Cerrado
                                             </span>
                                         <?php else: ?>
-                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                                Activo
+                                            <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-emerald-100 text-emerald-800">
+                                                <i class="fas fa-clock mr-1"></i> Activo
                                             </span>
                                         <?php endif; ?>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <button onclick="verDetallesTurno(<?= $turno['id'] ?>)" 
-                                                class="text-emerald-600 hover:text-emerald-900">
+                                                class="text-emerald-600 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100
+                                                       p-2 rounded-lg transition-colors duration-200">
                                             <i class="fas fa-eye"></i>
                                         </button>
                                     </td>
