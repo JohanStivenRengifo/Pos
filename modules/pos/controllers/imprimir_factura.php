@@ -105,9 +105,9 @@ try {
                 font-family: 'Open Sans', Arial, sans-serif;
                 margin: 0;
                 padding: <?= $formato === '80mm' ? '5mm' : '10mm' ?>;
-                font-size: <?= $formato === '80mm' ? '10px' : '12px' ?>;
+                font-size: <?= $formato === '80mm' ? '12px' : '12px' ?>;
                 width: <?= $formato === '80mm' ? '70mm' : 'auto' ?>;
-                line-height: 1.3;
+                line-height: 1.4;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
                 <?php if ($formato === 'carta'): ?>
@@ -120,24 +120,24 @@ try {
                 margin-bottom: 5mm;
             }
             .logo {
-                max-width: <?= $formato === '80mm' ? '40mm' : '60mm' ?>;
+                max-width: <?= $formato === '80mm' ? '45mm' : '60mm' ?>;
                 height: auto;
                 margin-bottom: 3mm;
                 object-fit: contain;
             }
             .empresa-nombre {
-                font-size: 14px;
+                font-size: <?= $formato === '80mm' ? '16px' : '14px' ?>;
                 font-weight: 600;
                 margin-bottom: 2mm;
                 text-transform: uppercase;
             }
             .info-empresa {
-                font-size: 10px;
+                font-size: <?= $formato === '80mm' ? '12px' : '10px' ?>;
                 line-height: 1.4;
                 margin-bottom: 4mm;
             }
             .info-cliente, .info-factura {
-                font-size: 10px;
+                font-size: <?= $formato === '80mm' ? '12px' : '10px' ?>;
                 line-height: 1.4;
                 margin-bottom: 3mm;
             }
@@ -150,32 +150,32 @@ try {
             }
             .producto-nombre {
                 font-weight: 600;
-                font-size: 11px;
+                font-size: <?= $formato === '80mm' ? '13px' : '11px' ?>;
                 margin-bottom: 0.5mm;
             }
             .producto-detalle {
                 padding-left: 3mm;
-                font-size: 10px;
+                font-size: <?= $formato === '80mm' ? '12px' : '10px' ?>;
             }
             .totales {
                 text-align: right;
                 margin: 4mm 0;
-                font-size: 11px;
+                font-size: <?= $formato === '80mm' ? '13px' : '11px' ?>;
             }
             .totales .total-principal {
                 font-weight: 600;
-                font-size: 12px;
+                font-size: <?= $formato === '80mm' ? '14px' : '12px' ?>;
                 margin-top: 1mm;
             }
             .texto-legal {
-                font-size: 8px;
+                font-size: <?= $formato === '80mm' ? '10px' : '8px' ?>;
                 text-align: justify;
                 margin: 3mm 0;
                 line-height: 1.3;
             }
             .footer {
                 text-align: center;
-                font-size: 9px;
+                font-size: <?= $formato === '80mm' ? '11px' : '9px' ?>;
                 margin-top: 6mm;
                 padding-top: 2mm;
                 border-top: 1px solid #ccc;

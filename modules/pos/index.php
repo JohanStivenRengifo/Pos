@@ -972,8 +972,8 @@ if (
                 }
             });
 
-            // Obtener facturas
-            fetch('api/alegra/obtener_facturas.php')
+            // Obtener facturas del sistema local
+            fetch('api/facturas/obtener_facturas.php')
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
@@ -1009,18 +1009,17 @@ if (
             `;
 
             facturas.forEach(factura => {
-                // Formatear el número de factura
-                const numeroFactura = factura.numberTemplate ? 
-                    (factura.numberTemplate.prefix || '') + factura.numberTemplate.number : 
-                    factura.number;
-
                 html += `
                     <tr class="border-b hover:bg-gray-50">
-                        <td class="px-4 py-2">${numeroFactura}</td>
-                        <td class="px-4 py-2">${factura.client ? factura.client.name : 'N/A'}</td>
+                        <td class="px-4 py-2">${factura.numero_factura}</td>
+                        <td class="px-4 py-2">${factura.cliente_nombre}</td>
                         <td class="px-4 py-2 text-right">$${Number(factura.total).toLocaleString('es-CO')}</td>
-                        <td class="px-4 py-2 text-center">${new Date(factura.date).toLocaleDateString('es-CO')}</td>
+                        <td class="px-4 py-2 text-center">${new Date(factura.fecha).toLocaleDateString('es-CO')}</td>
                         <td class="px-4 py-2 text-center">
+                            <button onclick="reimprimirFactura('${factura.id}')" 
+                                class="bg-indigo-100 text-indigo-700 px-2 py-1 rounded-md hover:bg-indigo-200 transition-colors mr-2">
+                                <i class="fas fa-print"></i>
+                            </button>
                             <button onclick="enviarFacturaEmail('${factura.id}')" 
                                 class="bg-blue-100 text-blue-700 px-2 py-1 rounded-md hover:bg-blue-200 transition-colors">
                                 <i class="fas fa-envelope"></i>
@@ -1037,7 +1036,7 @@ if (
             `;
 
             Swal.fire({
-                title: 'Facturas Electrónicas',
+                title: 'Facturas',
                 html: html,
                 width: '800px',
                 showCloseButton: true,
@@ -1054,35 +1053,10 @@ if (
                 }
             });
 
-            fetch('api/alegra/obtener_factura.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ facturaId: facturaId })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Aquí puedes implementar la lógica de impresión
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Factura reimpresa',
-                        text: 'La factura se ha reimpreso correctamente',
-                        confirmButtonColor: '#4F46E5'
-                    });
-                } else {
-                    throw new Error(data.message || 'Error al reimprimir la factura');
-                }
-            })
-            .catch(error => {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: error.message,
-                    confirmButtonColor: '#EF4444'
-                });
-            });
+            // Abrir la ventana de impresión en una nueva pestaña
+            window.open(`controllers/imprimir_factura.php?id=${facturaId}`, '_blank');
+            
+            Swal.close();
         }
 
         function enviarFacturaEmail(facturaId) {
