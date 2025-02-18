@@ -6,11 +6,11 @@ define('SMTP_PORT', 465);
 define('SMTP_USER', 'soporte@numercia.com');
 define('SMTP_PASS', 'N#w>:]f]8');
 define('SMTP_FROM', 'soporte@numercia.com');
-define('SMTP_FROM_NAME', 'Numercia');
+define('SMTP_FROM_NAME', 'Numercia - Sistema Contable');
 
 class MailController {
     private $from_email = 'soporte@numercia.com';
-    private $from_name = 'Numercia | Sistema Contable';
+    private $from_name = 'Numercia - Sistema Contable';
     private $reply_to = 'soporte@numercia.com';
 
     // Plantilla base para todos los correos
@@ -84,7 +84,7 @@ class MailController {
         $subject = "¡Bienvenido a Numercia - Sistema Contable!";
         
         $content = '
-            <h2>¡Bienvenido a Numercia, ' . htmlspecialchars($nombre) . '!</h2>
+            <h2>¡Bienvenido a Numercia - Sistema Contable, ' . htmlspecialchars($nombre) . '!</h2>
             <p>Nos alegra tenerte como parte de nuestra comunidad. Con Numercia podrás gestionar tu negocio de manera eficiente y profesional.</p>
             <div class="alert alert-info">
                 <strong>Próximos pasos:</strong>
@@ -124,7 +124,7 @@ class MailController {
 
     // Enviar notificación de factura
     public function sendInvoiceNotification($email, $nombre, $invoice_number, $amount, $due_date) {
-        $subject = "Nueva Factura Generada - Numercia - Sistema Contable";
+        $subject = "Nueva Factura Generada | Numercia - Sistema Contable";
         
         $content = '
             <h2>Hola ' . htmlspecialchars($nombre) . ',</h2>
@@ -141,7 +141,7 @@ class MailController {
 
     // Enviar recordatorio de suscripción
     public function sendSubscriptionReminder($email, $nombre, $expiry_date, $plan) {
-        $subject = "Recordatorio de Suscripción - Numercia - Sistema Contable";
+        $subject = "Recordatorio de Suscripción | Numercia - Sistema Contable";
         
         $content = '
             <h2>Hola ' . htmlspecialchars($nombre) . ',</h2>
