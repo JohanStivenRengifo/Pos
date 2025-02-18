@@ -79,27 +79,40 @@ try {
         <style>
             @page {
                 <?php if ($formato === '80mm'): ?>
-                margin: 0;
-                size: 80mm auto;
+                margin: 0,
+                size: 80mm,
+                height: auto,
                 <?php else: ?>
-                margin: 10mm;
+                margin: 10mm,
                 size: letter;
                 <?php endif; ?>
             }
             @font-face {
                 font-family: 'Open Sans';
-                src: url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap');
+                src: local('Open Sans'),
+                     url('https://fonts.gstatic.com/s/opensans/v34/memvYaGs126MiZpBA-UvWbX2vVnXBbObj2OVTS-mu0SC55I.woff2') format('woff2');
+                font-weight: 400;
+                font-display: swap;
+            }
+            @font-face {
+                font-family: 'Open Sans';
+                src: local('Open Sans SemiBold'),
+                     url('https://fonts.gstatic.com/s/opensans/v34/memvYaGs126MiZpBA-UvWbX2vVnXBbObj2OVTSGmu0SC55I.woff2') format('woff2');
+                font-weight: 600;
+                font-display: swap;
             }
             body {
-                font-family: 'Open Sans', 'Arial', sans-serif;
+                font-family: 'Open Sans', Arial, sans-serif;
                 margin: 0;
                 padding: <?= $formato === '80mm' ? '5mm' : '10mm' ?>;
                 font-size: <?= $formato === '80mm' ? '10px' : '12px' ?>;
                 width: <?= $formato === '80mm' ? '70mm' : 'auto' ?>;
                 line-height: 1.3;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
                 <?php if ($formato === 'carta'): ?>
-                max-width: 210mm;
-                margin: 0 auto;
+                max-width: 210mm,
+                margin: 0 auto,
                 <?php endif; ?>
             }
             .header {
@@ -202,12 +215,31 @@ try {
                 <?php
                 // Construir la ruta correcta del logo
                 $logoPath = $venta['empresa_logo'];
+                $baseUrl = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://';
+                $baseUrl .= $_SERVER['HTTP_HOST'];
+                
                 if (strpos($logoPath, 'http') !== 0) {
-                    // Si no es una URL completa, construir la ruta desde la raíz
-                    $logoPath = '/uploads/logos/' . basename($logoPath);
+                    // Verificar si el logo existe en diferentes ubicaciones posibles
+                    $possiblePaths = [
+                        '/uploads/logos/' . basename($logoPath),
+                        '/assets/img/logos/' . basename($logoPath),
+                        '/' . ltrim($logoPath, '/')
+                    ];
+                    
+                    foreach ($possiblePaths as $path) {
+                        if (file_exists($_SERVER['DOCUMENT_ROOT'] . $path)) {
+                            $logoPath = $baseUrl . $path;
+                            break;
+                        }
+                    }
+                }
+                
+                // Si no se encuentra el logo, usar un logo por defecto
+                if (!filter_var($logoPath, FILTER_VALIDATE_URL) && !file_exists($_SERVER['DOCUMENT_ROOT'] . parse_url($logoPath, PHP_URL_PATH))) {
+                    $logoPath = $baseUrl . '/assets/img/logos/default-logo.png';
                 }
                 ?>
-                <img src="<?= htmlspecialchars($logoPath) ?>" alt="Logo" class="logo">
+                <img src="<?= htmlspecialchars($logoPath) ?>" alt="Logo <?= htmlspecialchars($venta['empresa_nombre']) ?>" class="logo">
             <?php endif; ?>
             <div class="empresa-nombre"><?= htmlspecialchars($venta['empresa_nombre']) ?></div>
             <div class="info-empresa">
