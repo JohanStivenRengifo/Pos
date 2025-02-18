@@ -1088,35 +1088,82 @@ if (
         }
 
         function enviarFacturaEmail(facturaId) {
-            Swal.fire({
-                title: 'Enviar Factura por Correo',
-                html: `
-                    <div class="mb-4">
-                        <input type="email" id="email-factura" class="swal2-input" placeholder="Correo electrónico">
-                    </div>
-                    <div class="mb-4">
-                        <input type="text" id="asunto-correo" class="swal2-input" placeholder="Asunto del correo">
-                    </div>
-                `,
-                showCancelButton: true,
-                confirmButtonText: 'Enviar',
-                cancelButtonText: 'Cancelar',
-                preConfirm: () => {
-                    const email = document.getElementById('email-factura').value;
-                    const asunto = document.getElementById('asunto-correo').value;
-                    
-                    if (!email) {
-                        Swal.showValidationMessage('Por favor ingrese un correo electrónico');
-                        return false;
+            // Obtener el email del cliente primero
+            fetch(`api/facturas/obtener_cliente.php?factura_id=${facturaId}`)
+                .then(response => response.json())
+                .then(data => {
+                    let emailPredeterminado = '';
+                    if (data.success && data.cliente_email) {
+                        emailPredeterminado = data.cliente_email;
                     }
-                    
-                    return { email, asunto };
-                }
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    enviarCorreoFactura(facturaId, result.value.email, result.value.asunto);
-                }
-            });
+
+                    Swal.fire({
+                        title: 'Enviar Factura por Correo',
+                        html: `
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Correo electrónico</label>
+                                <input type="email" id="email-factura" class="swal2-input" placeholder="Correo electrónico" value="${emailPredeterminado}">
+                            </div>
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Asunto (opcional)</label>
+                                <input type="text" id="asunto-correo" class="swal2-input" placeholder="Asunto del correo">
+                            </div>
+                        `,
+                        showCancelButton: true,
+                        confirmButtonText: 'Enviar',
+                        cancelButtonText: 'Cancelar',
+                        preConfirm: () => {
+                            const email = document.getElementById('email-factura').value;
+                            const asunto = document.getElementById('asunto-correo').value;
+                            
+                            if (!email) {
+                                Swal.showValidationMessage('Por favor ingrese un correo electrónico');
+                                return false;
+                            }
+                            
+                            return { email, asunto };
+                        }
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            enviarCorreoFactura(facturaId, result.value.email, result.value.asunto);
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('Error obteniendo email del cliente:', error);
+                    // Si hay error, mostrar el formulario sin email predeterminado
+                    Swal.fire({
+                        title: 'Enviar Factura por Correo',
+                        html: `
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Correo electrónico</label>
+                                <input type="email" id="email-factura" class="swal2-input" placeholder="Correo electrónico">
+                            </div>
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Asunto (opcional)</label>
+                                <input type="text" id="asunto-correo" class="swal2-input" placeholder="Asunto del correo">
+                            </div>
+                        `,
+                        showCancelButton: true,
+                        confirmButtonText: 'Enviar',
+                        cancelButtonText: 'Cancelar',
+                        preConfirm: () => {
+                            const email = document.getElementById('email-factura').value;
+                            const asunto = document.getElementById('asunto-correo').value;
+                            
+                            if (!email) {
+                                Swal.showValidationMessage('Por favor ingrese un correo electrónico');
+                                return false;
+                            }
+                            
+                            return { email, asunto };
+                        }
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            enviarCorreoFactura(facturaId, result.value.email, result.value.asunto);
+                        }
+                    });
+                });
         }
 
         function enviarCorreoFactura(facturaId, email, asunto) {
@@ -1129,7 +1176,7 @@ if (
                 }
             });
 
-            fetch('api/alegra/enviar_factura_email.php', {
+            fetch('api/facturas/enviar_email.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1137,7 +1184,7 @@ if (
                 body: JSON.stringify({
                     facturaId: facturaId,
                     email: email,
-                    asunto: asunto
+                    asunto: asunto || 'Factura de venta'
                 })
             })
             .then(response => response.json())
@@ -1146,7 +1193,7 @@ if (
                     Swal.fire({
                         icon: 'success',
                         title: '¡Correo enviado!',
-                        text: 'La factura ha sido enviada correctamente',
+                        text: 'La factura ha sido enviada correctamente al correo ' + email,
                         confirmButtonColor: '#4F46E5'
                     });
                 } else {
