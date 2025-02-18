@@ -816,13 +816,12 @@ if (
                 }
             }).then((result) => {
                 if (result.isConfirmed) {
-                    enviarFacturaPorCorreo(result.value);
+                    enviarCorreoFactura(result.value);
                 }
             });
         }
 
-        function enviarFacturaPorCorreo(email) {
-            // Mostrar indicador de carga
+        function enviarCorreoFactura(email) {
             Swal.fire({
                 title: 'Enviando factura...',
                 text: 'Por favor espere',
@@ -832,8 +831,7 @@ if (
                 }
             });
 
-            // Realizar la petición a la API de Alegra
-            fetch('api/alegra/enviar_factura_email.php', {
+            fetch('api/facturas/enviar_email.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -849,7 +847,7 @@ if (
                     Swal.fire({
                         icon: 'success',
                         title: '¡Correo enviado!',
-                        text: 'La factura ha sido enviada correctamente',
+                        text: 'La factura ha sido enviada correctamente al correo proporcionado',
                         confirmButtonColor: '#4F46E5'
                     });
                 } else {
@@ -994,128 +992,81 @@ if (
 
         function mostrarListaFacturas(facturas) {
             let html = `
-                <div class="max-h-[600px] overflow-y-auto bg-white rounded-lg shadow">
-                    <div class="sticky top-0 z-10">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead>
-                                <tr class="bg-gray-50">
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Número
-                                    </th>
-                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Cliente
-                                    </th>
-                                    <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Tipo
-                                    </th>
-                                    <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Total
-                                    </th>
-                                    <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Fecha
-                                    </th>
-                                    <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Acciones
-                                    </th>
-                                </tr>
-                            </thead>
-                        </table>
-                    </div>
-                    <div class="overflow-y-auto max-h-[calc(600px-3rem)]">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <tbody class="bg-white divide-y divide-gray-200">
+                <div class="max-h-[400px] overflow-y-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="bg-gray-50">
+                                <th class="px-4 py-2 text-left">Número</th>
+                                <th class="px-4 py-2 text-left">Cliente</th>
+                                <th class="px-4 py-2 text-center">Tipo</th>
+                                <th class="px-4 py-2 text-right">Total</th>
+                                <th class="px-4 py-2 text-center">Fecha</th>
+                                <th class="px-4 py-2 text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
             `;
 
             facturas.forEach(factura => {
                 // Determinar el tipo de badge según el tipo de documento y numeración
                 let tipoBadge = '';
                 if (factura.numeracion === 'electronica') {
-                    tipoBadge = `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                    <svg class="mr-1.5 h-2 w-2 text-blue-400" fill="currentColor" viewBox="0 0 8 8">
-                                        <circle cx="4" cy="4" r="3" />
-                                    </svg>
-                                    Electrónica
-                                </span>`;
+                    tipoBadge = `<span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">Electrónica</span>`;
                 } else {
-                    tipoBadge = `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                    <svg class="mr-1.5 h-2 w-2 text-gray-400" fill="currentColor" viewBox="0 0 8 8">
-                                        <circle cx="4" cy="4" r="3" />
-                                    </svg>
-                                    POS
-                                </span>`;
+                    tipoBadge = `<span class="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded">POS</span>`;
                 }
 
                 html += `
-                    <tr class="hover:bg-gray-50 transition-colors duration-200">
-                        <td class="px-6 py-4 whitespace-nowrap">
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="px-4 py-2">
                             <div class="flex flex-col">
-                                <div class="text-sm font-medium text-gray-900">${factura.numero_factura}</div>
-                                <div class="text-sm text-gray-500">${factura.tipo_documento || 'Factura de Venta'}</div>
+                                <span class="font-medium">${factura.numero_factura}</span>
+                                <span class="text-xs text-gray-500">${factura.tipo_documento}</span>
                             </div>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="text-sm text-gray-900">${factura.cliente_nombre}</div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-center">
-                            ${tipoBadge}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <span class="text-gray-900">$${Number(factura.total).toLocaleString('es-CO')}</span>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                        <td class="px-4 py-2">${factura.cliente_nombre}</td>
+                        <td class="px-4 py-2 text-center">${tipoBadge}</td>
+                        <td class="px-4 py-2 text-right font-medium">$${Number(factura.total).toLocaleString('es-CO')}</td>
+                        <td class="px-4 py-2 text-center">
                             <div class="flex flex-col">
-                                <div class="text-sm text-gray-900">${new Date(factura.fecha).toLocaleDateString('es-CO')}</div>
-                                <div class="text-xs text-gray-500">${new Date(factura.fecha).toLocaleTimeString('es-CO')}</div>
+                                <span class="font-medium">${new Date(factura.fecha).toLocaleDateString('es-CO')}</span>
+                                <span class="text-xs text-gray-500">${new Date(factura.fecha).toLocaleTimeString('es-CO')}</span>
                             </div>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                            <div class="flex justify-center space-x-2">
-                                <button onclick="reimprimirFactura('${factura.id}')" 
-                                    class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                                    title="Reimprimir factura">
-                                    <i class="fas fa-print mr-1"></i>
-                                    Imprimir
-                                </button>
-                                <button onclick="enviarFacturaEmail('${factura.id}', '${factura.numero_factura}', '${factura.cliente_nombre}')" 
-                                    class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                                    title="Enviar por correo">
-                                    <i class="fas fa-envelope mr-1"></i>
-                                    Enviar
-                                </button>
-                            </div>
+                        <td class="px-4 py-2 text-center">
+                            <button onclick="reimprimirFactura('${factura.id}')" 
+                                class="bg-indigo-100 text-indigo-700 px-2 py-1 rounded-md hover:bg-indigo-200 transition-colors mr-2"
+                                title="Reimprimir factura">
+                                <i class="fas fa-print"></i>
+                            </button>
+                            <button onclick="enviarCorreoFactura('${factura.id}')" 
+                                class="bg-blue-100 text-blue-700 px-2 py-1 rounded-md hover:bg-blue-200 transition-colors"
+                                title="Enviar por correo">
+                                <i class="fas fa-envelope"></i>
+                            </button>
                         </td>
                     </tr>
                 `;
             });
 
             html += `
-                            </tbody>
-                        </table>
-                        ${facturas.length === 0 ? `
-                            <div class="text-center py-12">
-                                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                                <h3 class="mt-2 text-sm font-medium text-gray-900">No hay facturas</h3>
-                                <p class="mt-1 text-sm text-gray-500">No se encontraron facturas en el sistema.</p>
-                            </div>
-                        ` : ''}
-                    </div>
+                        </tbody>
+                    </table>
+                    ${facturas.length === 0 ? `
+                        <div class="text-center py-8 text-gray-500">
+                            <i class="fas fa-receipt text-4xl mb-4"></i>
+                            <p>No se encontraron facturas</p>
+                        </div>
+                    ` : ''}
                 </div>
             `;
 
             Swal.fire({
                 title: 'Historial de Facturas',
                 html: html,
-                width: '1000px',
+                width: '900px',
                 showCloseButton: true,
-                showConfirmButton: false,
-                customClass: {
-                    container: 'swal-wide',
-                    popup: 'rounded-lg',
-                    header: 'border-b pb-3',
-                    closeButton: 'focus:outline-none focus:ring-2 focus:ring-indigo-500'
-                }
+                showConfirmButton: false
             });
         }
 
@@ -1134,48 +1085,7 @@ if (
             Swal.close();
         }
 
-        function enviarFacturaEmail(facturaId, numeroFactura, clienteNombre) {
-            Swal.fire({
-                title: 'Enviar Factura por Correo',
-                html: `
-                    <div class="space-y-4">
-                        <div class="text-left">
-                            <label for="email-factura" class="block text-sm font-medium text-gray-700">Correo electrónico</label>
-                            <input type="email" id="email-factura" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="correo@ejemplo.com">
-                        </div>
-                        <div class="text-left">
-                            <label for="asunto-correo" class="block text-sm font-medium text-gray-700">Asunto</label>
-                            <input type="text" id="asunto-correo" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" value="Factura ${numeroFactura} - ${clienteNombre}">
-                        </div>
-                    </div>
-                `,
-                showCancelButton: true,
-                confirmButtonText: 'Enviar',
-                cancelButtonText: 'Cancelar',
-                confirmButtonColor: '#4F46E5',
-                cancelButtonColor: '#6B7280',
-                customClass: {
-                    input: 'form-input rounded-md shadow-sm mt-1 block w-full',
-                    confirmButton: 'inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500',
-                preConfirm: () => {
-                    const email = document.getElementById('email-factura').value;
-                    const asunto = document.getElementById('asunto-correo').value;
-                    
-                    if (!email) {
-                        Swal.showValidationMessage('Por favor ingrese un correo electrónico');
-                        return false;
-                    }
-                    
-                    return { email, asunto };
-                }
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    enviarCorreoFactura(facturaId, result.value.email, result.value.asunto);
-                }
-            });
-        }
-
-        function enviarCorreoFactura(facturaId, email, asunto) {
+        function enviarCorreoFactura(facturaId) {
             Swal.fire({
                 title: 'Enviando factura...',
                 text: 'Por favor espere',
@@ -1185,15 +1095,15 @@ if (
                 }
             });
 
-            fetch('api/alegra/enviar_factura_email.php', {
+            fetch('api/facturas/enviar_email.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
                     facturaId: facturaId,
-                    email: email,
-                    asunto: asunto
+                    email: document.getElementById('email-factura').value,
+                    asunto: document.getElementById('asunto-correo').value
                 })
             })
             .then(response => response.json())
@@ -1202,7 +1112,7 @@ if (
                     Swal.fire({
                         icon: 'success',
                         title: '¡Correo enviado!',
-                        text: 'La factura ha sido enviada correctamente',
+                        text: 'La factura ha sido enviada correctamente al correo proporcionado',
                         confirmButtonColor: '#4F46E5'
                     });
                 } else {
