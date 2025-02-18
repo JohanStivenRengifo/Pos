@@ -156,9 +156,9 @@ class MailController {
     }
 
     // Método base para enviar correos
-    public function sendEmail($to, $subject, $content) {
+    public function sendEmail($to, $subject, $content, $attachments = []) {
         $message = $this->getBaseTemplate($content);
-        return sendEmail($to, $subject, $message);
+        return sendEmail($to, $subject, $message, SMTP_FROM, SMTP_FROM_NAME, $attachments);
     }
 }
 
@@ -183,7 +183,7 @@ $mailer->sendSubscriptionReminder('usuario@ejemplo.com', 'Juan Pérez', '2024-03
 */
 
 // Función para enviar correos
-function sendEmail($to, $subject, $message, $from = SMTP_FROM, $fromName = SMTP_FROM_NAME) {
+function sendEmail($to, $subject, $message, $from = SMTP_FROM, $fromName = SMTP_FROM_NAME, $attachments = []) {
     require_once __DIR__ . '/../vendor/autoload.php';
     
     $mail = new PHPMailer\PHPMailer\PHPMailer(true);
@@ -210,6 +210,15 @@ function sendEmail($to, $subject, $message, $from = SMTP_FROM, $fromName = SMTP_
         
         $mail->Subject = $subject;
         $mail->Body = $message;
+
+        // Añadir archivos adjuntos
+        if (!empty($attachments)) {
+            foreach ($attachments as $attachment) {
+                if (file_exists($attachment)) {
+                    $mail->addAttachment($attachment);
+                }
+            }
+        }
         
         if (!$mail->send()) {
             error_log("Mailer Error: " . $mail->ErrorInfo);

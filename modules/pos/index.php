@@ -816,12 +816,13 @@ if (
                 }
             }).then((result) => {
                 if (result.isConfirmed) {
-                    enviarCorreoFactura(result.value);
+                    enviarFacturaPorCorreo(result.value);
                 }
             });
         }
 
-        function enviarCorreoFactura(email) {
+        function enviarFacturaPorCorreo(email) {
+            // Mostrar indicador de carga
             Swal.fire({
                 title: 'Enviando factura...',
                 text: 'Por favor espere',
@@ -831,7 +832,8 @@ if (
                 }
             });
 
-            fetch('api/facturas/enviar_email.php', {
+            // Realizar la petición a la API de Alegra
+            fetch('api/alegra/enviar_factura_email.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -847,7 +849,7 @@ if (
                     Swal.fire({
                         icon: 'success',
                         title: '¡Correo enviado!',
-                        text: 'La factura ha sido enviada correctamente al correo proporcionado',
+                        text: 'La factura ha sido enviada correctamente',
                         confirmButtonColor: '#4F46E5'
                     });
                 } else {
@@ -1039,7 +1041,7 @@ if (
                                 title="Reimprimir factura">
                                 <i class="fas fa-print"></i>
                             </button>
-                            <button onclick="enviarCorreoFactura('${factura.id}')" 
+                            <button onclick="enviarFacturaEmail('${factura.id}')" 
                                 class="bg-blue-100 text-blue-700 px-2 py-1 rounded-md hover:bg-blue-200 transition-colors"
                                 title="Enviar por correo">
                                 <i class="fas fa-envelope"></i>
@@ -1085,7 +1087,39 @@ if (
             Swal.close();
         }
 
-        function enviarCorreoFactura(facturaId) {
+        function enviarFacturaEmail(facturaId) {
+            Swal.fire({
+                title: 'Enviar Factura por Correo',
+                html: `
+                    <div class="mb-4">
+                        <input type="email" id="email-factura" class="swal2-input" placeholder="Correo electrónico">
+                    </div>
+                    <div class="mb-4">
+                        <input type="text" id="asunto-correo" class="swal2-input" placeholder="Asunto del correo">
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Enviar',
+                cancelButtonText: 'Cancelar',
+                preConfirm: () => {
+                    const email = document.getElementById('email-factura').value;
+                    const asunto = document.getElementById('asunto-correo').value;
+                    
+                    if (!email) {
+                        Swal.showValidationMessage('Por favor ingrese un correo electrónico');
+                        return false;
+                    }
+                    
+                    return { email, asunto };
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    enviarCorreoFactura(facturaId, result.value.email, result.value.asunto);
+                }
+            });
+        }
+
+        function enviarCorreoFactura(facturaId, email, asunto) {
             Swal.fire({
                 title: 'Enviando factura...',
                 text: 'Por favor espere',
@@ -1095,15 +1129,15 @@ if (
                 }
             });
 
-            fetch('api/facturas/enviar_email.php', {
+            fetch('api/alegra/enviar_factura_email.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
                     facturaId: facturaId,
-                    email: document.getElementById('email-factura').value,
-                    asunto: document.getElementById('asunto-correo').value
+                    email: email,
+                    asunto: asunto
                 })
             })
             .then(response => response.json())
@@ -1112,7 +1146,7 @@ if (
                     Swal.fire({
                         icon: 'success',
                         title: '¡Correo enviado!',
-                        text: 'La factura ha sido enviada correctamente al correo proporcionado',
+                        text: 'La factura ha sido enviada correctamente',
                         confirmButtonColor: '#4F46E5'
                     });
                 } else {
