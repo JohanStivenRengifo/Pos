@@ -11,18 +11,23 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 try {
-    // Obtener las facturas del usuario actual
+    // Obtener las ventas del usuario actual
     $stmt = $pdo->prepare("
         SELECT 
-            f.id,
-            f.numero_factura,
-            f.total,
-            f.fecha,
+            v.id,
+            v.numero_factura,
+            v.total,
+            v.fecha,
+            v.estado,
+            v.numeracion,
+            v.tipo_documento,
             CONCAT(c.primer_nombre, ' ', COALESCE(c.segundo_nombre, ''), ' ', COALESCE(c.apellidos, '')) as cliente_nombre
-        FROM facturas f
-        LEFT JOIN clientes c ON f.cliente_id = c.id
-        WHERE f.user_id = ?
-        ORDER BY f.fecha DESC
+        FROM ventas v
+        LEFT JOIN clientes c ON v.cliente_id = c.id
+        WHERE v.user_id = ?
+        AND v.estado = 'completada'
+        AND v.anulada = 0
+        ORDER BY v.fecha DESC
         LIMIT 100
     ");
     

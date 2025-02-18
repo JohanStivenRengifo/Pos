@@ -1000,6 +1000,7 @@ if (
                             <tr class="bg-gray-50">
                                 <th class="px-4 py-2 text-left">Número</th>
                                 <th class="px-4 py-2 text-left">Cliente</th>
+                                <th class="px-4 py-2 text-center">Tipo</th>
                                 <th class="px-4 py-2 text-right">Total</th>
                                 <th class="px-4 py-2 text-center">Fecha</th>
                                 <th class="px-4 py-2 text-center">Acciones</th>
@@ -1009,19 +1010,40 @@ if (
             `;
 
             facturas.forEach(factura => {
+                // Determinar el tipo de badge según el tipo de documento y numeración
+                let tipoBadge = '';
+                if (factura.numeracion === 'electronica') {
+                    tipoBadge = `<span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">Electrónica</span>`;
+                } else {
+                    tipoBadge = `<span class="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded">POS</span>`;
+                }
+
                 html += `
                     <tr class="border-b hover:bg-gray-50">
-                        <td class="px-4 py-2">${factura.numero_factura}</td>
+                        <td class="px-4 py-2">
+                            <div class="flex flex-col">
+                                <span class="font-medium">${factura.numero_factura}</span>
+                                <span class="text-xs text-gray-500">${factura.tipo_documento}</span>
+                            </div>
+                        </td>
                         <td class="px-4 py-2">${factura.cliente_nombre}</td>
-                        <td class="px-4 py-2 text-right">$${Number(factura.total).toLocaleString('es-CO')}</td>
-                        <td class="px-4 py-2 text-center">${new Date(factura.fecha).toLocaleDateString('es-CO')}</td>
+                        <td class="px-4 py-2 text-center">${tipoBadge}</td>
+                        <td class="px-4 py-2 text-right font-medium">$${Number(factura.total).toLocaleString('es-CO')}</td>
+                        <td class="px-4 py-2 text-center">
+                            <div class="flex flex-col">
+                                <span class="font-medium">${new Date(factura.fecha).toLocaleDateString('es-CO')}</span>
+                                <span class="text-xs text-gray-500">${new Date(factura.fecha).toLocaleTimeString('es-CO')}</span>
+                            </div>
+                        </td>
                         <td class="px-4 py-2 text-center">
                             <button onclick="reimprimirFactura('${factura.id}')" 
-                                class="bg-indigo-100 text-indigo-700 px-2 py-1 rounded-md hover:bg-indigo-200 transition-colors mr-2">
+                                class="bg-indigo-100 text-indigo-700 px-2 py-1 rounded-md hover:bg-indigo-200 transition-colors mr-2"
+                                title="Reimprimir factura">
                                 <i class="fas fa-print"></i>
                             </button>
                             <button onclick="enviarFacturaEmail('${factura.id}')" 
-                                class="bg-blue-100 text-blue-700 px-2 py-1 rounded-md hover:bg-blue-200 transition-colors">
+                                class="bg-blue-100 text-blue-700 px-2 py-1 rounded-md hover:bg-blue-200 transition-colors"
+                                title="Enviar por correo">
                                 <i class="fas fa-envelope"></i>
                             </button>
                         </td>
@@ -1032,13 +1054,19 @@ if (
             html += `
                         </tbody>
                     </table>
+                    ${facturas.length === 0 ? `
+                        <div class="text-center py-8 text-gray-500">
+                            <i class="fas fa-receipt text-4xl mb-4"></i>
+                            <p>No se encontraron facturas</p>
+                        </div>
+                    ` : ''}
                 </div>
             `;
 
             Swal.fire({
-                title: 'Facturas',
+                title: 'Historial de Facturas',
                 html: html,
-                width: '800px',
+                width: '900px',
                 showCloseButton: true,
                 showConfirmButton: false
             });
