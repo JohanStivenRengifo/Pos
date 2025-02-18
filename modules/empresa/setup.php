@@ -89,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 correo_contacto, prefijo_factura, numero_inicial, numero_final,
                 created_at, updated_at, estado, es_principal, usuario_id, logo,
                 ultimo_numero, plan_suscripcion, tipo_persona, tipo_identificacion,
-                primer_nombre, segundo_nombre, apellidos, nombre_comercial,
+                primer_nombre, segundo_nombre, apellidos,
                 tipo_nacionalidad, responsabilidad_tributaria, moneda, pais,
                 departamento, municipio, codigo_postal
             ) VALUES (
@@ -108,7 +108,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $primer_nombre = $tipo_persona === 'natural' ? $_POST['primer_nombre'] : null;
             $segundo_nombre = $tipo_persona === 'natural' ? $_POST['segundo_nombre'] : null;
             $apellidos = $tipo_persona === 'natural' ? $_POST['apellidos'] : null;
-            $nombre_comercial = $tipo_persona === 'juridica' ? $datos['nombre_empresa'] : null;
             
             $params = [
                 $datos['nombre_empresa'],
@@ -129,7 +128,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $primer_nombre,
                 $segundo_nombre,
                 $apellidos,
-                $nombre_comercial,
                 $_POST['responsabilidad_tributaria'] ?? 'No responsable de IVA',
                 $_POST['departamento'] ?? '',
                 $_POST['municipio'] ?? '',
