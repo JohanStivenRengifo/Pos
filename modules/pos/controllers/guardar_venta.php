@@ -14,6 +14,10 @@ try {
     $pdo->beginTransaction();
     
     // Insertar la venta
+    // Asegurar que existe la columna alegra_id
+    $stmt = $pdo->prepare("ALTER TABLE ventas ADD COLUMN IF NOT EXISTS alegra_id VARCHAR(50) NULL;");
+    $stmt->execute();
+
     $stmt = $pdo->prepare("
         INSERT INTO ventas (
             cliente_id, 
@@ -23,8 +27,9 @@ try {
             metodo_pago,
             numeracion,
             numero_factura,
-            user_id
-        ) VALUES (?, NOW(), ?, ?, ?, ?, ?, ?)
+            user_id,
+            alegra_id
+        ) VALUES (?, NOW(), ?, ?, ?, ?, ?, ?, NULL)
     ");
 
     $numeracion = $datos['tipo_factura'] ?? 'principal'; // Asegurarnos de que tipo_factura esté definido
@@ -83,4 +88,4 @@ try {
         'success' => false,
         'error' => $e->getMessage()
     ]);
-} 
+}

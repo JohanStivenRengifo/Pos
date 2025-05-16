@@ -19,6 +19,10 @@ $stmt = $pdo->prepare("SELECT id, nombre FROM departamentos WHERE estado = 'acti
 $stmt->execute(['user_id' => $user_id]);
 $departamentos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+// Obtener unidades de medida
+$stmt = $pdo->query("SELECT id, nombre, simbolo FROM unidades_medida");
+$unidades_medida = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
 // Obtener bodegas del usuario
 $stmt = $pdo->prepare("SELECT id, nombre, ubicacion FROM bodegas WHERE estado = 1 AND usuario_id = :user_id");
 $stmt->execute(['user_id' => $user_id]);
@@ -179,12 +183,11 @@ $bodegas = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                             required
                                             class="block w-full pl-10 pr-10 py-2.5 rounded-lg border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none">
                                         <option value="">Selecciona una unidad</option>
-                                        <option value="UNIDAD">Unidad</option>
-                                        <option value="KILOGRAMO">Kilogramo</option>
-                                        <option value="LITRO">Litro</option>
-                                        <option value="METRO">Metro</option>
-                                        <option value="CAJA">Caja</option>
-                                        <option value="PAQUETE">Paquete</option>
+                                        <?php foreach ($unidades_medida as $unidad): ?>
+                                            <option value="<?= $unidad['id'] ?>">
+                                                <?= htmlspecialchars($unidad['nombre']) ?> (<?= htmlspecialchars($unidad['simbolo']) ?>)
+                                            </option>
+                                        <?php endforeach; ?>
                                     </select>
                                     <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                                         <i class="fas fa-chevron-down text-gray-400"></i>

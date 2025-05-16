@@ -96,40 +96,47 @@ try {
             user_id, 
             cliente_id,
             tipo_documento,
+            prefijo,
             numeracion,
             total,
             subtotal,
-            descuento,
+            descuento_total,
+            impuestos_total,
+            saldo_pendiente,
             metodo_pago,
+            estado_pago,
             numero_factura,
             alegra_id,
             turno_id,
             estado_factura,
-            estado,
+            anulada,
             cufe,
             qr_code,
             pdf_url,
             xml_url,
-            fecha
+            fecha_emision
         ) VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW()
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, CURRENT_TIMESTAMP
         )
     ");
 
     $stmt->execute([
         $_SESSION['user_id'],
         $data['cliente_id'],
-        $data['tipo_documento'],
-        $data['numeracion'],
+        $data['tipo_documento'] ?? 'FACTURA',
+        $empresa['prefijo_factura'],
+        $nuevo_numero,
         $total,
         $subtotal,
-        $descuento_porcentaje, // Guardamos el porcentaje en lugar del monto
+        $descuento_monto,
+        0, // impuestos_total - will be calculated from details
+        $total, // saldo_pendiente starts as total amount
         $data['metodo_pago'],
+        'pendiente', // estado_pago starts as pending
         $numero_factura,
         $data['alegra_id'] ?? null,
         $_SESSION['turno_actual'],
         $estado_factura,
-        'completada',
         $data['cufe'] ?? null,
         $data['qr_code'] ?? null,
         $data['pdf_url'] ?? null,
@@ -143,15 +150,46 @@ try {
         // Insertar detalle
         $stmt = $pdo->prepare("
             INSERT INTO venta_detalles (
-                venta_id, producto_id, cantidad, precio_unitario
-            ) VALUES (?, ?, ?, ?)
+                venta_id, 
+                producto_id, 
+                cantidad, 
+                precio_unitario,
+                costo_unitario,
+                descuento_porcentaje,
+                descuento_valor,
+                impuesto_porcentaje,
+                impuesto_valor,
+                subtotal,
+                total
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
+        // Calcular valores para el detalle
+        $cantidad = floatval($item['cantidad']);
+        $precio = floatval($item['precio']);
+        $descuento_porc = floatval($item['descuento'] ?? 0);
+        $descuento_val = ($precio * $cantidad * $descuento_porc) / 100;
+        $subtotal_item = $precio * $cantidad - $descuento_val;
+        $impuesto_porc = floatval($item['impuesto'] ?? 19);
+        $impuesto_val = ($subtotal_item * $impuesto_porc) / 100;
+        $total_item = $subtotal_item + $impuesto_val;
+
         $stmt->execute([
             $venta_id,
             $item['id'],
-            $item['cantidad'],
-            $item['precio']
+            $cantidad,
+            $precio,
+            $item['costo'] ?? 0,
+            $descuento_porc,
+            $descuento_val,
+            $impuesto_porc,
+            $impuesto_val,
+            $subtotal_item,
+            $total_item
         ]);
+
+        // Actualizar totales de impuestos de la venta
+        $stmt = $pdo->prepare("UPDATE ventas SET impuestos_total = impuestos_total + ? WHERE id = ?");
+        $stmt->execute([$impuesto_val, $venta_id]);
 
         // Actualizar inventario
         $stmt = $pdo->prepare("
@@ -186,4 +224,4 @@ try {
         'success' => false,
         'message' => $e->getMessage()
     ]);
-} 
+}

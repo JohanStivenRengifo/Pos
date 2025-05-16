@@ -16,12 +16,24 @@ try {
     $descripcion = trim($_POST['descripcion']);
     $categoria_id = filter_var($_POST['categoria_id'], FILTER_VALIDATE_INT);
     $departamento_id = filter_var($_POST['departamento_id'], FILTER_VALIDATE_INT);
-    $unidad_medida = trim($_POST['unidad_medida']);
+    $unidad_medida_id = filter_var($_POST['unidad_medida'], FILTER_VALIDATE_INT);
     $estado = trim($_POST['estado']);
     $precio_costo = filter_var($_POST['precio_costo'], FILTER_VALIDATE_FLOAT);
     $precio_venta = filter_var($_POST['precio_venta'], FILTER_VALIDATE_FLOAT);
     $margen_ganancia = filter_var($_POST['margen_ganancia'], FILTER_VALIDATE_FLOAT);
     $impuesto = filter_var($_POST['impuesto'], FILTER_VALIDATE_FLOAT);
+
+    // Validar unidad de medida
+    if (!$unidad_medida_id) {
+        throw new Exception("Unidad de medida inválida");
+    }
+
+    // Verificar que la unidad de medida existe
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM unidades_medida WHERE id = ?");
+    $stmt->execute([$unidad_medida_id]);
+    if ($stmt->fetchColumn() == 0) {
+        throw new Exception("La unidad de medida seleccionada no existe");
+    }
 
     // Verificar código de barras único
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM inventario WHERE codigo_barras = ? AND user_id = ?");
@@ -49,7 +61,7 @@ try {
         ':codigo_barras' => $codigo_barras,
         ':nombre' => $nombre,
         ':descripcion' => $descripcion,
-        ':unidad_medida' => $unidad_medida,
+        ':unidad_medida' => $unidad_medida_id,
         ':precio_costo' => $precio_costo,
         ':margen_ganancia' => $margen_ganancia,
         ':impuesto' => $impuesto,
@@ -146,4 +158,4 @@ try {
     error_log("Error al crear producto: " . $e->getMessage());
     echo json_encode(['status' => false, 'message' => $e->getMessage()]);
 }
-?> 
+?>

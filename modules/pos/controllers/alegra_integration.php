@@ -271,6 +271,12 @@ class AlegraIntegration
         try {
             global $pdo;
             $stmt = $pdo->prepare("
+                ALTER TABLE inventario
+                ADD COLUMN IF NOT EXISTS alegra_id VARCHAR(50) NULL;
+            ");
+            $stmt->execute();
+
+            $stmt = $pdo->prepare("
                 UPDATE inventario 
                 SET alegra_id = ? 
                 WHERE id = ?
@@ -578,8 +584,11 @@ class AlegraIntegration
     private function getOrCreateContact($clienteId)
     {
         try {
-            // Obtener datos del cliente de la base de datos
+            // Asegurar que existe la columna alegra_id en la tabla clientes
             global $pdo;
+            $stmt = $pdo->prepare("ALTER TABLE clientes ADD COLUMN IF NOT EXISTS alegra_id VARCHAR(50) NULL;");
+            $stmt->execute();
+
             $stmt = $pdo->prepare("
                 SELECT 
                     CONCAT(COALESCE(primer_nombre, ''), ' ', COALESCE(segundo_nombre, ''), ' ', COALESCE(apellidos, '')) as nombre,
