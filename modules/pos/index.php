@@ -273,8 +273,14 @@ if (
                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <i class="fas fa-barcode text-gray-400"></i>
                             </div>
-                            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded">
+                            <div class="absolute inset-y-0 right-0 pr-3 flex items-center">
+                                <button type="button" 
+                                    id="scanner-diagnostics-btn"
+                                    class="text-xs text-gray-400 hover:text-gray-600 bg-gray-100 hover:bg-gray-200 px-2 py-1 rounded transition-colors mr-2"
+                                    title="Diagnósticos del scanner">
+                                    <i class="fas fa-cog"></i>
+                                </button>
+                                <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded pointer-events-none">
                                     <i class="fas fa-keyboard mr-1"></i> Buscar
                                     <span class="mx-1">|</span>
                                     <i class="fas fa-barcode mr-1"></i> Escanear
@@ -1442,6 +1448,8 @@ if (
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.all.min.js"></script>
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Scanner de códigos de barras optimizado -->
+    <script src="/modules/pos/js/BarcodeScanner.js"></script>
     <script src="/modules/pos/js/pos.js"></script>
 </body>
 

@@ -481,20 +481,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Enfoque automático en el campo de búsqueda al cargar la página
     buscarInput?.focus();
 
-    // Configuración del scanner de código de barras
-    const SCANNER_CONFIG = {
-        DELAY_BETWEEN_KEYS: 30, // Tiempo máximo entre teclas para considerar entrada del scanner (ms)
-        MIN_CHARS: 3, // Longitud mínima del código de barras
-        ENTER_KEY: 'Enter', // Tecla que indica fin de escaneo
-        TIMEOUT: 100 // Tiempo de espera después del último carácter antes de procesar
-    };
+    // Inicialización del nuevo scanner de códigos de barras optimizado
+    let barcodeScanner = null;
 
-    let scannerBuffer = '';
-    let lastKeyTime = 0;
-    let scannerTimeout = null;
-
-    // Función para procesar código de barras
-    function procesarCodigoBarras(codigo) {
+    // Función optimizada para procesar código de barras
+    function procesarCodigoBarras(codigo, isManual = false) {
         const productos = document.querySelectorAll('.item-view');
         const producto = Array.from(productos).find(p => p.dataset.codigo === codigo);
 
@@ -509,57 +500,30 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // Verificar stock antes de agregar
             if (productoData.stock <= 0) {
-                reproducirBeep(false);
-                Swal.fire({
-                    title: 'Producto sin stock',
-                    text: 'Este producto no tiene existencias disponibles',
-                    icon: 'warning',
-                    timer: 1500,
-                    showConfirmButton: false,
-                    position: 'top-end',
-                    toast: true
-                });
-                return;
+                return false; // Indicar fallo para el scanner
             }
 
             // Verificar si ya existe en el carrito y validar stock
             const existente = carrito.items.find(item => item.id === parseInt(productoData.id));
             if (existente) {
                 if (existente.cantidad >= productoData.stock) {
-                    reproducirBeep(false);
-                    Swal.fire({
-                        title: 'Stock insuficiente',
-                        text: `Solo hay ${productoData.stock} unidades disponibles`,
-                        icon: 'warning',
-                        timer: 1500,
-                        showConfirmButton: false,
-                        position: 'top-end',
-                        toast: true
-                    });
-                    return;
+                    return false; // Indicar fallo para el scanner
                 }
             }
 
             agregarAlCarrito(productoData);
-            reproducirBeep(true);
+            
             // Limpiar el campo de búsqueda
             const buscarInput = document.getElementById('buscar-producto');
             if (buscarInput) {
                 buscarInput.value = '';
                 buscarInput.focus();
             }
-        } else {
-            reproducirBeep(false);
-            Swal.fire({
-                title: 'Producto no encontrado',
-                text: 'No se encontró ningún producto con ese código de barras',
-                icon: 'warning',
-                timer: 1500,
-                showConfirmButton: false,
-                position: 'top-end',
-                toast: true
-            });
+            
+            return true; // Indicar éxito
         }
+        
+        return false; // Producto no encontrado
     }
 
     // Función para reproducir beep
@@ -579,88 +543,210 @@ document.addEventListener('DOMContentLoaded', function() {
         oscillator.stop(audioContext.currentTime + 0.1);
     }
 
-    // Event listener para el scanner
-    document.addEventListener('keydown', function(e) {
-        const buscarInput = document.getElementById('buscar-producto');
-        const currentTime = new Date().getTime();
-        
-        // Si el foco está en un input que no es el de búsqueda, ignorar
-        if (e.target.tagName === 'INPUT' && e.target !== buscarInput) {
+    // Inicializar el nuevo scanner optimizado
+    document.addEventListener('DOMContentLoaded', function() {
+        // Esperar a que el BarcodeScanner esté disponible
+        if (typeof BarcodeScanner !== 'undefined') {
+            barcodeScanner = new BarcodeScanner({
+                onSuccess: (codigo, isManual) => {
+                    return procesarCodigoBarras(codigo, isManual);
+                },
+                onError: (message, details) => {
+                    console.warn('Scanner error:', message, details);
+                    if (message.includes('no encontrado')) {
+                        Swal.fire({
+                            title: 'Producto no encontrado',
+                            text: `No se encontró ningún producto con el código: ${details}`,
+                            icon: 'warning',
+                            timer: 2000,
+                            showConfirmButton: false,
+                            position: 'top-end',
+                            toast: true
+                        });
+                    } else if (message.includes('Stock')) {
+                        Swal.fire({
+                            title: 'Stock insuficiente',
+                            text: details || 'No hay suficientes existencias',
+                            icon: 'warning',
+                            timer: 2000,
+                            showConfirmButton: false,
+                            position: 'top-end',
+                            toast: true
+                        });
+                    }
+                },
+                onDetection: (type, config) => {
+                    console.log('Scanner detectado:', type, config.name);
+                }
+            });
+            
+            console.log('Scanner optimizado inicializado correctamente');
+            
+            // Configurar botón de diagnósticos
+            const diagnosticsBtn = document.getElementById('scanner-diagnostics-btn');
+            if (diagnosticsBtn) {
+                diagnosticsBtn.addEventListener('click', mostrarDiagnosticos);
+            }
+        } else {
+            console.warn('BarcodeScanner no está disponible. Asegúrate de incluir BarcodeScanner.js');
+        }
+    });
+
+    // Función para mostrar diagnósticos del scanner
+    function mostrarDiagnosticos() {
+        if (!barcodeScanner) {
+            Swal.fire({
+                title: 'Scanner no disponible',
+                text: 'El sistema de scanner no está inicializado',
+                icon: 'error'
+            });
             return;
         }
 
-        // Si no está en el input de búsqueda, poner el foco
-        if (e.target !== buscarInput) {
-            buscarInput.focus();
-        }
-
-        // Procesar entrada del scanner
-        if (currentTime - lastKeyTime <= SCANNER_CONFIG.DELAY_BETWEEN_KEYS || scannerBuffer.length > 0) {
-            // Prevenir el comportamiento por defecto solo si parece ser entrada del scanner
-            e.preventDefault();
-
-            if (e.key === SCANNER_CONFIG.ENTER_KEY) {
-                if (scannerBuffer.length >= SCANNER_CONFIG.MIN_CHARS) {
-                    procesarCodigoBarras(scannerBuffer);
-                }
-                scannerBuffer = '';
-                clearTimeout(scannerTimeout);
-            } else if (e.key.length === 1) { // Solo agregar caracteres imprimibles
-                scannerBuffer += e.key;
-                clearTimeout(scannerTimeout);
-                scannerTimeout = setTimeout(() => {
-                    if (scannerBuffer.length >= SCANNER_CONFIG.MIN_CHARS) {
-                        procesarCodigoBarras(scannerBuffer);
-                    }
-                    scannerBuffer = '';
-                }, SCANNER_CONFIG.TIMEOUT);
-            }
-        }
+        const stats = barcodeScanner.getStats();
         
-        lastKeyTime = currentTime;
-    });
+        Swal.fire({
+            title: 'Diagnósticos del Scanner',
+            html: `
+                <div class="text-left space-y-3">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-blue-50 p-3 rounded">
+                            <h4 class="font-semibold text-blue-800">Tipo Detectado</h4>
+                            <p class="text-sm text-blue-600">${stats.currentType}</p>
+                        </div>
+                        <div class="bg-green-50 p-3 rounded">
+                            <h4 class="font-semibold text-green-800">Velocidad Promedio</h4>
+                            <p class="text-sm text-green-600">${stats.averageSpeed}ms entre teclas</p>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-3 gap-2 text-center">
+                        <div class="bg-gray-50 p-2 rounded">
+                            <div class="text-lg font-bold text-gray-800">${stats.scanCount}</div>
+                            <div class="text-xs text-gray-600">Total Escaneos</div>
+                        </div>
+                        <div class="bg-green-50 p-2 rounded">
+                            <div class="text-lg font-bold text-green-800">${stats.successCount}</div>
+                            <div class="text-xs text-green-600">Exitosos</div>
+                        </div>
+                        <div class="bg-red-50 p-2 rounded">
+                            <div class="text-lg font-bold text-red-800">${stats.errorCount}</div>
+                            <div class="text-xs text-red-600">Errores</div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-indigo-50 p-3 rounded">
+                        <h4 class="font-semibold text-indigo-800">Tasa de Éxito</h4>
+                        <div class="flex items-center">
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-indigo-600 h-2 rounded-full" style="width: ${stats.successRate}%"></div>
+                            </div>
+                            <span class="ml-2 text-sm text-indigo-600">${stats.successRate}%</span>
+                        </div>
+                    </div>
+                    
+                    <div class="text-xs text-gray-500 border-t pt-2">
+                        <p><strong>Consejos:</strong></p>
+                        <ul class="list-disc list-inside space-y-1">
+                            <li>Para mejores resultados, use el scanner a una distancia de 5-15cm</li>
+                            <li>Asegúrese de que el código esté bien iluminado y sin arrugas</li>
+                            <li>El sistema detecta automáticamente el tipo de scanner</li>
+                        </ul>
+                    </div>
+                </div>
+            `,
+            width: 500,
+            showCancelButton: true,
+            confirmButtonText: 'Probar Scanner',
+            cancelButtonText: 'Cerrar',
+            confirmButtonColor: '#4F46E5'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                probarScanner();
+            }
+        });
+    }
 
-    // Event listener para búsqueda manual
+    // Función para probar el scanner
+    function probarScanner() {
+        Swal.fire({
+            title: 'Modo de Prueba',
+            html: `
+                <div class="text-left">
+                    <p class="mb-4">Escanee un código de barras o ingrese manualmente un código para probar:</p>
+                    <input type="text" 
+                        id="test-barcode-input" 
+                        class="w-full p-2 border rounded" 
+                        placeholder="Escanee aquí o escriba un código..."
+                        autofocus>
+                    <div id="test-feedback" class="mt-2 text-sm"></div>
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'Cerrar',
+            cancelButtonText: 'Volver',
+            allowOutsideClick: false,
+            didOpen: () => {
+                const testInput = document.getElementById('test-barcode-input');
+                const feedback = document.getElementById('test-feedback');
+                
+                if (testInput && barcodeScanner) {
+                    // Configurar scanner temporal para el modo de prueba
+                    const originalConfig = { ...barcodeScanner.config };
+                    
+                    barcodeScanner.configure({
+                        inputElement: testInput,
+                        onSuccess: (codigo, isManual) => {
+                            feedback.innerHTML = `
+                                <div class="p-2 bg-green-100 border border-green-300 rounded text-green-800">
+                                    ✅ Código detectado: <strong>${codigo}</strong> 
+                                    <br><small>(${isManual ? 'Entrada manual' : 'Escaneado automáticamente'})</small>
+                                </div>
+                            `;
+                            testInput.value = '';
+                            return false; // No procesar realmente
+                        },
+                        onError: (message, details) => {
+                            feedback.innerHTML = `
+                                <div class="p-2 bg-red-100 border border-red-300 rounded text-red-800">
+                                    ❌ Error: ${message}
+                                    ${details ? `<br><small>${details}</small>` : ''}
+                                </div>
+                            `;
+                        }
+                    });
+                    
+                    // Restaurar configuración al cerrar
+                    const restoreConfig = () => {
+                        barcodeScanner.configure(originalConfig);
+                    };
+                    
+                    setTimeout(() => {
+                        const modal = document.querySelector('.swal2-container');
+                        if (modal) {
+                            modal.addEventListener('click', (e) => {
+                                if (e.target.classList.contains('swal2-confirm') || 
+                                    e.target.classList.contains('swal2-cancel')) {
+                                    restoreConfig();
+                                }
+                            });
+                        }
+                    }, 100);
+                }
+            }
+        });
+    }
+
+    // Event listener para búsqueda manual mejorada (manejada por el scanner optimizado)
     const buscarInputManual = document.getElementById('buscar-producto');
     if (buscarInputManual) {
+        // Solo mantener el filtro en tiempo real para la visualización
         let timeoutId;
-
         buscarInputManual.addEventListener('input', function(e) {
-            const currentTime = new Date().getTime();
-            
-            // Si parece ser entrada del scanner (rápida), no filtrar aún
-            if (currentTime - lastKeyTime <= SCANNER_CONFIG.DELAY_BETWEEN_KEYS) {
-                return;
-            }
-
             clearTimeout(timeoutId);
             timeoutId = setTimeout(() => {
                 filtrarProductos(this.value);
             }, 300);
-        });
-
-        buscarInputManual.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                const valor = this.value.trim();
-
-                if (valor.length >= SCANNER_CONFIG.MIN_CHARS) {
-                    const productos = document.querySelectorAll('.item-view:not([style*="display: none"])');
-                    if (productos.length === 1) {
-                        const producto = productos[0];
-                        const productoData = {
-                            id: producto.dataset.id,
-                            nombre: producto.dataset.nombre,
-                            precio: parseFloat(producto.dataset.precio),
-                            cantidad: parseInt(producto.dataset.cantidad),
-                            codigo: producto.dataset.codigo
-                        };
-                        agregarAlCarrito(productoData);
-                        this.value = '';
-                        filtrarProductos('');
-                    }
-                }
-            }
         });
     }
 });

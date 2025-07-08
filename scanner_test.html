@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Scanner de Códigos de Barras</title>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .test-input {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .test-input:focus {
+            outline: none;
+            border-color: #4F46E5;
+        }
+        .test-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .test-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .test-btn:hover {
+            transform: translateY(-1px);
+        }
+        .btn-primary {
+            background: #4F46E5;
+            color: white;
+        }
+        .btn-secondary {
+            background: #6B7280;
+            color: white;
+        }
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .item-view {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .item-view:hover {
+            background: #e9ecef;
+            transform: translateY(-2px);
+        }
+        .stats-container {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #4F46E5;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1><i class="fas fa-barcode"></i> Test Scanner de Códigos de Barras</h1>
+        <p>Esta página permite probar el scanner de códigos de barras optimizado.</p>
+        
+        <div class="test-input-container">
+            <input type="text" 
+                id="buscar-producto" 
+                class="test-input"
+                placeholder="Escanee un código de barras aquí o busque manualmente..."
+                data-scanner-enabled="true"
+                autofocus>
+        </div>
+        
+        <div class="test-buttons">
+            <button class="test-btn btn-primary" onclick="mostrarEstadisticas()">
+                <i class="fas fa-chart-bar"></i> Ver Estadísticas
+            </button>
+            <button class="test-btn btn-secondary" onclick="resetearScanner()">
+                <i class="fas fa-refresh"></i> Resetear
+            </button>
+            <button class="test-btn btn-secondary" onclick="simularCodigo()">
+                <i class="fas fa-play"></i> Simular Escaneo
+            </button>
+        </div>
+        
+        <div class="product-grid">
+            <!-- Productos de prueba -->
+            <div class="item-view" 
+                data-id="1" 
+                data-nombre="Producto Test 1" 
+                data-precio="10000" 
+                data-cantidad="50"
+                data-codigo="1234567890">
+                <h4>Producto Test 1</h4>
+                <p>Código: 1234567890</p>
+                <p>Precio: $10,000</p>
+                <p>Stock: 50</p>
+            </div>
+            
+            <div class="item-view" 
+                data-id="2" 
+                data-nombre="Producto Test 2" 
+                data-precio="25000" 
+                data-cantidad="30"
+                data-codigo="0987654321">
+                <h4>Producto Test 2</h4>
+                <p>Código: 0987654321</p>
+                <p>Precio: $25,000</p>
+                <p>Stock: 30</p>
+            </div>
+            
+            <div class="item-view" 
+                data-id="3" 
+                data-nombre="Producto Test 3" 
+                data-precio="15000" 
+                data-cantidad="0"
+                data-codigo="1122334455">
+                <h4>Producto Test 3</h4>
+                <p>Código: 1122334455</p>
+                <p>Precio: $15,000</p>
+                <p>Stock: 0 (Sin stock)</p>
+            </div>
+        </div>
+        
+        <div id="stats-display" class="stats-container" style="display: none;">
+            <h3>Estadísticas del Scanner</h3>
+            <div id="stats-content"></div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="modules/pos/js/BarcodeScanner.js"></script>
+    <script>
+        let barcodeScanner;
+        let carrito = { items: [] };
+
+        // Simular función agregarAlCarrito para pruebas
+        function agregarAlCarrito(producto) {
+            const existente = carrito.items.find(item => item.id === producto.id);
+            if (existente) {
+                existente.cantidad++;
+            } else {
+                carrito.items.push({...producto, cantidad: 1});
+            }
+            
+            console.log('Producto agregado al carrito:', producto);
+            Swal.fire({
+                title: 'Producto agregado',
+                text: `${producto.nombre} agregado al carrito`,
+                icon: 'success',
+                timer: 1500,
+                showConfirmButton: false,
+                position: 'top-end',
+                toast: true
+            });
+        }
+
+        // Simular función procesarCodigoBarras
+        function procesarCodigoBarras(codigo, isManual = false) {
+            const productos = document.querySelectorAll('.item-view');
+            const producto = Array.from(productos).find(p => p.dataset.codigo === codigo);
+
+            if (producto) {
+                const productoData = {
+                    id: producto.dataset.id,
+                    nombre: producto.dataset.nombre,
+                    precio: parseFloat(producto.dataset.precio),
+                    stock: parseInt(producto.dataset.cantidad),
+                    codigo: producto.dataset.codigo
+                };
+
+                // Verificar stock
+                if (productoData.stock <= 0) {
+                    return false;
+                }
+
+                agregarAlCarrito(productoData);
+                
+                // Limpiar campo de búsqueda
+                document.getElementById('buscar-producto').value = '';
+                
+                return true;
+            }
+            
+            return false;
+        }
+
+        // Función para mostrar estadísticas
+        function mostrarEstadisticas() {
+            if (!barcodeScanner) return;
+            
+            const stats = barcodeScanner.getStats();
+            const statsContent = document.getElementById('stats-content');
+            const statsDisplay = document.getElementById('stats-display');
+            
+            statsContent.innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 15px;">
+                    <div style="text-align: center; padding: 10px; background: white; border-radius: 6px;">
+                        <div style="font-size: 24px; font-weight: bold; color: #4F46E5;">${stats.scanCount}</div>
+                        <div style="font-size: 12px; color: #6B7280;">Total Escaneos</div>
+                    </div>
+                    <div style="text-align: center; padding: 10px; background: white; border-radius: 6px;">
+                        <div style="font-size: 24px; font-weight: bold; color: #10B981;">${stats.successCount}</div>
+                        <div style="font-size: 12px; color: #6B7280;">Exitosos</div>
+                    </div>
+                    <div style="text-align: center; padding: 10px; background: white; border-radius: 6px;">
+                        <div style="font-size: 24px; font-weight: bold; color: #EF4444;">${stats.errorCount}</div>
+                        <div style="font-size: 12px; color: #6B7280;">Errores</div>
+                    </div>
+                    <div style="text-align: center; padding: 10px; background: white; border-radius: 6px;">
+                        <div style="font-size: 24px; font-weight: bold; color: #F59E0B;">${stats.successRate}%</div>
+                        <div style="font-size: 12px; color: #6B7280;">Tasa Éxito</div>
+                    </div>
+                </div>
+                <p><strong>Tipo de Scanner:</strong> ${stats.currentType}</p>
+                <p><strong>Velocidad Promedio:</strong> ${stats.averageSpeed}ms entre teclas</p>
+            `;
+            
+            statsDisplay.style.display = 'block';
+        }
+
+        // Función para resetear el scanner
+        function resetearScanner() {
+            if (barcodeScanner) {
+                barcodeScanner.reset();
+                document.getElementById('stats-display').style.display = 'none';
+                Swal.fire({
+                    title: 'Scanner reseteado',
+                    icon: 'info',
+                    timer: 1000,
+                    showConfirmButton: false
+                });
+            }
+        }
+
+        // Función para simular un escaneo
+        function simularCodigo() {
+            const codigos = ['1234567890', '0987654321', '1122334455', '9999999999'];
+            const codigoAleatorio = codigos[Math.floor(Math.random() * codigos.length)];
+            
+            Swal.fire({
+                title: 'Simulando escaneo...',
+                text: `Código: ${codigoAleatorio}`,
+                timer: 1000,
+                showConfirmButton: false
+            }).then(() => {
+                procesarCodigoBarras(codigoAleatorio, false);
+            });
+        }
+
+        // Inicializar scanner cuando la página cargue
+        document.addEventListener('DOMContentLoaded', function() {
+            if (typeof BarcodeScanner !== 'undefined') {
+                barcodeScanner = new BarcodeScanner({
+                    onSuccess: (codigo, isManual) => {
+                        return procesarCodigoBarras(codigo, isManual);
+                    },
+                    onError: (message, details) => {
+                        console.warn('Scanner error:', message, details);
+                    },
+                    onDetection: (type, config) => {
+                        console.log('Scanner detectado:', type, config.name);
+                    }
+                });
+                
+                console.log('Scanner de prueba inicializado');
+            } else {
+                console.error('BarcodeScanner no está disponible');
+            }
+        });
+    </script>
+</body>
+</html>
