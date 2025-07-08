@@ -648,65 +648,126 @@ document.addEventListener('DOMContentLoaded', function() {
         actualizarTotalVendido();
     };
 
-    // Variables para el lector de códigos de barras
-    const BARCODE_DELAY = 20; // Tiempo máximo entre caracteres del código de barras (ms)
-    const MIN_CHARS = 3; // Mínimo de caracteres para búsqueda manual
-
-    // Función simple para filtrar productos
+    // Variables para compatibilidad con el escáner optimizado
+    let codigoBarras = '';
+    let ultimoKeyTime = 0;
+    
+    // Función simple para filtrar productos (optimizada)
     function filtrarProductos(busqueda) {
         const productos = document.querySelectorAll('.item-view');
-        busqueda = busqueda.toLowerCase().trim();
+        const busquedaLower = busqueda.toLowerCase().trim();
 
+        let productosVisibles = 0;
         productos.forEach(producto => {
             const nombre = producto.getAttribute('data-nombre').toLowerCase();
             const codigo = producto.getAttribute('data-codigo').toLowerCase();
             
-            if (busqueda === '' || nombre.includes(busqueda) || codigo.includes(busqueda)) {
-                producto.style.display = 'flex'; // Aseguramos que sea flex para mantener el layout
+            if (busquedaLower === '' || nombre.includes(busquedaLower) || codigo.includes(busquedaLower)) {
+                producto.style.display = 'flex';
+                productosVisibles++;
             } else {
                 producto.style.display = 'none';
             }
         });
+
+        // Gestión del mensaje de "sin resultados" (optimizada)
+        actualizarMensajeNoResultados(productosVisibles, busquedaLower);
     }
 
-    // Configuración del input de búsqueda
+    // Función optimizada para mostrar/ocultar mensaje de no resultados
+    function actualizarMensajeNoResultados(productosVisibles, busqueda) {
+        const gridContainer = document.querySelector('#products-grid .grid');
+        let mensajeNoResultados = document.getElementById('no-resultados');
+
+        if (productosVisibles === 0 && busqueda !== '') {
+            if (!mensajeNoResultados) {
+                mensajeNoResultados = document.createElement('div');
+                mensajeNoResultados.id = 'no-resultados';
+                mensajeNoResultados.className = 'col-span-full flex flex-col items-center justify-center py-12 text-gray-400 animate-fade-in';
+                mensajeNoResultados.innerHTML = `
+                    <div class="text-center">
+                        <i class="fas fa-search text-4xl mb-4 text-gray-300"></i>
+                        <p class="text-lg font-medium">No se encontraron productos</p>
+                        <p class="text-sm text-gray-400 mt-2">
+                            Intenta con: "<span class="font-mono text-indigo-600">${busqueda}</span>"
+                        </p>
+                        <div class="mt-4 text-xs text-gray-500">
+                            <p>💡 <strong>Tip:</strong> Intenta buscar por:</p>
+                            <ul class="mt-2 space-y-1">
+                                <li>• Nombre del producto</li>
+                                <li>• Código de barras</li>
+                                <li>• Palabras clave</li>
+                            </ul>
+                        </div>
+                    </div>
+                `;
+                gridContainer.appendChild(mensajeNoResultados);
+            } else {
+                mensajeNoResultados.querySelector('span.font-mono').textContent = busqueda;
+            }
+        } else if (mensajeNoResultados) {
+            mensajeNoResultados.remove();
+        }
+    }
+
+    // Configuración del input de búsqueda optimizada
     document.addEventListener('DOMContentLoaded', function() {
         const buscarProductoInput = document.getElementById('buscar-producto');
         if (!buscarProductoInput) return;
 
-        // Único listener para el input
-        buscarProductoInput.addEventListener('input', function(e) {
-            const busqueda = e.target.value;
-            filtrarProductos(busqueda);
-        });
+        // Solo agregar listeners si el escáner optimizado no está disponible
+        if (typeof BarcodeScanner === 'undefined') {
+            console.log('Usando implementación básica de búsqueda');
+            
+            // Listener básico para input
+            buscarProductoInput.addEventListener('input', function(e) {
+                const busqueda = e.target.value;
+                filtrarProductos(busqueda);
+            });
 
-        // Listener para el Enter
-        buscarProductoInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                const productosVisibles = Array.from(document.querySelectorAll('.item-view'))
-                    .filter(p => p.style.display !== 'none');
-                
-                if (productosVisibles.length === 1) {
-                    productosVisibles[0].click();
-                    this.value = '';
-                    filtrarProductos('');
+            // Listener básico para Enter
+            buscarProductoInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const productosVisibles = Array.from(document.querySelectorAll('.item-view'))
+                        .filter(p => p.style.display !== 'none');
+                    
+                    if (productosVisibles.length === 1) {
+                        productosVisibles[0].click();
+                        this.value = '';
+                        filtrarProductos('');
+                    }
                 }
-            }
-        });
+            });
+        }
 
         // Limpiar y enfocar al cargar
         buscarProductoInput.value = '';
         filtrarProductos('');
         buscarProductoInput.focus();
+
+        // Agregar efectos visuales al input
+        buscarProductoInput.addEventListener('focus', function() {
+            this.classList.add('scanner-active');
+        });
+
+        buscarProductoInput.addEventListener('blur', function() {
+            this.classList.remove('scanner-active');
+        });
     });
 
-    // Función para procesar código de barras
+    // Función de procesamiento de códigos de barras básica (fallback)
     function procesarCodigoBarras(codigo) {
         const productos = document.querySelectorAll('.item-view');
         const producto = Array.from(productos).find(p => p.dataset.codigo === codigo);
 
         if (producto) {
+            // Agregar efecto visual de highlight al producto encontrado
+            producto.classList.add('product-scan-highlight');
+            setTimeout(() => {
+                producto.classList.remove('product-scan-highlight');
+            }, 500);
+
             const productoData = {
                 id: producto.dataset.id,
                 nombre: producto.dataset.nombre,
@@ -714,114 +775,60 @@ document.addEventListener('DOMContentLoaded', function() {
                 cantidad: parseInt(producto.dataset.cantidad),
                 codigo: producto.dataset.codigo
             };
-            agregarProductoAlCarrito(productoData);
+            
+            // Usar la función global de agregar al carrito
+            if (typeof agregarProductoAlCarrito === 'function') {
+                agregarProductoAlCarrito(productoData);
+            } else {
+                console.warn('Función agregarProductoAlCarrito no encontrada');
+            }
+            
             reproducirBeep(true);
             document.getElementById('buscar-producto').value = '';
             filtrarProductos('');
         } else {
             reproducirBeep(false);
-            Swal.fire({
-                title: 'Producto no encontrado',
-                text: 'No se encontró ningún producto con ese código de barras',
-                icon: 'warning',
-                confirmButtonText: 'Aceptar'
-            });
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Producto no encontrado',
+                    html: `
+                        <p>No se encontró ningún producto con el código:</p>
+                        <p class="font-mono text-lg text-red-600 mt-2">${codigo}</p>
+                        <div class="mt-4 text-sm text-gray-600">
+                            <p>Verifica que el código sea correcto o intenta escanear nuevamente</p>
+                        </div>
+                    `,
+                    icon: 'warning',
+                    timer: 3000,
+                    showConfirmButton: false,
+                    position: 'top-end',
+                    toast: true
+                });
+            }
         }
     }
 
-    // Función para reproducir beep
+    // Función de beep optimizada
     function reproducirBeep(success) {
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
+        try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
 
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
 
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(success ? 1000 : 400, audioContext.currentTime);
-        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(success ? 1200 : 400, audioContext.currentTime);
+            gainNode.gain.setValueAtTime(0.08, audioContext.currentTime);
 
-        oscillator.start();
-        oscillator.stop(audioContext.currentTime + 0.1);
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + (success ? 0.15 : 0.4));
+        } catch (error) {
+            // Fallback silencioso
+            console.log('Audio feedback no disponible');
+        }
     }
-
-    // Event listener para el input de búsqueda con debounce
-    let timeoutId;
-
-    buscarProductoInput.addEventListener('input', function(e) {
-        const currentTime = new Date().getTime();
-        
-        // Si parece ser entrada del lector (rápida), no filtrar aún
-        if (currentTime - ultimoKeyTime <= BARCODE_DELAY) {
-            return;
-        }
-
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => {
-            filtrarProductos(this.value);
-        }, 300);
-    });
-
-    // Event listener para capturar entrada del lector de códigos de barras
-    document.addEventListener('keypress', function(e) {
-        const currentTime = new Date().getTime();
-        
-        // Si el foco está en un input que no es el de búsqueda, ignorar
-        if (e.target.tagName === 'INPUT' && e.target.id !== 'buscar-producto') {
-            return;
-        }
-
-        // Si es Enter, procesar el código
-        if (e.key === 'Enter') {
-            if (codigoBarras.length >= MIN_CHARS) {
-                procesarCodigoBarras(codigoBarras);
-            }
-            codigoBarras = '';
-            return;
-        }
-
-        // Si el tiempo entre teclas es muy corto (lector de códigos)
-        if (currentTime - ultimoKeyTime <= BARCODE_DELAY) {
-            codigoBarras += e.key;
-        } else {
-            codigoBarras = e.key;
-        }
-        
-        ultimoKeyTime = currentTime;
-    });
-
-    // Event listener para la tecla Enter en la búsqueda manual
-    buscarProductoInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            const valor = this.value.trim();
-
-            if (valor.length >= MIN_CHARS) {
-                const productos = document.querySelectorAll('.item-view:not(.hidden)');
-                if (productos.length === 1) {
-                    const producto = productos[0];
-                    const productoData = {
-                        id: producto.dataset.id,
-                        nombre: producto.dataset.nombre,
-                        precio: parseFloat(producto.dataset.precio),
-                        cantidad: parseInt(producto.dataset.cantidad),
-                        codigo: producto.dataset.codigo
-                    };
-                    agregarProductoAlCarrito(productoData);
-                    this.value = '';
-                    filtrarProductos('');
-                } else if (productos.length === 0) {
-                    Swal.fire({
-                        title: 'Sin resultados',
-                        text: 'No se encontraron productos que coincidan con la búsqueda',
-                        icon: 'warning',
-                        confirmButtonText: 'Aceptar'
-                    });
-                }
-            }
-        }
-    });
 
     // Enfocar el input de búsqueda al cargar
     buscarProductoInput.focus();
