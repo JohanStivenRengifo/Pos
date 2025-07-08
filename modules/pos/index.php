@@ -163,6 +163,90 @@ if (
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
+    <!-- Estilos personalizados para el escáner -->
+    <style>
+        .scanner-ready {
+            background: linear-gradient(135deg, #fefefe 0%, #f8fafc 100%);
+            box-shadow: inset 0 1px 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .scanner-ready:focus {
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), inset 0 1px 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .scanner-icon {
+            transition: all 0.3s ease;
+        }
+        
+        .scanner-ready:focus + div .scanner-icon {
+            color: #3b82f6;
+            transform: scale(1.1);
+        }
+        
+        .scanner-pulse {
+            animation: scanner-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+        
+        @keyframes scanner-ping {
+            75%, 100% {
+                transform: scale(1.5);
+                opacity: 0;
+            }
+        }
+        
+        .scanner-active {
+            animation: scanner-glow 1.5s ease-in-out infinite alternate;
+        }
+        
+        @keyframes scanner-glow {
+            from {
+                box-shadow: 0 0 5px rgba(59, 130, 246, 0.3);
+            }
+            to {
+                box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+            }
+        }
+        
+        .product-scan-highlight {
+            animation: product-highlight 0.5s ease;
+        }
+        
+        @keyframes product-highlight {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); box-shadow: 0 0 15px rgba(34, 197, 94, 0.4); }
+            100% { transform: scale(1); }
+        }
+        
+        /* Mejoras para accessibility y keyboard navigation */
+        .item-view:focus {
+            outline: 2px solid #3b82f6;
+            outline-offset: 2px;
+        }
+        
+        /* Loading states */
+        .scanner-processing {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .scanner-processing::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.2), transparent);
+            animation: scanner-sweep 1s infinite;
+        }
+        
+        @keyframes scanner-sweep {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+    </style>
 </head>
 
 <body class="h-full font-sans antialiased">
@@ -260,31 +344,70 @@ if (
             <div class="grid grid-cols-1 lg:grid-cols-12 h-full">
                 <!-- Panel izquierdo: Productos -->
                 <div class="lg:col-span-8 h-full flex flex-col bg-white shadow-sm border-r border-gray-200 overflow-hidden">
-                    <!-- Barra de búsqueda mejorada -->
+                    <!-- Barra de búsqueda mejorada con indicadores de escáner -->
                     <div class="sticky top-0 z-10 bg-white p-4 border-b border-gray-200">
                         <div class="relative">
                             <input type="text"
                                 id="buscar-producto"
-                                class="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 placeholder-gray-400"
-                                placeholder="Buscar productos por nombre o escanear código de barras..."
+                                class="w-full pl-10 pr-24 py-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 placeholder-gray-400 scanner-ready"
+                                placeholder="🔍 Buscar productos o 📱 escanear código de barras..."
                                 autocomplete="off"
                                 data-scanner-enabled="true"
                                 autofocus>
+                            
+                            <!-- Icono de escáner animado -->
                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <i class="fas fa-barcode text-gray-400"></i>
+                                <div class="relative">
+                                    <i class="fas fa-barcode text-indigo-500 text-lg scanner-icon"></i>
+                                    <div class="absolute inset-0 rounded-full opacity-0 animate-ping bg-indigo-400 scanner-pulse"></div>
+                                </div>
                             </div>
-                            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded">
-                                    <i class="fas fa-keyboard mr-1"></i> Buscar
-                                    <span class="mx-1">|</span>
-                                    <i class="fas fa-barcode mr-1"></i> Escanear
-                                </span>
+                            
+                            <!-- Indicadores de estado -->
+                            <div class="absolute inset-y-0 right-0 pr-3 flex items-center gap-2">
+                                <!-- Estado del escáner -->
+                                <div id="scanner-mode-indicator" class="hidden">
+                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 animate-pulse">
+                                        <i class="fas fa-wifi mr-1"></i>
+                                        Escáner activo
+                                    </span>
+                                </div>
+                                
+                                <!-- Instrucciones de uso -->
+                                <div class="text-xs text-gray-400 hidden md:flex items-center gap-1">
+                                    <kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">Ctrl</kbd>
+                                    <span>+</span>
+                                    <kbd class="px-1 py-0.5 bg-gray-100 rounded text-xs">F</kbd>
+                                    <span class="ml-1">Buscar</span>
+                                </div>
                             </div>
                         </div>
+                        
+                        <!-- Indicador de progreso del escáner -->
+                        <div id="scanner-progress" class="mt-2 h-1 bg-gray-200 rounded-full overflow-hidden opacity-0 transition-opacity duration-200">
+                            <div class="h-full bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full transform -translate-x-full animate-pulse"></div>
+                        </div>
                     </div>
-                    <div class="mt-1 text-xs text-gray-500 flex items-center justify-center">
-                        <i class="fas fa-info-circle mr-1"></i>
-                        Escanea un código de barras o escribe para buscar productos
+                    
+                    <!-- Información contextual mejorada -->
+                    <div class="px-4 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-indigo-100">
+                        <div class="flex items-center justify-between text-xs">
+                            <div class="flex items-center text-indigo-700">
+                                <i class="fas fa-lightbulb mr-2 text-indigo-500"></i>
+                                <span class="font-medium">Tip:</span>
+                                <span class="ml-1">Escanea códigos de barras o busca por nombre</span>
+                            </div>
+                            <div class="flex items-center gap-4 text-indigo-600">
+                                <div class="flex items-center">
+                                    <div class="w-2 h-2 bg-green-400 rounded-full mr-1 animate-pulse"></div>
+                                    <span>Escáner listo</span>
+                                </div>
+                                <div class="flex items-center">
+                                    <i class="fas fa-keyboard mr-1"></i>
+                                    <span>Enter para seleccionar</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Grid de productos mejorado con scroll -->
@@ -1442,7 +1565,97 @@ if (
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.0.19/dist/sweetalert2.all.min.js"></script>
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    
+    <!-- Incluir el módulo de escáner optimizado -->
+    <script src="/modules/pos/js/barcode-scanner.js"></script>
     <script src="/modules/pos/js/pos.js"></script>
+    
+    <!-- Script adicional para atajos de teclado y mejoras UX -->
+    <script>
+        // Atajos de teclado para mejorar la eficiencia
+        document.addEventListener('keydown', function(e) {
+            // Ctrl+F para enfocar la búsqueda
+            if (e.ctrlKey && e.key === 'f') {
+                e.preventDefault();
+                const searchInput = document.getElementById('buscar-producto');
+                if (searchInput) {
+                    searchInput.focus();
+                    searchInput.select();
+                }
+            }
+            
+            // Escape para limpiar búsqueda
+            if (e.key === 'Escape') {
+                const searchInput = document.getElementById('buscar-producto');
+                if (searchInput && document.activeElement === searchInput) {
+                    searchInput.value = '';
+                    if (typeof filtrarProductos === 'function') {
+                        filtrarProductos('');
+                    }
+                }
+            }
+        });
+
+        // Mejorar la navegación con teclado en el grid de productos
+        document.addEventListener('DOMContentLoaded', function() {
+            const products = document.querySelectorAll('.item-view');
+            let currentIndex = -1;
+
+            // Navegación con flechas
+            document.addEventListener('keydown', function(e) {
+                const searchInput = document.getElementById('buscar-producto');
+                
+                // Solo funcionar si el foco está en el input de búsqueda
+                if (document.activeElement !== searchInput) return;
+                
+                const visibleProducts = Array.from(products).filter(p => 
+                    p.style.display !== 'none' && !p.style.display.includes('none')
+                );
+                
+                if (visibleProducts.length === 0) return;
+                
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    currentIndex = Math.min(currentIndex + 1, visibleProducts.length - 1);
+                    highlightProduct(visibleProducts[currentIndex]);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    currentIndex = Math.max(currentIndex - 1, 0);
+                    highlightProduct(visibleProducts[currentIndex]);
+                } else if (e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    const cols = Math.floor(document.querySelector('#products-grid .grid').offsetWidth / 200);
+                    currentIndex = Math.min(currentIndex + cols, visibleProducts.length - 1);
+                    highlightProduct(visibleProducts[currentIndex]);
+                } else if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    const cols = Math.floor(document.querySelector('#products-grid .grid').offsetWidth / 200);
+                    currentIndex = Math.max(currentIndex - cols, 0);
+                    highlightProduct(visibleProducts[currentIndex]);
+                } else if (e.key === 'Enter' && currentIndex >= 0) {
+                    e.preventDefault();
+                    visibleProducts[currentIndex].click();
+                    currentIndex = -1;
+                    removeHighlight();
+                }
+            });
+
+            function highlightProduct(product) {
+                removeHighlight();
+                product.classList.add('ring-2', 'ring-indigo-500', 'bg-indigo-50');
+                product.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+
+            function removeHighlight() {
+                products.forEach(p => {
+                    p.classList.remove('ring-2', 'ring-indigo-500', 'bg-indigo-50');
+                });
+            }
+
+            // Limpiar highlight cuando se hace clic
+            document.addEventListener('click', removeHighlight);
+        });
+    </script>
 </body>
 
 </html>
